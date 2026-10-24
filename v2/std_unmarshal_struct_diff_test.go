@@ -371,6 +371,8 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct name of the Kelvin sign of a field of dashes insensitive", in: `{"\u212a-X":1}`, out: outOf(udSnake{}), opts: insensitive},
 		{name: "struct names twice of a field of dashes insensitive", in: `{"user_name":1,"USERNAME":2}`, out: outOf(udSnake{}), opts: insensitive},
 		{name: "struct name with an underscore of no field with one", in: `{"_k":1,"long_name":2}`, out: outOf(udFoldNoDashes{})},
+		{name: "struct long name of another case insensitive", in: `{"LONGNAME":1}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
+		{name: "struct long name of another case with dashes insensitive", in: `{"long-name":1,"LongName":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
 		{name: "struct name of invalid UTF-8 of the replacement character", in: "{\"\xff\":1}", out: outOf(udReplacement{})},
 		{name: "struct name of invalid UTF-8 of the replacement character insensitive", in: "{\"\xff\":1}", out: outOf(udReplacement{}), opts: insensitive},
 		{name: "struct name of invalid UTF-8 of the replacement character allowed insensitive", in: "{\"\xff\":1,\"K\":2}", out: outOf(udReplacement{}), opts: unmarshalDiffOptions{allowInvalidUTF8: true, matchCaseInsensitiveNames: true}},

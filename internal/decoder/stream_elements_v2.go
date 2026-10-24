@@ -616,9 +616,11 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		}
 		start := s.cursor - int64(len(quoted))
 		var field *structFieldSet
-		plain := false
-		if !fold {
-			field, _, plain = exactFieldV2(d.keyDecoder.keys, s.buf[:s.length+1], start)
+		var plain bool
+		if fold {
+			field, _, plain = d.foldedFieldV2(ctx, s.buf[:s.length+1], start)
+		} else {
+			field, _, plain = plainFieldV2(d.keyDecoder.keys, s.buf[:s.length+1], start, false)
 		}
 		name := quoted[1 : len(quoted)-1]
 		if !plain {

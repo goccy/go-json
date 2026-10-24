@@ -7,8 +7,10 @@
   their words, as v1 finds them, strings and the texts of methods and times are read once, and
   names are matched by their folded names without an allocation, since 2026-10-23; the names of no
   field are added to the set of the names of their object by their bits, kept in one stack of the
-  call, and their values skipped and read for their text in one scan of jsontext, and the folded
-  names looked up in a table as v1's of the names of the fields, since 2026-10-24
+  call, and their values skipped and read for their text in one scan of jsontext, the folded
+  names looked up in a table as v1's of the names of the fields, and matched by the field which
+  the folded name of each field matches, and bools and numbers decoded by the decoders of v1
+  without another around them, since 2026-10-24
 
 ## Goal
 
@@ -20,24 +22,23 @@ has the gaps below.
 
 ## Gaps
 
-Medians of the gate on the decode benchmarks, arm64 (Apple M5), 2026-10-23; for the structs of many
-names of no field, the medians of 8 rounds of each binary in turn, 2026-10-24. The causes come from CPU
+Medians of the gate on the decode benchmarks, arm64 (Apple M5), 2026-10-23; for the rows of 2026-10-24,
+the medians of 8 rounds of each binary in turn. The causes come from CPU
 and allocation profiles in a linux/arm64 container; the percentages are of the time of v2.
 
 | Benchmark | v1 | v2 | Cause found |
 |---|---|---|---|
-| `Code_Unmarshal` | 1.51 ms | 1.57 ms | `v2ScalarDecoder` around the decoder of v1 of each number (4%), and the loop of `v2StructDecoder` |
-| `TwitterBinding_Unmarshal` | 5.3 µs | 5.6 µs | `v2ScalarDecoder`, and the loop of `v2StructDecoder` |
-| `GitHubREST_Unmarshal` | 103 µs, 2,703 allocations | 108 µs, 2,586 allocations | the same |
-| `SmallStruct_Unmarshal`, case-insensitive | 114 ns | 190 ns | `memberOf` for each name of another case (17%: the comparison with the name of the field first, the scan for a byte which is not ASCII or an escape), the loops of `v2StructDecoder` and of `v2StringDecoder`, and `v2ScalarDecoder` |
+| `TwitterBinding_Unmarshal` | 5.08 µs | 5.28 µs | the loop of `v2StructDecoder`, which keeps more values across its calls than v1's, in the stack |
+| `SmallStruct_Unmarshal`, case-insensitive | 114 ns | 153 ns | the call of `memberOf` for each name of another case (12%), the loop of `v2StructDecoder`, and the config of the options of each call, which comes from a pool and is cleared after it (6%) |
 | `MediumStruct_Unmarshal`, case-insensitive | 770 ns, 7 allocations | 1.79 µs, 7 allocations | the values of no field, which jsontext reads for their names and their UTF-8 ( `skipValueV2`, in one scan of a skipper of the call for an object ) |
 | `LargeStruct_Unmarshal`, case-insensitive | 10.1 µs, 66 allocations | 37.4 µs, 66 allocations | the same as `MediumStruct_Unmarshal` |
-| `GitHubGraphQL_Unmarshal`, case-insensitive | 60 µs, 135 allocations | 73 µs, 136 allocations | not looked into since the folded names are found without an allocation |
+| `GitHubGraphQL_Unmarshal`, case-insensitive | 60 µs, 135 allocations | 65.5 µs, 135 allocations | not looked into since the names of another case are matched by the field which the folded name of each field matches |
 | `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 191 ns | 576 ns | `decodeHeld` decodes the value which an interface holds through reflect (about 55%): `reflect.New` for a copy, and `reflect.Value.Set` back into the interface, which checks that the type implements it; `DecoderOfV2` looks the decoder up for each value (4%) |
 | 1.5 MB of records into `[]struct{}`, by `UnmarshalRead` | | 1.6 MB and 48 allocations | not looked into since the names of no field are kept in one stack of the call (3.9 MB and 71,903 allocations before) |
 
-`LargeSlice_EscapedString`, `Times_Unmarshal`, `CodeAny_Unmarshal` and `TwitterGeneric_Unmarshal` are
-within 2% of v1, and `SmallStruct_ChunkedStream` is faster than v1.
+`LargeSlice_EscapedString`, `Times_Unmarshal`, `CodeAny_Unmarshal`, `TwitterGeneric_Unmarshal` and
+`Code_Unmarshal` are within 2% of v1, and `GitHubREST_Unmarshal` and `SmallStruct_ChunkedStream` are faster
+than v1.
 
 `UnmarshalRead` and `UnmarshalDecode` against v1's `Decoder`, from a reader of 4 KiB at a time (the
 `ChunkedStream` benchmarks; the stream reads 512 bytes at a time in both):

@@ -160,11 +160,9 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 		if c.stringifyNumbers && kind != reflect.Bool {
 			return newV2StringNumberDecoder(typ), nil
 		}
-		dec, err := compileKind(typ, structName, fieldName, c)
-		if err != nil {
-			return nil, err
-		}
-		return &v2ScalarDecoder{dec: dec, size: typ.Size()}, nil
+		// the decoder of v1, which decodes null as the zero value and returns a type error by the semantics of v2
+		// ( see numberError )
+		return compileKind(typ, structName, fieldName, c)
 	case reflect.Struct:
 		return c.compileStructV2(typ)
 	case reflect.Map:
@@ -287,33 +285,6 @@ func isNumberKind(kind reflect.Kind) bool {
 		return true
 	}
 	return false
-}
-
-// v2ScalarDecoder is the decoder of a bool or a number of v2: null is its zero value, and any other value is decoded
-// by the decoder of v1, whose type error stops the decoding.
-type v2ScalarDecoder struct {
-	dec  Decoder
-	size uintptr
-}
-
-func (d *v2ScalarDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	// the decoder of v1 checks null, which it leaves the value as it was for, and skips the white space before
-	next, err := d.dec.Decode(ctx, cursor, depth, p)
-	if err != nil {
-		return 0, err
-	}
-	if ctx.typeError != nil {
-		return 0, ctx.v2Error()
-	}
-	if ctx.Buf[next-1] == 'l' {
-		// null, the only value which ends with l: a bool or a number has no pointer
-		clear(unsafe.Slice((*byte)(p), d.size))
-	}
-	return next, nil
-}
-
-func (d *v2ScalarDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
-	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
 }
 
 // v2StringDecoder is the decoder of a string of v2: null is "", and a string must be valid UTF-8, without an escape

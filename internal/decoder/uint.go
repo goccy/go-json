@@ -47,6 +47,10 @@ func (d *uintDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
+		if ctx.Option.V2 != 0 {
+			// the semantics of encoding/json/v2 decode null as the zero value
+			d.op(p, 0)
+		}
 		return cursor + 4, nil
 	}
 	if buf[cursor]-'0' > 9 {
@@ -101,8 +105,7 @@ func (d *uintDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p uns
 		if err != nil {
 			return 0, err
 		}
-		ctx.numberTypeError(cursor, end, d.typ)
-		return end, nil
+		return ctx.numberError(cursor, end, d.typ)
 	case c-'0' > 9:
 		// a value of another kind
 		return ctx.skipTypeError(cursor, depth, d.typ)
@@ -115,31 +118,26 @@ func (d *uintDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p uns
 		if err != nil {
 			return 0, err
 		}
-		ctx.numberTypeError(start, end, d.typ)
-		return end, nil
+		return ctx.numberError(start, end, d.typ)
 	}
 	if digits == maxUint64Digits+1 {
 		var ok bool
 		if u, ok = jsonnum.TwentyDigits(buf, start); !ok {
-			ctx.numberTypeError(start, next, d.typ)
-			return next, nil
+			return ctx.numberError(start, next, d.typ)
 		}
 	}
 	switch d.kind {
 	case reflect.Uint8:
 		if (1 << 8) <= u {
-			ctx.numberTypeError(start, next, d.typ)
-			return next, nil
+			return ctx.numberError(start, next, d.typ)
 		}
 	case reflect.Uint16:
 		if (1 << 16) <= u {
-			ctx.numberTypeError(start, next, d.typ)
-			return next, nil
+			return ctx.numberError(start, next, d.typ)
 		}
 	case reflect.Uint32:
 		if (1 << 32) <= u {
-			ctx.numberTypeError(start, next, d.typ)
-			return next, nil
+			return ctx.numberError(start, next, d.typ)
 		}
 	}
 	d.op(p, u)

@@ -49,6 +49,10 @@ func (d *intDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
+		if ctx.Option.V2 != 0 {
+			// the semantics of encoding/json/v2 decode null as the zero value
+			d.op(p, 0)
+		}
 		return cursor + 4, nil
 	case '-':
 		cursor++
@@ -118,13 +122,11 @@ func (d *intDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p unsa
 		if err != nil {
 			return 0, err
 		}
-		ctx.numberTypeError(start, end, d.typ)
-		return end, nil
+		return ctx.numberError(start, end, d.typ)
 	}
 	neg := cursor > start
 	if (neg && u > 1<<63) || (!neg && u > 1<<63-1) {
-		ctx.numberTypeError(start, next, d.typ)
-		return next, nil
+		return ctx.numberError(start, next, d.typ)
 	}
 	i64 := int64(u)
 	if neg {
@@ -133,18 +135,15 @@ func (d *intDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p unsa
 	switch d.kind {
 	case reflect.Int8:
 		if i64 < -1*(1<<7) || (1<<7) <= i64 {
-			ctx.numberTypeError(start, next, d.typ)
-			return next, nil
+			return ctx.numberError(start, next, d.typ)
 		}
 	case reflect.Int16:
 		if i64 < -1*(1<<15) || (1<<15) <= i64 {
-			ctx.numberTypeError(start, next, d.typ)
-			return next, nil
+			return ctx.numberError(start, next, d.typ)
 		}
 	case reflect.Int32:
 		if i64 < -1*(1<<31) || (1<<31) <= i64 {
-			ctx.numberTypeError(start, next, d.typ)
-			return next, nil
+			return ctx.numberError(start, next, d.typ)
 		}
 	}
 	d.op(p, i64)

@@ -898,8 +898,17 @@ func (d *v2InterfaceDecoder) decodeByKind(ctx *RuntimeContext, cursor, depth int
 	return next, err
 }
 
-// decodeHeld decodes the value at cursor into the value which the interface value at p holds.
+// decodeHeld decodes the value at cursor into the value which the interface value at p holds, as encoding/json/v2
+// decodes it: into a copy of the value, which the interface value is set to. A pointer is the data word of the
+// interface value, which it is decoded into in place of the copy: the interface value is set as the copy would set it.
 func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	if t := runtime.TypeOfPtr(heldType(p, d.empty)); t.Kind() == reflect.Pointer {
+		dec, err := ctx.DecoderOfV2(ptrTypeOf(t))
+		if err != nil {
+			return 0, err
+		}
+		return dec.Decode(ctx, cursor, depth, unsafe.Pointer(&(*[2]unsafe.Pointer)(p)[1]))
+	}
 	iface := valueAt(d.ptrType, p)
 	held := iface.Elem()
 	if !d.fromAny && (held.Type() == interfaceMapType || held.Type() == anySliceType) {
@@ -914,6 +923,17 @@ func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64
 	next, err := dec.Decode(ctx, cursor, depth, v.UnsafePointer())
 	iface.Set(v.Elem())
 	return next, err
+}
+
+// heldType returns the type of the value which the interface value at p holds, which is not nil: the first word of
+// an interface{}, if empty, or else the second word of the itab, the first word of an interface value of an interface
+// type with methods.
+func heldType(p unsafe.Pointer, empty bool) unsafe.Pointer {
+	typ := *(*unsafe.Pointer)(p)
+	if !empty {
+		typ = (*[2]unsafe.Pointer)(typ)[1]
+	}
+	return typ
 }
 
 // decodeMerging decodes the object or the array at cursor into the interface{} at p, which holds nothing, a

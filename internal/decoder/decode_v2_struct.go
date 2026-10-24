@@ -119,7 +119,7 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		d.foldKeys = newStructKeys(without)
 	}
 	// every name of a field by its bytes as they are, which a name as the input has it is found by ( see
-	// exactFieldV2 )
+	// plainFieldV2 )
 	keys.makeExact(d.fields, true)
 	d.keyDecoder = &structDecoder{fields: d.fields, keys: keys, stringDecoder: skipStringDecoder}
 	if fields.Fallback != nil {
@@ -223,16 +223,18 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		}
 		var field *structFieldSet
 		var end int64
-		plain := false
-		if !fold {
-			field, end, plain = exactFieldV2(d.keyDecoder.keys, buf, start)
+		var plain bool
+		if fold {
+			field, end, plain = d.foldedFieldV2(ctx, buf, start)
+		} else {
+			field, end, plain = plainFieldV2(d.keyDecoder.keys, buf, start, false)
 		}
 		// name is the name decoded, which a name of no field is checked by, or nil for a plain one, which is as the
 		// input has it
 		var name []byte
 		if !plain {
-			// a name with an escape, a byte which is not ASCII or a control character, or any name which may match a
-			// field by its folded name
+			// a name with an escape, a byte which is not ASCII or a control character, or a name whose field by its
+			// folded name is not decided ( see foldedFieldV2 )
 			candidate, next, err := d.keyDecoder.decodeKey(buf, start, false)
 			if err != nil {
 				return 0, err
@@ -298,7 +300,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 }
 
 // unknownMember checks the name of no field at start in buf, before end, decoded as name, or nil if it is plain ( see
-// exactFieldV2 ): it is an error with V2RejectUnknownMembers, if the struct has no fallback, and a name which the
+// plainFieldV2 ): it is an error with V2RejectUnknownMembers, if the struct has no fallback, and a name which the
 // object had before is an error if rejectDuplicateNames. unknown are the names of no field which the object had.
 // It is a function of its own, so that the loop of Decode keeps nothing of it.
 func (d *v2StructDecoder) unknownMember(ctx *RuntimeContext, unknown *nameSet, rejectDuplicateNames bool, buf []byte, start, end int64, name []byte) error {
@@ -334,13 +336,13 @@ func fieldSeen(idx int, more *[]uint64, n int) bool {
 	return met
 }
 
-// exactFieldV2 finds the field whose name is the name at cursor in buf, a quote, as it is, if the name has only bytes
-// of ASCII which are not an escape or a control character ( a plain name, which most names are ): it returns the
-// field or nil, the position after the name, and whether the name is plain. The name is read word by word, as
-// structDecoder.decodeKey reads it, up to the capacity of buf, whose nul byte at the end stops a name before it. A
-// name which is not plain, or which is near the end of a buffer without room for a word after it, is left to
-// decodeKey and memberOf.
-func exactFieldV2(keys *structKeys, buf []byte, cursor int64) (*structFieldSet, int64, bool) {
+// plainFieldV2 finds the field of the name at cursor in buf, a quote, if the name has only bytes of ASCII which are
+// not an escape or a control character ( a plain name, which most names are ): the field whose name is the name as
+// it is, or, if folded, the field which structDecoder.decodeKey finds for it by its folded name. It returns the field
+// or nil, the position after the name, and whether the name is plain. The name is read word by word, as decodeKey
+// reads it, up to the capacity of buf, whose nul byte at the end stops a name before it. A name which is not plain,
+// or which is near the end of a buffer without room for a word after it, is left to decodeKey and memberOf.
+func plainFieldV2(keys *structKeys, buf []byte, cursor int64, folded bool) (*structFieldSet, int64, bool) {
 	start := cursor + 1
 	if start+16 > int64(cap(buf)) {
 		return nil, 0, false
@@ -353,12 +355,18 @@ func exactFieldV2(keys *structKeys, buf []byte, cursor int64) (*structFieldSet, 
 			return nil, 0, false
 		}
 		next := start + n + 1
+		w0 &= (special ^ (special - 1)) >> 8
+		if folded {
+			if !keys.hasLength(int(n)) {
+				return nil, next, true
+			}
+			return keys.findASCII(buf[start:start+n], w0, 0), next, true
+		}
 		if !keys.hasExactLength(int(n)) {
 			return nil, next, true
 		}
 		// the first entry of the name is looked at here, as decodeKey looks at the first entry of a key: most names
 		// are found in it
-		w0 &= (special ^ (special - 1)) >> 8
 		e := &keys.exact[indexOf((w0|bit5)&(1<<(uint(n)*8&63)-1), 0, keys.exactShift)]
 		if e.n == int(n) && e.w0 == w0 && e.unique != nil {
 			return e.unique, next, true
@@ -381,10 +389,40 @@ func exactFieldV2(keys *structKeys, buf []byte, cursor int64) (*structFieldSet, 
 	if buf[end] != '"' {
 		return nil, 0, false
 	}
+	if folded {
+		if !keys.hasLength(int(end - start)) {
+			return nil, end + 1, true
+		}
+		return keys.findASCII(buf[start:end], w0, load64(buf, end-8)), end + 1, true
+	}
 	if !keys.hasExactLength(int(end - start)) {
 		return nil, end + 1, true
 	}
 	return keys.findExact(buf[start:end], w0, load64(buf, end-8)), end + 1, true
+}
+
+// foldedFieldV2 finds the field of the name at start in buf, a quote, which may match a field by its folded name, if
+// the name is plain ( see plainFieldV2 ) and its field is decided without memberOf: the field which decodeKey finds
+// for it, if its folded name matches that field ( see foldedTo ), or no field, if no field may match it by its
+// folded name without its '_' and '-' ( see foldKey ). It returns the field or nil, the position after the name, and
+// whether the field is decided so.
+func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start int64) (*structFieldSet, int64, bool) {
+	field, end, plain := plainFieldV2(d.keyDecoder.keys, buf, start, true)
+	if !plain {
+		return nil, 0, false
+	}
+	folded := d.foldedTo[0]
+	if ctx.Option.V2&V2MatchCaseInsensitiveNames != 0 {
+		folded = d.foldedTo[1]
+	}
+	if field != nil {
+		return field, end, folded[field.fieldIdx] == field
+	}
+	// a name of no field of v1, which the table of the names of the fields without '_' and '-' may find without its
+	// own, but not if no field has its length without them
+	name := buf[start+1 : end-1]
+	n := foldedLength(name)
+	return nil, end, n == len(name) && d.foldKeys == d.keyDecoder.keys || !d.foldKeys.hasLength(n)
 }
 
 // memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was:
@@ -394,17 +432,16 @@ func exactFieldV2(keys *structKeys, buf []byte, cursor int64) (*structFieldSet, 
 // v2 allows.
 func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate *structFieldSet) (*structFieldSet, []byte, error) {
 	name := quoted[1 : len(quoted)-1]
+	if candidate != nil && string(name) == candidate.key {
+		// the name of candidate as it is, which has neither a backslash nor invalid UTF-8 ( see jsonfields.Of ): it
+		// has no escape, and nothing to look at
+		return candidate, name, nil
+	}
 	plain := !hasNotASCIIOrEscape(name)
 	insensitive := ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	folded := d.foldedTo[0]
 	if insensitive {
 		folded = d.foldedTo[1]
-	}
-	// a name which matches candidate by its folded name, as most names which match a field so do, or the name of
-	// candidate as it is, which has neither a backslash nor invalid UTF-8 ( see jsonfields.Of ): it has no escape,
-	// and nothing to look at
-	if candidate != nil && (plain && folded[candidate.fieldIdx] == candidate || string(name) == candidate.key) {
-		return candidate, name, nil
 	}
 	if !plain {
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && !validV2Text(quoted) {
@@ -422,9 +459,11 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 		match = folded[candidate.fieldIdx]
 	case insensitive || d.foldAlways:
 		// the name without its '_' and '-' in the table of the fields without theirs, which folds it as FoldName
-		// folds it: v1 found nothing in the same lookup of the name without them in its table
-		var arr [64]byte
-		if key, nonASCII := foldKey(arr[:0], name); len(key) < len(name) || d.foldKeys != d.keyDecoder.keys {
+		// folds it: v1 found nothing in the same lookup of the name without them in its table. A name of ASCII of
+		// a length which no field has without them is of no field, as the lookup finds ( see structKeys.lookup ).
+		if n := foldedLength(name); (n < len(name) || d.foldKeys != d.keyDecoder.keys) && (!plain || d.foldKeys.hasLength(n)) {
+			var arr [64]byte
+			key, nonASCII := foldKey(arr[:0], name)
 			if field, _ := d.foldKeys.lookup(key, stringInfo{firstEscape: -1, nonASCII: nonASCII}); field != nil {
 				match = folded[field.fieldIdx]
 			}
@@ -472,19 +511,24 @@ func foldKey(out, name []byte) ([]byte, bool) {
 	return out, nonASCII
 }
 
-// hasNotASCIIOrEscape reports whether b has a byte which is not ASCII or a backslash, which it looks for byte by
-// byte: b is a name, which is short, or the tail of a value ( see valueHasNotASCIIOrEscape ).
-func hasNotASCIIOrEscape(b []byte) bool {
-	for _, c := range b {
-		if c >= 0x80 || c == '\\' {
-			return true
+// foldedLength returns the length of name without its '_' and '-', which foldKey drops.
+func foldedLength(name []byte) int {
+	n, i := len(name), 0
+	for ; i+8 <= len(name); i += 8 {
+		w := binary.LittleEndian.Uint64(name[i:])
+		n -= bits.OnesCount64(byteMask(w, '_') | byteMask(w, '-'))
+	}
+	for _, c := range name[i:] {
+		if c == '_' || c == '-' {
+			n--
 		}
 	}
-	return false
+	return n
 }
 
-// valueHasNotASCIIOrEscape is hasNotASCIIOrEscape for a value, which it looks at eight bytes at a time.
-func valueHasNotASCIIOrEscape(b []byte) bool {
+// hasNotASCIIOrEscape reports whether b has a byte which is not ASCII or a backslash, which it looks for eight bytes
+// at a time.
+func hasNotASCIIOrEscape(b []byte) bool {
 	i := 0
 	for ; i+8 <= len(b); i += 8 {
 		w := binary.LittleEndian.Uint64(b[i:])
@@ -494,7 +538,12 @@ func valueHasNotASCIIOrEscape(b []byte) bool {
 			return true
 		}
 	}
-	return hasNotASCIIOrEscape(b[i:])
+	for _, c := range b[i:] {
+		if c >= 0x80 || c == '\\' {
+			return true
+		}
+	}
+	return false
 }
 
 // unquotedName returns the string quoted, as the input has it, decoded.
@@ -526,9 +575,12 @@ func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	v := buf[start:end]
-	scanNames := ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
-	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && valueHasNotASCIIOrEscape(v)
+	// a number and a literal, which skipValue found of their grammar, are of ASCII without an escape, and they
+	// and a string have no name
+	v, c := buf[start:end], buf[start]
+	container := c == '{' || c == '['
+	scanNames := container && ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
+	scanUTF8 := (container || c == '"') && ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
 	if (scanNames || scanUTF8) && !textcoder.ValidValue(skipperOf(ctx), v) {
 		return 0, errV2Text
 	}

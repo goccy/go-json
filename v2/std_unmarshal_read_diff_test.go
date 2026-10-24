@@ -57,6 +57,7 @@ var readTextByReads = map[string]bool{
 	"string of a high surrogate before a letter":     true,
 	"any name of a lone surrogate":                   true,
 	"struct unknown value of a lone surrogate":       true,
+	"struct unknown long value of a lone surrogate":  true,
 	"string of an escape and a lone surrogate":       true,
 	"string of a lone surrogate at the end":          true,
 	"string of a high surrogate before a bad escape": true,

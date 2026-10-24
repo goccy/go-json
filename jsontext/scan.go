@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/jsonstring"
 )
 
 // valueScanner reads a JSON value, and writes it formatted if write is set. The levels of the value are pushed
@@ -198,7 +199,7 @@ func (s *valueScanner) scanFast(b []byte, i int) (int, bool) {
 }
 
 // openObject is an open object of valueScanner.scanFast: the index in names.ends of its first name, and the
-// bits of its names ( nameBit ).
+// bits of its names ( jsonstring.NameBit ).
 type openObject struct {
 	first int
 	bits  uint64
@@ -368,7 +369,7 @@ space4Back:
 		}
 		k := depth - 1
 		o := &open[k]
-		if bit := nameBit(name); o.bits&bit == 0 {
+		if bit := jsonstring.NameBit(name); o.bits&bit == 0 {
 			o.bits |= bit
 		} else if names.has(o.first, name) {
 			return i, false

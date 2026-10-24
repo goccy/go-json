@@ -2,10 +2,13 @@ package decoder
 
 import (
 	"bytes"
+	"encoding/binary"
 	stderrors "errors"
 	"fmt"
 	"math/bits"
 	"reflect"
+	"strings"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -39,7 +42,8 @@ type v2StructDecoder struct {
 	fields     []*structFieldSet
 	keyDecoder *structDecoder
 	// casings are the `case` options of the fields, and folded the fields whose names may match a name by their
-	// folded names, by the folded names; foldedOf are the ones of the folded name of each field, by the indexes of
+	// folded names, by the folded names, or nil if no name of a field has '_' or '-' ( see fieldWithoutDashes );
+	// foldedOf are the ones of the folded name of each field, by the indexes of
 	// the fields, which a name of the folded name of a field which v1 finds is matched by, as it can't be found
 	// without folding and hashing the name. foldAlways is whether a field matches by its `case:ignore` option,
 	// without V2MatchCaseInsensitiveNames.
@@ -89,8 +93,13 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		}
 	}
 	d.foldedOf = make([][]*structFieldSet, len(d.fields))
+	dashes := false
 	for i, f := range d.fields {
 		d.foldedOf[i] = d.folded[string(jsonfields.FoldName([]byte(f.key)))]
+		dashes = dashes || strings.ContainsAny(f.key, "_-")
+	}
+	if !dashes {
+		d.folded = nil
 	}
 	keys := newStructKeys(d.fields)
 	// every name of a field by its bytes as they are, which a name as the input has it is found by ( see
@@ -392,9 +401,11 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 		// the fields of the folded name of candidate, which v1 found by the name folded as FoldName folds it, but
 		// for '_' and '-', which no rune folds to: it is the folded name of the name
 		group = d.foldedOf[candidate.fieldIdx]
-	} else {
+	} else if d.folded != nil {
 		var arr [64]byte
 		group = d.folded[string(jsonfields.AppendFoldName(arr[:0], name))]
+	} else if field := fieldWithoutDashes(d.keyDecoder.keys, name); field != nil {
+		group = d.foldedOf[field.fieldIdx]
 	}
 	// a name which several fields match by its folded name is an error, as in encoding/json/v2, whatever their order
 	var match *structFieldSet
@@ -409,7 +420,29 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 	return match, name, nil
 }
 
-// hasNotASCIIOrEscape reports whether b has a byte which is not ASCII or a backslash.
+// fieldWithoutDashes returns a field whose folded name is the folded name of name, the name of no field which v1
+// finds, of a struct whose names of fields have neither '_' nor '-', or nil. Folded without its '_' and '-', which
+// FoldName drops and no rune folds to, the name is folded as FoldName folds it, which v1's lookup finds a field by,
+// as it folds names as FoldName folds them but for those: a name without them is of no field.
+func fieldWithoutDashes(keys *structKeys, name []byte) *structFieldSet {
+	var arr [64]byte
+	key := arr[:0]
+	nonASCII := false
+	for _, c := range name {
+		if c != '_' && c != '-' {
+			key = append(key, c)
+			nonASCII = nonASCII || c >= utf8.RuneSelf
+		}
+	}
+	if len(key) == len(name) {
+		return nil
+	}
+	field, _ := keys.lookup(key, stringInfo{firstEscape: -1, nonASCII: nonASCII})
+	return field
+}
+
+// hasNotASCIIOrEscape reports whether b has a byte which is not ASCII or a backslash, which it looks for byte by
+// byte: b is a name, which is short, or the tail of a value ( see valueHasNotASCIIOrEscape ).
 func hasNotASCIIOrEscape(b []byte) bool {
 	for _, c := range b {
 		if c >= 0x80 || c == '\\' {
@@ -417,6 +450,20 @@ func hasNotASCIIOrEscape(b []byte) bool {
 		}
 	}
 	return false
+}
+
+// valueHasNotASCIIOrEscape is hasNotASCIIOrEscape for a value, which it looks at eight bytes at a time.
+func valueHasNotASCIIOrEscape(b []byte) bool {
+	i := 0
+	for ; i+8 <= len(b); i += 8 {
+		w := binary.LittleEndian.Uint64(b[i:])
+		// a backslash is a zero byte of s, whose subtraction sets its top bit
+		s := w ^ ('\\' * lsb)
+		if (w|(s-lsb)&^s)&msb != 0 {
+			return true
+		}
+	}
+	return hasNotASCIIOrEscape(b[i:])
 }
 
 // unquotedName returns the string quoted, as the input has it, decoded.
@@ -439,7 +486,7 @@ func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 	}
 	v := buf[start:end]
 	scanNames := ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
-	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
+	scanUTF8 := ctx.Option.V2&V2AllowInvalidUTF8 == 0 && valueHasNotASCIIOrEscape(v)
 	if (scanNames || scanUTF8) &&
 		!textcoder.ValidValue(v, ctx.Option.V2&V2AllowDuplicateNames != 0, ctx.Option.V2&V2AllowInvalidUTF8 != 0) {
 		return 0, errV2Text

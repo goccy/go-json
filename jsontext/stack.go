@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/textcoder"
 )
 
@@ -19,7 +20,7 @@ type level struct {
 	first  int    // for an object, the index in names.ends of its first name
 	last   int    // for an object, the index in names.ends of its last name, or -1, or, for valueScanner.lazyNames, -2 minus the position of the name in the input
 	named  int64  // for an object, its count after its last name was added
-	bits   uint64 // for an object, the bits of its names ( nameBit ), which the name of no bit is not one of
+	bits   uint64 // for an object, the bits of its names ( jsonstring.NameBit ), which the name of no bit is not one of
 }
 
 // stack is the state of the grammar: the levels of the nesting, the top level first, and the names of the open
@@ -292,7 +293,7 @@ func (s *stack) insertName(name []byte, rejectDuplicate bool) bool {
 		l.named = l.count + 1
 		return true
 	}
-	if bit := nameBit(name); l.bits&bit == 0 {
+	if bit := jsonstring.NameBit(name); l.bits&bit == 0 {
 		l.bits |= bit // a name of a bit which no name has is new: it is not looked for
 	} else if n.has(l.first, name) {
 		return false
@@ -310,7 +311,7 @@ func (s *stack) insertName(name []byte, rejectDuplicate bool) bool {
 func (s *stack) addNewName(name []byte) bool {
 	l := &s.levels[len(s.levels)-1]
 	n := &s.names
-	bit := nameBit(name)
+	bit := jsonstring.NameBit(name)
 	if l.bits&bit != 0 || len(n.indexes) != 0 || len(n.ends)-l.first >= maxLinearNames || len(n.buf)+len(name) > maxLinearBytes {
 		return false
 	}
@@ -320,16 +321,6 @@ func (s *stack) addNewName(name []byte) bool {
 	l.last = len(n.ends) - 1
 	l.named = l.count + 1
 	return true
-}
-
-// nameBit is one of 64 bits, chosen by the length of the name and its first and last bytes: two names of other
-// bits differ.
-func nameBit(name []byte) uint64 {
-	h := uint(len(name))
-	if len(name) > 0 {
-		h += uint(name[0])*7 + uint(name[len(name)-1])*31
-	}
-	return 1 << (h & 63)
 }
 
 // names are the names of the open objects, back to back, an object after the objects which contain it.

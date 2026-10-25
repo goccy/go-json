@@ -178,6 +178,12 @@ func (s *Stream) Read() ([]byte, int64) {
 	return s.buf[:s.length], s.offset
 }
 
+// ReadsInPlace reports whether the stream reads the buffer of a jsontext.Decoder in place ( see BorrowV2 ), which
+// what it has read is then: it has not left it for its own buffer ( see leaveSource ).
+func (s *Stream) ReadsInPlace() bool {
+	return s.src != nil
+}
+
 // ReadError returns the error of the reader, which the stream reports at the end of what it read, or nil if the
 // reader reached the end of the input, or has not failed.
 func (s *Stream) ReadError() error {
@@ -386,15 +392,28 @@ func (s *Stream) SetPath(path, levels []textcoder.Level) []textcoder.Level {
 		} else {
 			path = append(path, textcoder.Level{Object: l.Object, Count: l.Count})
 		}
-		name := append(path[n].Name[:0], l.Name...)
+		name := path[n].Name[:0]
+		if len(l.Name) != 0 {
+			name = append(name, l.Name...)
+		}
 		if name == nil && l.Name != nil {
 			name = []byte{} // the name "", which is a name
 		}
 		path[n].Name = name
 	}
 	call.Path = path
-	call.pathNames = append(call.pathNames[:0], make([]namePlace, len(path))...)
+	call.clearPathNames()
 	return saved
+}
+
+// clearPathNames makes the places of the names of the path of the call none, one for each level ( see setNameAt ).
+func (call *V2Call) clearPathNames() {
+	if n := len(call.Path); cap(call.pathNames) >= n {
+		call.pathNames = call.pathNames[:n]
+		clear(call.pathNames)
+	} else {
+		call.pathNames = make([]namePlace, n)
+	}
 }
 
 // RestorePath sets the path of the call of the stream back to saved, which SetPath returned, and returns the path
@@ -405,7 +424,7 @@ func (s *Stream) RestorePath(saved []textcoder.Level) []textcoder.Level {
 	path := call.Path
 	call.Path = saved
 	// the names of saved were copied when it was set aside ( see SetPath )
-	call.pathNames = append(call.pathNames[:0], make([]namePlace, len(saved))...)
+	call.clearPathNames()
 	return path
 }
 

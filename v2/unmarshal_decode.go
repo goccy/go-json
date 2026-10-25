@@ -75,7 +75,12 @@ func unmarshalDecode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts []Options
 	clear(dc.levels)
 	dc.levels = dc.levels[:0]
 	dc.input = lentInput{}
-	dc.cfg = options.Config{}
+	if dc.cfg.Set&configHolds != 0 {
+		dc.cfg = options.Config{}
+	} else {
+		// the flags, which refer to nothing
+		dc.cfg.Set, dc.cfg.Value = 0, 0
+	}
 	decodeCalls.Put(dc)
 	return err
 }
@@ -276,9 +281,11 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 	s.BeginV2(input)
 	// the buffer of the decoder, which the stream reads in place if it can, and its offset, by which the decoder is
 	// found to have dropped bytes of its input for the stream
-	_, base, _ := textcoder.DecoderBuffer(d)
-	if s.BorrowV2(d, from) {
+	borrowed := s.BorrowV2(d, from)
+	var base int64
+	if borrowed {
 		*input = lentInput{r: r}
+		_, base = s.Read()
 	} else {
 		*input = lentInput{buf: buf, r: r}
 		s.StartAt(from)
@@ -291,8 +298,17 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 	// reader of the decoder, or through the decoder into its buffer, which moved its bytes to read more, dropping the
 	// ones before the ones which the stream kept. The decoder goes on from the rest which the stream read then. The
 	// bytes which the stream read through the decoder into the room after its input are where the decoder reads them.
-	_, b0, _ := textcoder.DecoderBuffer(d)
-	moved := input.readR || b0 != base
+	moved := input.readR
+	if borrowed && !moved {
+		// the offset of the buffer of the decoder: the one of what the stream read, while it reads the buffer in
+		// place, or the decoder's, once the stream left the buffer for its own, which a decoder attached at a value
+		// reads on from ( see decoder.Stream.ReadOn )
+		_, b0 := s.Read()
+		if !s.ReadsInPlace() {
+			_, b0, _ = textcoder.DecoderBuffer(d)
+		}
+		moved = b0 != base
+	}
 	if err == nil {
 		var rest []byte
 		if moved {

@@ -54,8 +54,8 @@ func UnmarshalDecodeOf[T any](in *jsontext.Decoder, out *T, opts ...Options) err
 }
 
 // decodeCall is the state of a call of UnmarshalDecode, which the calls reuse: the levels of the place of the value,
-// the input of the decoder which a stream reads, the stream, which a call takes once, and the config of the options
-// of the call.
+// whose names are copies ( see textcoder.DecoderPlace ), the input of the decoder which a stream reads, the stream,
+// which a call takes once, and the config of the options of the call.
 type decodeCall struct {
 	levels []textcoder.Level
 	input  lentInput
@@ -70,10 +70,8 @@ var decodeCalls = sync.Pool{New: func() any { return new(decodeCall) }}
 func unmarshalDecode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts []Options) error {
 	dc := decodeCalls.Get().(*decodeCall)
 	err := dc.decode(in, typ, p, opts)
-	// the levels and the input refer to the decoder, and the config may hold the functions of the caller, which the
-	// pool must not keep alive
-	clear(dc.levels)
-	dc.levels = dc.levels[:0]
+	// the input refers to the decoder, and the config may hold the functions of the caller, which the pool must not
+	// keep alive
 	dc.input = lentInput{}
 	if dc.cfg.Set&configHolds != 0 {
 		dc.cfg = options.Config{}
@@ -291,7 +289,10 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 		s.StartAt(from)
 	}
 	ctx := s.Context()
-	s.SetPath(ctx.V2Call().Path, levels)
+	// the count of the level of the value, of the levels which the stream takes as its path, which the call keeps the
+	// former path of for its next levels
+	count := levels[depth].Count
+	dc.levels = s.TakePath(levels)
 	setCall(ctx, cfg)
 	err = decodeStreamValue(s, typ, p, int64(depth), from, start)
 	// moved is set if the decoder has the input of the value no more where it was: the stream read it from the
@@ -323,7 +324,7 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 			// the stream read past the input of the decoder, which has it no more where it was
 			putBack = func() bool { return putBackFrom(d, s, from) }
 		}
-		err = afterError(d, err, start, first, streamSkip(s, moved, depth, levels[depth].Count), putBack)
+		err = afterError(d, err, start, first, streamSkip(s, moved, depth, count), putBack)
 	}
 	clearCall(ctx)
 	s.EndV2()

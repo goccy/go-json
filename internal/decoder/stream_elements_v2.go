@@ -416,6 +416,17 @@ func (call *V2Call) clearPathNames() {
 	}
 }
 
+// TakePath makes levels, the place of the next value which the stream decodes, whose names are its own, the path of
+// the call of the stream, which BeginV2 began, and returns the path it had, whose arrays the caller keeps for its
+// next levels: SetPath without a copy.
+func (s *Stream) TakePath(levels []textcoder.Level) []textcoder.Level {
+	call := s.ctx.v2
+	path := call.Path
+	call.Path = levels
+	call.clearPathNames()
+	return path
+}
+
 // RestorePath sets the path of the call of the stream back to saved, which SetPath returned, and returns the path
 // which it set, whose arrays the caller keeps for the next SetPath.
 func (s *Stream) RestorePath(saved []textcoder.Level) []textcoder.Level {

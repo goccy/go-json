@@ -205,17 +205,24 @@ func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) ([]textcoder.Lev
 	}
 	for i := range st.levels {
 		l := &st.levels[i]
-		tl := textcoder.Level{Object: l.object, Count: l.count}
+		n := len(levels)
+		if n < cap(levels) {
+			// the entry, whose name keeps its array, which the name is copied into
+			levels = levels[:n+1]
+		} else {
+			levels = append(levels, textcoder.Level{})
+		}
+		tl := &levels[n]
+		tl.Object, tl.Count = l.object, l.count
 		if i < len(st.levels)-1 {
 			tl.Count-- // the value of the next level, which is open, is not counted
 		}
-		if l.object && l.last >= l.first {
-			if tl.Name = st.names.get(l.last); tl.Name == nil {
-				// the name "", which is a name, as a level without a name has none ( see textcoder.Level )
-				tl.Name = []byte{}
-			}
+		if !l.object || l.last < l.first {
+			tl.Name = nil
+		} else if tl.Name = append(tl.Name[:0], st.names.get(l.last)...); tl.Name == nil {
+			// the name "", which is a name, as a level without a name has none ( see textcoder.Level )
+			tl.Name = []byte{}
 		}
-		levels = append(levels, tl)
 	}
 	return levels, d.st.last().needName(), d.st.outer, d.st.depth() + d.st.base
 }

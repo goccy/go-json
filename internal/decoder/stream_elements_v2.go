@@ -608,6 +608,11 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		return err
 	}
 	ctx := s.ctx
+	// the loop of the options, which are looked at once for the object, as v2StructDecoder.Decode chooses it
+	if !d.foldAlways && d.fallback == nil &&
+		ctx.Option.V2&(V2MatchCaseInsensitiveNames|V2RejectUnknownMembers|V2AllowDuplicateNames) == V2AllowDuplicateNames {
+		return s.decodeStructMembersV2(d, p, depth, lv)
+	}
 	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	var seen uint64
@@ -697,6 +702,71 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 			err = s.decodeFallbackV2(d.fallback, p, depth, nameEnd, s.level(lv).Name)
 		default:
 			err = s.skipValueV2(depth, nameEnd)
+		}
+		if err != nil {
+			return err
+		}
+		s.level(lv).Count = int64(2*k + 2)
+	}
+}
+
+// decodeStructMembersV2 is the loop of decodeStructElementsV2 with V2AllowDuplicateNames, for a struct whose names
+// are matched as they are, which has no fallback, without V2RejectUnknownMembers: the members of the object whose
+// level of the path is lv, after its bracket, nested in depth objects and arrays, are decoded as decodeStructElements
+// decodes them for v1, and the ones of no field skipped. The bytes from the end of the token before a member, the
+// place of its errors, are kept while its name and a string, a number or a literal of its value are read, which the
+// buffer has whole: as decodeStructElementsV2 keeps them for the name and decodeNestedV2 for the value.
+func (s *Stream) decodeStructMembersV2(d *v2StructDecoder, p unsafe.Pointer, depth int64, lv int) error {
+	ctx := s.ctx
+	// what the caller keeps: the bytes of a member are kept from the end of the token before it, unless the caller
+	// keeps them, from before the object
+	keeps, keepFrom := s.keeps, s.keepFrom
+	for k := 0; ; k++ {
+		step := s.offset + s.cursor
+		if !keeps {
+			s.keeps, s.keepFrom = true, step
+		}
+		_, _, start, ok, err := s.nextMember(k == 0)
+		if err != nil {
+			return s.placeAt(err, step)
+		}
+		if !ok {
+			s.keeps, s.keepFrom = keeps, keepFrom
+			s.popLevel(lv)
+			return nil
+		}
+		field, _, plain := plainFieldV2(d.keyDecoder.keys, s.buf[:s.length+1], start)
+		name := s.buf[start+1 : s.cursor-1]
+		if !plain {
+			// a name which v2StructDecoder.Decode finds by memberOf
+			candidate, _, err := d.keyDecoder.decodeKey(s.buf[:s.length+1], start, false)
+			if err != nil {
+				return s.placeAt(err, step)
+			}
+			if field, name, err = d.memberOf(ctx, s.buf[start:s.cursor], candidate); err != nil {
+				if e, ok := err.(*errors.UnmarshalError); ok {
+					e.Start = start
+				}
+				return s.placeAt(err, step)
+			}
+		}
+		s.copyName(name)
+		nameEnd := s.offset + s.cursor
+		if err := s.memberValue(); err != nil {
+			return s.placeAt(err, step)
+		}
+		s.setName(lv, k)
+		switch {
+		case field == nil:
+			s.keeps, s.keepFrom = keeps, keepFrom
+			err = s.skipValueV2(depth, nameEnd)
+		case s.buf[s.cursor] != '{' && s.buf[s.cursor] != '[' && s.decodeScalar(field.dec, unsafe.Add(p, field.offset), depth):
+			// a string, a number or a literal which the buffer has whole, as decodeNestedV2 decodes it: the decoders
+			// of the values of v2 which decodeScalar decodes are the ones which decodeNestedV2 gives it
+			s.keeps, s.keepFrom = keeps, keepFrom
+		default:
+			s.keeps, s.keepFrom = keeps, keepFrom
+			err = s.decodeNestedV2(field.dec, unsafe.Add(p, field.offset), depth, nameEnd)
 		}
 		if err != nil {
 			return err

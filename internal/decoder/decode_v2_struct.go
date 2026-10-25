@@ -206,6 +206,21 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	if buf[cursor] == '}' {
 		return cursor + 1, nil
 	}
+	// the loop of the options, which are looked at once for the object: the object of a struct whose names are
+	// matched as they are and which has no fallback, without V2RejectUnknownMembers, is decoded by a loop of its own
+	// without V2AllowDuplicateNames and V2AllowInvalidUTF8, as encoding/json/v2 decodes it by default, if the struct
+	// has up to 64 fields, and with both, as v1 decodes it
+	if !d.foldAlways && d.fallback == nil && ctx.Option.V2&(V2MatchCaseInsensitiveNames|V2RejectUnknownMembers) == 0 {
+		switch ctx.Option.V2 & (V2AllowDuplicateNames | V2AllowInvalidUTF8) {
+		case 0:
+			if len(d.fields) <= 64 {
+				return d.decodeMembersOnce(ctx, cursor, depth, p)
+			}
+		case V2AllowDuplicateNames | V2AllowInvalidUTF8:
+			return d.decodeMembersAsV1(ctx, cursor, depth, p)
+		}
+	}
+	// the loop of the other options and structs
 	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	// seen are the fields which the object has, by their bits, after the first 64 in more, and unknown the names
@@ -233,18 +248,8 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		// decided, which is as the input has it
 		var name []byte
 		if !plain {
-			// a name with an escape, a byte which is not ASCII or a control character, a name near the end of the
-			// buffer ( see plainFieldV2 ), or a name whose field by its folded name is not decided ( see foldedFieldV2 )
-			candidate, next, err := d.keyDecoder.decodeKey(buf, start, false)
-			if err != nil {
-				return 0, err
-			}
-			end = next
-			if field, name, err = d.memberOf(ctx, buf[start:end], candidate); err != nil {
-				if e, ok := err.(*errors.UnmarshalError); ok {
-					// an error of the name, at it
-					e.Start = start
-				}
+			var err error
+			if field, end, name, err = d.decodedMember(ctx, buf, start); err != nil {
 				return 0, err
 			}
 		}
@@ -306,6 +311,160 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 			return 0, syntaxErrorAt(buf, cursor, whereAfterPair)
 		}
 	}
+}
+
+// decodeMembersOnce is the loop of Decode without options, for a struct of up to 64 fields whose names are matched as
+// they are and which has no fallback, from the first name of an object at cursor: a field which the object has twice,
+// by the bits of seen, and a name of no field which it has twice, by unknown, are errors, and the values of no field
+// are skipped as encoding/json/v2 reads them, for their names and their UTF-8.
+func (d *v2StructDecoder) decodeMembersOnce(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	var seen uint64
+	var unknown nameSet
+	for {
+		start := cursor
+		if buf[start] != '"' {
+			// white space after the comma, which is checked here, as most names follow the comma at once
+			if start = skipWhiteSpace(buf, start); buf[start] != '"' {
+				return 0, syntaxErrorAt(buf, start, whereKey)
+			}
+		}
+		field, end, plain := plainFieldV2(d.keyDecoder.keys, buf, start)
+		// name is the name decoded, which a name of no field is checked by, or nil for a name whose field the lookup
+		// decided, which is as the input has it
+		var name []byte
+		if !plain {
+			var err error
+			if field, end, name, err = d.decodedMember(ctx, buf, start); err != nil {
+				return 0, err
+			}
+		}
+		// the name is checked before the colon after it, as encoding/json/v2 reads the name alone
+		if field != nil {
+			bit := uint64(1) << uint(field.fieldIdx)
+			if seen&bit != 0 {
+				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
+			}
+			seen |= bit
+		} else {
+			var added bool
+			if name == nil {
+				added = unknown.add(ctx.V2Call(), buf, start+1, end-1)
+			} else {
+				added = unknown.addCopy(ctx.V2Call(), buf, name)
+			}
+			if !added {
+				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
+			}
+		}
+		if buf[end] == ':' {
+			cursor = end + 1
+		} else {
+			cursor = skipWhiteSpace(buf, end)
+			if buf[cursor] != ':' {
+				return 0, syntaxErrorAt(buf, cursor, whereAfterKey)
+			}
+			cursor++
+		}
+		var err error
+		if field != nil {
+			cursor, err = field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
+		} else {
+			// the value of no field, as skipValueV2 skips it without options
+			switch cursor = skipWhiteSpace(buf, cursor); buf[cursor] {
+			case '{', '[':
+				cursor, err = skipNestedV2(ctx, cursor, depth)
+			case '"':
+				cursor, err = skipStringV2(buf, cursor)
+			default:
+				cursor, err = skipValue(buf, cursor, depth)
+			}
+		}
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, cursor)
+		switch buf[cursor] {
+		case '}':
+			unknown.end(ctx.v2)
+			return cursor + 1, nil
+		case ',':
+			cursor++
+		default:
+			return 0, syntaxErrorAt(buf, cursor, whereAfterPair)
+		}
+	}
+}
+
+// decodeMembersAsV1 is the loop of Decode with V2AllowDuplicateNames and V2AllowInvalidUTF8, for a struct whose names
+// are matched as they are and which has no fallback, from the first name of an object at cursor: the object is
+// decoded as v1 decodes it, by the loop of structDecoder.Decode, with the fields found by their names as they are, and
+// the values of no field skipped by v1's skip.
+func (d *v2StructDecoder) decodeMembersAsV1(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	buf := ctx.Buf
+	for {
+		start := cursor
+		if buf[start] != '"' {
+			// white space after the comma, which is checked here, as most names follow the comma at once
+			if start = skipWhiteSpace(buf, start); buf[start] != '"' {
+				return 0, syntaxErrorAt(buf, start, whereKey)
+			}
+		}
+		field, end, plain := plainFieldV2(d.keyDecoder.keys, buf, start)
+		if !plain {
+			var err error
+			if field, end, _, err = d.decodedMember(ctx, buf, start); err != nil {
+				return 0, err
+			}
+		}
+		if buf[end] == ':' {
+			cursor = end + 1
+		} else {
+			cursor = skipWhiteSpace(buf, end)
+			if buf[cursor] != ':' {
+				return 0, syntaxErrorAt(buf, cursor, whereAfterKey)
+			}
+			cursor++
+		}
+		var err error
+		if field != nil {
+			cursor, err = field.dec.Decode(ctx, cursor, depth, unsafe.Add(p, field.offset))
+		} else {
+			cursor, err = skipValue(buf, cursor, depth)
+		}
+		if err != nil {
+			return 0, err
+		}
+		cursor = skipWhiteSpace(buf, cursor)
+		switch buf[cursor] {
+		case '}':
+			return cursor + 1, nil
+		case ',':
+			cursor++
+		default:
+			return 0, syntaxErrorAt(buf, cursor, whereAfterPair)
+		}
+	}
+}
+
+// decodedMember returns the field of the name at start in buf, or nil, the position after the name, and the name
+// decoded: a name with an escape, a byte which is not ASCII or a control character, a name near the end of the buffer
+// ( see plainFieldV2 ), or a name whose field by its folded name is not decided ( see foldedFieldV2 ), which the loops
+// of Decode don't find as it is.
+func (d *v2StructDecoder) decodedMember(ctx *RuntimeContext, buf []byte, start int64) (*structFieldSet, int64, []byte, error) {
+	candidate, end, err := d.keyDecoder.decodeKey(buf, start, false)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	field, name, err := d.memberOf(ctx, buf[start:end], candidate)
+	if err != nil {
+		if e, ok := err.(*errors.UnmarshalError); ok {
+			// an error of the name, at it
+			e.Start = start
+		}
+		return nil, 0, nil, err
+	}
+	return field, end, name, nil
 }
 
 // skipUnknownMembers skips the member of no field of a struct without a fallback whose name is at start in buf, before

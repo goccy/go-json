@@ -106,7 +106,10 @@ var errNonNilReference = errors.New("value must be passed as a non-nil pointer r
 func Unmarshal(in []byte, out any, opts ...Options) error {
 	e := (*emptyInterface)(unsafe.Pointer(&out))
 	ctx := decoder.TakeRuntimeContext()
-	err := unmarshalInput(ctx, ctx.SetInput(in), e.typ, e.ptr, opts)
+	buf := ctx.SetInput(in)
+	cfg := beginCall(ctx, opts)
+	err := decodeInput(ctx, buf, e.typ, e.ptr, cfg)
+	endCall(ctx, cfg)
 	ctx.Option.V2 = 0
 	decoder.ReleaseRuntimeContext(ctx)
 	// the decoder refers to the value by its address only.
@@ -133,7 +136,10 @@ func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 	}
 	ctx := decoder.TakeRuntimeContext()
 	p := reusedValue(ctx, out)
-	err := unmarshalInput(ctx, ctx.SetInput(in), iruntime.TypePtr(ptrType), p, opts)
+	buf := ctx.SetInput(in)
+	cfg := beginCall(ctx, opts)
+	err := decodeInput(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
+	endCall(ctx, cfg)
 	ctx.Option.V2 = 0
 	returnValue(p, out)
 	decoder.ReleaseRuntimeContext(ctx)
@@ -170,40 +176,42 @@ type emptyInterface struct {
 // noOptions is the config of a call without options.
 var noOptions options.Config
 
-// unmarshalInput decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type typ,
-// by the options.
-func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer, opts []Options) error {
-	cfg := beginCall(ctx, opts)
-	err := decodeInput(ctx, buf, typ, p, cfg)
-	endCall(ctx, cfg)
-	return err
+// beginCall sets ctx for a call by the options, and returns their config, which endCall drops. A call without
+// options, as most are, is set by setPlainCall, which the compiler inlines here.
+func beginCall(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
+	if len(opts) > 0 {
+		return beginCallOf(ctx, opts)
+	}
+	setPlainCall(ctx)
+	return &noOptions
 }
 
-// beginCall sets ctx for a call by the options, and returns their config, which endCall drops: the config of the call
-// of ctx, which would escape on the stack, as the options are applied by the calls of their interface.
-func beginCall(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
-	cfg := &noOptions
-	if len(opts) > 0 {
-		cfg = &ctx.V2Call().Options
-		cfg.Apply(opts)
-	}
+// beginCallOf is beginCall of a call with options, whose config is the one of the call of ctx, which would escape on
+// the stack, as the options are applied by the calls of their interface.
+func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
+	cfg := &ctx.V2Call().Options
+	cfg.Apply(opts)
 	setCall(ctx, cfg)
 	return cfg
 }
 
 // setCall sets ctx for a call by the options of cfg, which clearCall drops from ctx.
 func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
-	flags := decoder.V2Semantics
-	if cfg != &noOptions {
-		flags = unmarshalFlags(cfg)
-	}
 	ctx.Option.Flags = 0
-	ctx.Option.V2 = flags
+	ctx.Option.V2 = unmarshalFlags(cfg)
 	call := ctx.V2Call()
 	call.Config, call.Funcs = cfg, nil
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
 		call.Funcs = u.funcs
 	}
+}
+
+// setPlainCall is setCall of a call without options.
+func setPlainCall(ctx *decoder.RuntimeContext) {
+	ctx.Option.Flags = 0
+	ctx.Option.V2 = decoder.V2Semantics
+	call := ctx.V2Call()
+	call.Config, call.Funcs = &noOptions, nil
 }
 
 // endCall drops what beginCall set in ctx for a call, and cfg, the config of its options.
@@ -248,9 +256,14 @@ func unmarshalFlags(c *options.Config) decoder.V2Flags {
 // decodeInput decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type typ,
 // by the options of cfg, which the options of ctx are made of.
 func decodeInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer, cfg *options.Config) error {
-	dec, err := outputDecoder(ctx, typ, p)
-	if err != nil {
-		return err
+	// the decoder of the output, as outputDecoder finds it
+	var dec decoder.Decoder
+	var err error
+	if typ != nil && p != nil {
+		dec, err = ctx.DecoderOfV2(typ)
+	}
+	if dec == nil {
+		return outputError(ctx, typ, err)
 	}
 	cursor, err := dec.Decode(ctx, 0, 0, p)
 	if terr := ctx.V2TypeError(); terr != nil {
@@ -271,21 +284,34 @@ func decodeInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer,
 // outputDecoder returns the decoder of the output, the value at p of the pointer type typ, which must be a non-nil
 // pointer.
 func outputDecoder(ctx *decoder.RuntimeContext, typ, p unsafe.Pointer) (decoder.Decoder, error) {
-	if typ == nil {
-		return nil, &SemanticError{action: "unmarshal", Err: errNonNilReference}
+	var dec decoder.Decoder
+	var err error
+	if typ != nil && p != nil {
+		dec, err = ctx.DecoderOfV2(typ)
 	}
-	dec, err := ctx.DecoderOfV2(typ)
-	if err != nil {
-		if _, ok := err.(*ierrors.InvalidUnmarshalError); ok {
-			// not a pointer
-			return nil, &SemanticError{action: "unmarshal", GoType: iruntime.TypeOfPtr(typ), Err: errNonNilReference}
-		}
-		return nil, err
-	}
-	if p == nil {
-		return nil, &SemanticError{action: "unmarshal", GoType: iruntime.TypeOfPtr(typ), Err: errNonNilReference}
+	if dec == nil {
+		return nil, outputError(ctx, typ, err)
 	}
 	return dec, nil
+}
+
+// outputError returns the error of an output which outputDecoder finds no decoder for: typ is nil, err is the error
+// of the decoder of typ, or the value is nil, which is found after the decoder, as the decoder may be an error too.
+func outputError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) error {
+	if typ == nil {
+		return &SemanticError{action: "unmarshal", Err: errNonNilReference}
+	}
+	if err == nil {
+		// a nil value, whose type may have no decoder
+		_, err = ctx.DecoderOfV2(typ)
+	}
+	if err != nil {
+		if _, ok := err.(*ierrors.InvalidUnmarshalError); !ok {
+			return err
+		}
+		// not a pointer
+	}
+	return &SemanticError{action: "unmarshal", GoType: iruntime.TypeOfPtr(typ), Err: errNonNilReference}
 }
 
 // errAfterValue is the error of a value of the input which is followed by more than white space.

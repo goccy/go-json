@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/goccy/go-json/internal/jsonnum"
+	"github.com/goccy/go-json/internal/textcoder"
 )
 
 // Decoder is a streaming decoder of raw JSON tokens and values. It reads a stream of top-level JSON values,
@@ -178,11 +179,12 @@ func (d *decoder) fetch() (int, error) {
 		return shift, nil
 	}
 	shift := 0
-	if cap(d.buf)-len(d.buf) < minRead || d.shared {
-		shift = d.makeRoom(minRead)
+	if cap(d.buf)-len(d.buf) < minRead+textcoder.InputRoom || d.shared {
+		shift = d.makeRoom(minRead + textcoder.InputRoom)
 	}
 	for {
-		n, err := d.r.Read(d.buf[len(d.buf):cap(d.buf)])
+		// the room after the input is left to a caller which reads the buffer in place ( see textcoder.InputRoom )
+		n, err := d.r.Read(d.buf[len(d.buf) : cap(d.buf)-textcoder.InputRoom])
 		if n > 0 {
 			// an error which comes with input is dropped, as encoding/json/jsontext drops it: the reader reports
 			// it again at the next read, if it lasts.

@@ -267,7 +267,6 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 	// the first byte of the value, which BeginValue read
 	first := buf[start-from]
 	input := &dc.input
-	*input = lentInput{buf: buf, r: r}
 	s := dc.stream
 	if s == nil {
 		// the stream of the call, as the pool of TakeStreamV2 makes one
@@ -275,26 +274,39 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 		dc.stream = s
 	}
 	s.BeginV2(input)
-	s.StartAt(from)
+	// the buffer of the decoder, which the stream reads in place if it can, and its offset and the end of its input,
+	// by which the decoder is found to have read more for the stream
+	_, base, _ := textcoder.DecoderBuffer(d)
+	read := int64(len(buf)) + from
+	if s.BorrowV2(d, from) {
+		*input = lentInput{r: r}
+	} else {
+		*input = lentInput{buf: buf, r: r}
+		s.StartAt(from)
+	}
 	ctx := s.Context()
 	s.SetPath(ctx.V2Call().Path, levels)
 	setCall(ctx, cfg)
 	err = decodeStreamValue(s, typ, p, int64(depth), from, start)
+	// moved is set if the stream read past the input of the decoder: from its reader, or through the decoder into
+	// its buffer, which moves it, and the decoder goes on from the rest which the stream read
+	b, b0, _ := textcoder.DecoderBuffer(d)
+	moved := input.readR || b0 != base || int64(len(b))+b0 != read
 	if err == nil {
 		var rest []byte
-		if input.readR {
-			// the input after the value, which the stream read from the reader
+		if moved {
+			// the input after the value, which the stream read
 			rest = s.Unread()
 		}
 		textcoder.EndValue(d, start, s.Offset(), rest)
 	} else {
 		err = streamError(s, err, cfg)
 		var putBack func() bool
-		if input.readR {
-			// the stream read past the input of the decoder, which has it no more
+		if moved {
+			// the stream read past the input of the decoder, which has it no more where it was
 			putBack = func() bool { return putBackFrom(d, s, from) }
 		}
-		err = afterError(d, err, start, first, streamSkip(s, input.readR, depth, levels[depth].Count), putBack)
+		err = afterError(d, err, start, first, streamSkip(s, moved, depth, levels[depth].Count), putBack)
 	}
 	clearCall(ctx)
 	s.EndV2()

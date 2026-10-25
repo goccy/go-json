@@ -53,6 +53,66 @@ func (s *Stream) BeginV2(r io.Reader) {
 	call.pathNames = append(call.pathNames[:0], namePlace{})
 }
 
+// BorrowV2 makes the stream, which BeginV2 began, read the input of dec, a jsontext.Decoder, from the offset from of
+// the whole input, in the buffer of dec, in place, and read more into it through dec, initBufSize bytes at most at a
+// time, as it reads its reader ( see readSource ): the bytes are not copied into its own buffer. It reports false,
+// having done nothing, if the buffer can't be read so ( see textcoder.DecoderBuffer ). Once a decoder attached at a
+// value reads on, the stream holds what it needs of the buffer in its own, and reads its reader ( see ReadOn ).
+func (s *Stream) BorrowV2(dec unsafe.Pointer, from int64) bool {
+	buf, base, ok := textcoder.DecoderBuffer(dec)
+	if !ok || from < base {
+		return false
+	}
+	s.src, s.own = dec, s.buf
+	s.buf, s.offset, s.length, s.cursor = buf[:cap(buf)], base, int64(len(buf)), from-base
+	s.buf[s.length] = nul
+	return true
+}
+
+// readSource is read for a stream which reads the buffer of a jsontext.Decoder in place ( see BorrowV2 ): the
+// decoder reads more into its buffer, keeping what the stream keeps, which it may move.
+func (s *Stream) readSource() bool {
+	if int64(len(s.buf))-s.length <= textcoder.InputRoom {
+		// the names of the path which the levels have by their places in the buffer, which the decoder moves, as it
+		// is full ( see textcoder.FetchInput )
+		s.copyNames()
+	}
+	buf, base, n, err := textcoder.FetchInput(s.src, s.offset+s.keepStart(), initBufSize)
+	s.cursor -= base - s.offset
+	s.buf, s.offset, s.length = buf[:cap(buf)], base, int64(len(buf))
+	s.buf[s.length] = nul
+	if err != nil {
+		s.readErr = err
+	}
+	return n > 0 || err == nil
+}
+
+// leaveSource makes the stream, which reads the buffer of a jsontext.Decoder in place, hold what a read keeps of the
+// buffer in its own, and read its reader, as a stream of a reader does.
+func (s *Stream) leaveSource() {
+	s.copyNames()
+	from := s.keepStart()
+	n := s.length - from
+	if int64(len(s.own)) <= n+bufPadding {
+		s.own = make([]byte, n+bufPadding+1)
+	}
+	copy(s.own, s.buf[from:s.length])
+	s.buf, s.own, s.src = s.own, nil, nil
+	s.offset, s.cursor, s.length = s.offset+from, s.cursor-from, n
+	s.buf[s.length] = nul
+}
+
+// leaveSourceFrom makes the stream, if it reads the buffer of a jsontext.Decoder in place, hold the bytes from the
+// total offset from in its own buffer ( see leaveSource ), for a decoder attached at the value after from, which
+// may read on: the input which it reads and its place are then the ones of a stream of a reader.
+func (s *Stream) leaveSourceFrom(from int64) {
+	if s.src != nil {
+		keeps, keepFrom := s.keepFromHere(from)
+		s.leaveSource()
+		s.keeps, s.keepFrom = keeps, keepFrom
+	}
+}
+
 // ReleaseStreamV2 puts the stream back, without its reader and the state of its call ( see EndV2 ).
 func ReleaseStreamV2(s *Stream) {
 	s.EndV2()
@@ -62,6 +122,10 @@ func ReleaseStreamV2(s *Stream) {
 // EndV2 drops the reader of the stream and the state of its call, which may then read another reader ( see
 // BeginV2 ).
 func (s *Stream) EndV2() {
+	if s.src != nil {
+		// the buffer of the stream, which read the one of a jsontext.Decoder in place
+		s.buf, s.own, s.src = s.own, nil, nil
+	}
 	call := s.ctx.v2
 	call.Stream, call.Value, call.Place = nil, StreamValue{}, StreamPlace{}
 	if len(call.names.entries) != 0 {
@@ -128,6 +192,9 @@ func (s *Stream) ReadError() error {
 func (s *Stream) ReadOn(p []byte) (int, error) {
 	if s.readErr != nil {
 		return 0, s.readErr
+	}
+	if s.src != nil {
+		s.leaveSource()
 	}
 	n, err := s.r.Read(p[:min(len(p), initBufSize)])
 	if err != nil {
@@ -495,6 +562,7 @@ func (s *Stream) decodeWholeV2(dec Decoder, p unsafe.Pointer, depth, end, from i
 // they are given a jsontext.Decoder attached at its place, after from, the end of the token before it, which reads
 // on from the reader of the stream. It returns ErrUseDefault if they declined the value.
 func (s *Stream) decodeAttached(typ reflect.Type, p unsafe.Pointer, depth, from int64, fn *UnmarshalFunc) error {
+	s.leaveSourceFrom(from)
 	ctx := s.ctx
 	call := ctx.v2
 	call.Value = StreamValue{From: from - s.offset, Start: s.cursor, ReadsOn: true}
@@ -945,6 +1013,7 @@ func (s *Stream) skipValueV2(depth, from int64) error {
 			// a value of the grammar only, as v1 skips it
 			return s.skipLongV2(depth)
 		}
+		s.leaveSourceFrom(from)
 		call := s.ctx.v2
 		call.Value = StreamValue{From: from - s.offset, Start: s.cursor, ReadsOn: true}
 		s.copyNames()

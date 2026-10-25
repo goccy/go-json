@@ -20,6 +20,27 @@ func init() {
 		d := &(*Decoder)(dec).d
 		return d.buf[start-d.base:], d.r
 	}
+	textcoder.DecoderBuffer = func(dec unsafe.Pointer) ([]byte, int64, bool) {
+		d := &(*Decoder)(dec).d
+		return d.buf, d.base, !d.shared && d.bb == nil && d.r != nil && cap(d.buf)-len(d.buf) >= textcoder.InputRoom
+	}
+	textcoder.FetchInput = func(dec unsafe.Pointer, keep int64, n int) ([]byte, int64, int, error) {
+		d := &(*Decoder)(dec).d
+		// the bytes before keep are dropped as the ones before the last token are: the positions of the decoder
+		// before them are the start of the buffer then, which the caller sets by EndValue or PutBack
+		var shift int
+		if cap(d.buf)-len(d.buf) <= textcoder.InputRoom {
+			// the buffer is full, as a stream finds its buffer full before it reads ( see decoder.Stream.read )
+			prev := d.prevStart
+			d.prevStart = int(keep - d.base)
+			shift = d.makeRoom(n + textcoder.InputRoom)
+			d.prevStart = prev - shift
+		}
+		d.pos, d.prevStart, d.prevEnd = max(d.pos, 0), max(d.prevStart, 0), max(d.prevEnd, 0)
+		m, err := d.r.Read(d.buf[len(d.buf):min(cap(d.buf)-textcoder.InputRoom, len(d.buf)+n)])
+		d.buf = d.buf[:len(d.buf)+m]
+		return d.buf, d.base, m, err
+	}
 	textcoder.EndValue = endValue
 	textcoder.PutBack = func(dec unsafe.Pointer, start int64, in []byte) {
 		d := &(*Decoder)(dec).d

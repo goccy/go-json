@@ -897,7 +897,8 @@ func (s *Stream) decodeSliceElementsV2(d *v2SliceDecoder, p unsafe.Pointer, dept
 	dst := (*sliceHeader)(p)
 	// the elements are decoded into the slice up to limit, and into a buffer after it, as sliceDecoder.Decode does
 	t := sliceTarget{d: d.sliceDecoder, dst: dst, limit: max(dst.cap, inPlaceSliceLength)}
-	for idx := 0; ; idx++ {
+	runs := readsWhole(d.valueDecoder)
+	for idx := 0; ; {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil || !ok {
 			t.finish(idx, idx, err)
@@ -907,13 +908,116 @@ func (s *Stream) decodeSliceElementsV2(d *v2SliceDecoder, p unsafe.Pointer, dept
 			s.popLevel(lv)
 			return nil
 		}
+		if runs {
+			n, err := s.decodeRunV2(&t, lv, idx, depth, step)
+			if err != nil {
+				t.finish(n, n+1, err)
+				return err
+			}
+			if n > idx {
+				idx = n
+				continue
+			}
+		}
 		if err := s.decodeNestedV2(d.valueDecoder, t.elem(idx), depth, step); err != nil {
 			t.finish(idx, idx+1, err)
 			return err
 		}
 		t.decoded(idx)
-		s.level(lv).Count = int64(idx + 1)
+		idx++
+		s.level(lv).Count = int64(idx)
 	}
+}
+
+// decodeRunV2 decodes the elements of the array whose elements are read into t, from the element idx at the cursor,
+// after step, the total offset of the end of the token before it: the ones which the buffer holds whole, up to the
+// last one which is an object or an array that ends in what has been read, as decodeRun does, each as decodeWholeV2
+// decodes it, without the lookup of its end. It returns the number of the elements of the array decoded, which the
+// level lv of the path counts: idx if the buffer holds no such element. The decoder of the elements reads a value
+// whole ( see readsWhole ).
+func (s *Stream) decodeRunV2(t *sliceTarget, lv, idx int, depth, step int64) (int, error) {
+	s.indexAt(depth)
+	end, ok := s.elements.lastElementClose(s.offset+s.cursor, depth)
+	if !ok {
+		return idx, nil
+	}
+	ctx := s.ctx
+	call := ctx.v2
+	dec := t.d.valueDecoder
+	// a nul byte is put after the last element while the run is decoded, as decodeRun puts it
+	stop := end - s.offset + 1
+	saved := s.buf[stop]
+	s.buf[stop] = nul
+	buf := s.buf[:stop+1]
+	ctx.Buf, ctx.origin = buf, buf
+	var err error
+	for {
+		call.Value = StreamValue{From: step - s.offset, Start: s.cursor}
+		next, derr := dec.Decode(ctx, s.cursor, depth, t.elem(idx))
+		if derr == nil && ctx.typeError != nil {
+			derr = ctx.v2Error()
+		}
+		if derr != nil {
+			ctx.DiscardTypeError()
+			err = s.placeValue(derr, step, stop)
+			break
+		}
+		t.decoded(idx)
+		idx++
+		s.level(lv).Count = int64(idx)
+		s.cursor, step = next, s.offset+next
+		// the next element is in the run if it starts before its end
+		c := skipWhiteSpace(buf, next)
+		if buf[c] != ',' {
+			break
+		}
+		if c = skipWhiteSpace(buf, c+1); c >= stop {
+			break
+		}
+		s.cursor = c
+	}
+	s.buf[stop] = saved
+	ctx.Buf, ctx.origin = nil, nil
+	call.Value = StreamValue{}
+	return idx, err
+}
+
+// readsWhole reports whether decodeNestedV2 decodes a value which the buffer holds whole by dec as decodeWholeV2
+// decodes it: unless dec, or the decoder of the value which dec decodes through pointers, is one of a method or a
+// function which reads a jsontext.Decoder, which is given one attached at the value. The pointers of a type which
+// points to itself, through other types or not, lead to no other decoder: slow, which follows them at half the
+// pace, meets dec in them.
+func readsWhole(dec Decoder) bool {
+	slow := dec
+	for odd := false; ; odd = !odd {
+		switch d := dec.(type) {
+		case *v2UnmarshalFromDecoder, *v2FuncDecoder:
+			return false
+		case *ptrDecoder:
+			dec = d.dec
+		case *basicPtrDecoder:
+			dec = d.dec
+		default:
+			return true
+		}
+		if odd {
+			slow = pointeeDecoder(slow)
+		}
+		if dec == slow {
+			return true
+		}
+	}
+}
+
+// pointeeDecoder returns the decoder of the value which dec, a decoder of a pointer, decodes through it.
+func pointeeDecoder(dec Decoder) Decoder {
+	switch d := dec.(type) {
+	case *ptrDecoder:
+		return d.dec
+	case *basicPtrDecoder:
+		return d.dec
+	}
+	return dec
 }
 
 // decodeArrayElementsV2 decodes the array at the cursor into the array at p, as v2ArrayDecoder.Decode does, after

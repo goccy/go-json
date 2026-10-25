@@ -1176,8 +1176,15 @@ func nameHash(name []byte) uint64 {
 			}
 		}
 	} else {
-		for i := n - 1; i >= 0; i-- {
-			a = a<<8 | uint64(name[i])
+		// the bytes as one word, of the words of four bytes at both ends of the name, or of two, without the bytes
+		// which the second word has of the first one
+		switch {
+		case n >= 4:
+			a = uint64(binary.LittleEndian.Uint32(name)) | uint64(binary.LittleEndian.Uint32(name[n-4:]))>>(8*(8-n))<<32
+		case n >= 2:
+			a = uint64(binary.LittleEndian.Uint16(name)) | uint64(binary.LittleEndian.Uint16(name[n-2:]))>>(8*(4-n))<<16
+		case n == 1:
+			a = uint64(name[0])
 		}
 	}
 	return mixNameWords(a, b, int64(n))

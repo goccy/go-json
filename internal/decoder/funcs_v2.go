@@ -102,6 +102,10 @@ type V2Call struct {
 	// spareName is the array of a name of the path which no level has, which the next name is copied into ( see
 	// Stream.setName ).
 	spareName []byte
+	// pathNames are the places in the buffer of the stream of the last names of the levels of Path which the levels
+	// have not copied yet, one for each level ( see Stream.setNameAt ): copied before the buffer drops them or the
+	// path is read ( see Stream.copyNames ).
+	pathNames []namePlace
 	// Place is where the error which the decoding of the stream returned is found again ( see StreamPlace ).
 	Place StreamPlace
 	// names are the names of no field, and the other names which are kept, of the objects of the call which are
@@ -163,6 +167,7 @@ type v2FuncDecoder struct {
 }
 
 func (d *v2FuncDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	copyStreamNames(ctx)
 	for _, fn := range d.funcs {
 		next, err := fn.Decode(ctx, cursor, depth, p, d.typ)
 		if err != ErrUseDefault {

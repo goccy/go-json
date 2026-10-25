@@ -43,6 +43,7 @@ func TakeStreamV2(r io.Reader) *Stream {
 	call := s.ctx.V2Call()
 	call.Stream = s
 	call.Path = append(call.Path[:0], textcoder.Level{})
+	call.pathNames = append(call.pathNames[:0], namePlace{})
 	return s
 }
 
@@ -80,6 +81,7 @@ func (s *Stream) Offset() int64 {
 // Drop empties the buffer of the stream, which a decoder attached at its value read on from and failed after: the
 // stream has nothing to give back ( see Read ), as the decoding of the value fails.
 func (s *Stream) Drop() {
+	s.copyNames()
 	s.offset += s.length
 	s.cursor, s.length = 0, 0
 	s.buf[0] = nul
@@ -125,6 +127,7 @@ func (s *Stream) ReadOn(p []byte) (int, error) {
 // Resume makes the stream go on at the offset end of the input, where a decoder attached at its value stopped: in the
 // buffer, or, if the decoder read on, before rest, what it read and didn't use, which the buffer takes.
 func (s *Stream) Resume(end int64, rest []byte) {
+	s.copyNames()
 	if rest == nil {
 		s.cursor = end - s.offset
 		return
@@ -229,6 +232,8 @@ func (s *Stream) AfterTopLevel() (bool, error) {
 // setPlace records the place of an error of the decoding, which the buffer has from the total offset from up to end,
 // unless an inner value recorded its own ( see V2Call.Place ).
 func (s *Stream) setPlace(from, end int64) {
+	// the names of the path, which the error is found again with
+	s.copyNames()
 	if pl := &s.ctx.v2.Place; !pl.Set {
 		*pl = StreamPlace{From: from - s.offset, End: end, Set: true}
 	}
@@ -260,6 +265,7 @@ func (s *Stream) keepFromHere(from int64) (bool, int64) {
 // SetPath sets the path of the call of the stream to levels, the place of the next value which it decodes, copied
 // into path, whose arrays it reuses, and returns the path it had, which the caller sets back by RestorePath.
 func (s *Stream) SetPath(path, levels []textcoder.Level) []textcoder.Level {
+	s.copyNames()
 	call := s.ctx.v2
 	saved := call.Path
 	path = path[:0]
@@ -280,15 +286,19 @@ func (s *Stream) SetPath(path, levels []textcoder.Level) []textcoder.Level {
 		path[n].Name = name
 	}
 	call.Path = path
+	call.pathNames = append(call.pathNames[:0], make([]namePlace, len(path))...)
 	return saved
 }
 
 // RestorePath sets the path of the call of the stream back to saved, which SetPath returned, and returns the path
 // which it set, whose arrays the caller keeps for the next SetPath.
 func (s *Stream) RestorePath(saved []textcoder.Level) []textcoder.Level {
+	s.copyNames()
 	call := s.ctx.v2
 	path := call.Path
 	call.Path = saved
+	// the names of saved were copied when it was set aside ( see SetPath )
+	call.pathNames = append(call.pathNames[:0], make([]namePlace, len(saved))...)
 	return path
 }
 
@@ -296,7 +306,9 @@ func (s *Stream) RestorePath(saved []textcoder.Level) []textcoder.Level {
 // its index.
 func (s *Stream) pushLevel(object bool) int {
 	call := s.ctx.v2
-	if n := len(call.Path); n < cap(call.Path) {
+	n := len(call.Path)
+	call.pathNames = append(call.pathNames[:n], namePlace{})
+	if n < cap(call.Path) {
 		// the entry, whose name keeps its array for the names of the level
 		call.Path = call.Path[:n+1]
 		l := &call.Path[n]
@@ -304,7 +316,7 @@ func (s *Stream) pushLevel(object bool) int {
 		return n
 	}
 	call.Path = append(call.Path, textcoder.Level{Object: object})
-	return len(call.Path) - 1
+	return n
 }
 
 // level returns the level i of the path.
@@ -314,7 +326,8 @@ func (s *Stream) level(i int) *textcoder.Level {
 
 // popLevel removes the level i, which ended, from the path.
 func (s *Stream) popLevel(i int) {
-	s.ctx.v2.Path = s.ctx.v2.Path[:i]
+	call := s.ctx.v2
+	call.Path, call.pathNames = call.Path[:i], call.pathNames[:i]
 }
 
 // decodeNestedV2 decodes the value at the cursor, nested in depth objects and arrays, by dec into p: whole if the
@@ -446,6 +459,7 @@ func (s *Stream) decodeAttached(typ reflect.Type, p unsafe.Pointer, depth, from 
 	call := ctx.v2
 	call.Value = StreamValue{From: from - s.offset, Start: s.cursor, ReadsOn: true}
 	start := s.offset + s.cursor
+	s.copyNames()
 	var err error
 	if fn != nil {
 		_, err = fn.Decode(ctx, s.cursor, depth, p, typ)
@@ -598,6 +612,47 @@ func (s *Stream) setName(lv, k int) {
 	l := &call.Path[lv]
 	l.Count = int64(2*k + 1)
 	l.Name, call.spareName = call.spareName, l.Name[:0]
+	call.pathNames[lv].to = 0
+}
+
+// namePlace is the place of a name of an object in the buffer of a stream: the total offsets of its first byte and of
+// the byte after it, inside the quotes. A place whose end is 0 is no name: a name is after a quote, at 1 at least.
+type namePlace struct {
+	from, to int64
+}
+
+// setNameAt makes the name of the buffer from the total offset from up to to, inside its quotes, which the buffer
+// keeps, the last name of the level lv of the path, of its member k, whose colon is read, as setName does for a name
+// which copyName copied: the level has the name by its place, until copyNames copies it, before the buffer drops it.
+func (s *Stream) setNameAt(lv, k int, from, to int64) {
+	call := s.ctx.v2
+	call.Path[lv].Count = int64(2*k + 1)
+	call.pathNames[lv] = namePlace{from: from, to: to}
+}
+
+// copyNames copies the names which the levels of the path have by their places in the buffer ( see setNameAt )
+// into the levels: before the buffer drops them or moves its bytes, and before the path is read, by the error of
+// the decoding or by a method or a function which reads a jsontext.Decoder.
+func (s *Stream) copyNames() {
+	call := s.ctx.v2
+	for i, np := range call.pathNames {
+		if np.to == 0 {
+			continue
+		}
+		l := &call.Path[i]
+		if l.Name = append(l.Name[:0], s.buf[np.from-s.offset:np.to-s.offset]...); l.Name == nil {
+			l.Name = []byte{} // the name "", which is a name
+		}
+		call.pathNames[i].to = 0
+	}
+}
+
+// copyStreamNames copies the names of the path of the stream which ctx decodes, if it decodes one ( see
+// Stream.copyNames ), for a method or a function which reads a jsontext.Decoder, which may read the path.
+func copyStreamNames(ctx *RuntimeContext) {
+	if call := ctx.v2; call != nil && call.Stream != nil {
+		call.Stream.copyNames()
+	}
 }
 
 // decodeStructElementsV2 decodes the object at the cursor into the struct at p, as v2StructDecoder.Decode does, after
@@ -736,26 +791,31 @@ func (s *Stream) decodeStructMembersV2(d *v2StructDecoder, p unsafe.Pointer, dep
 			return nil
 		}
 		field, _, plain := plainFieldV2(d.keyDecoder.keys, s.buf[:s.length+1], start)
-		name := s.buf[start+1 : s.cursor-1]
 		if !plain {
-			// a name which v2StructDecoder.Decode finds by memberOf
+			// a name which v2StructDecoder.Decode finds by memberOf, which is copied decoded
 			candidate, _, err := d.keyDecoder.decodeKey(s.buf[:s.length+1], start, false)
 			if err != nil {
 				return s.placeAt(err, step)
 			}
+			var name []byte
 			if field, name, err = d.memberOf(ctx, s.buf[start:s.cursor], candidate); err != nil {
 				if e, ok := err.(*errors.UnmarshalError); ok {
 					e.Start = start
 				}
 				return s.placeAt(err, step)
 			}
+			s.copyName(name)
 		}
-		s.copyName(name)
-		nameEnd := s.offset + s.cursor
+		// the name as the buffer has it, inside its quotes, which is kept up to the colon
+		nameFrom, nameEnd := s.offset+start+1, s.offset+s.cursor
 		if err := s.memberValue(); err != nil {
 			return s.placeAt(err, step)
 		}
-		s.setName(lv, k)
+		if plain {
+			s.setNameAt(lv, k, nameFrom, nameEnd-1)
+		} else {
+			s.setName(lv, k)
+		}
 		switch {
 		case field == nil:
 			s.keeps, s.keepFrom = keeps, keepFrom
@@ -840,6 +900,7 @@ func (s *Stream) skipValueV2(depth, from int64) error {
 	if !whole {
 		call := s.ctx.v2
 		call.Value = StreamValue{From: from - s.offset, Start: s.cursor, ReadsOn: true}
+		s.copyNames()
 		err := V2Hooks.SkipStreamValue(s, depth)
 		call.Value = StreamValue{}
 		return err

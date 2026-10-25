@@ -42,6 +42,14 @@ type udOuter struct {
 	C int
 }
 
+// udLong is a struct of members whose values are objects and arrays of objects, which a stream decodes element by
+// element when they are long.
+type udLong struct {
+	A udInner
+	L []udInner
+	M map[string]udInner
+}
+
 type udOuterPtr struct {
 	*udInner
 	C int
@@ -397,6 +405,14 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct long name of another case with dashes insensitive", in: `{"long-name":1,"LongName":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
 		{name: "struct long string after white space which a read cuts", in: `{"A":1,` + strings.Repeat(" ", 600) + `"B": "` + strings.Repeat("a", 600) + `"}`, out: outOf(udInner{})},
 		{name: "struct long string of invalid UTF-8 after white space which a read cuts", in: `{"A":1,` + strings.Repeat(" ", 600) + `"B": "` + strings.Repeat("a", 600) + "\xff\"}", out: outOf(udInner{})},
+		{name: "struct syntax error deep after a long member", in: `{"A":{"A":1,"B":"` + strings.Repeat("a", 1200) + `"},"L":[{"A":1},{"A":2,"B":x}]}`, out: outOf(udLong{})},
+		{name: "struct syntax error deep after a long member allowing both", in: `{"A":{"A":1,"B":"` + strings.Repeat("a", 1200) + `"},"L":[{"A":1},{"A":2,"B":x}]}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct syntax error at the end of a long member", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":2,"B":x}]}`, out: outOf(udLong{})},
+		{name: "struct syntax error at the end of a long member allowing both", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":2,"B":x}]}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct type error at the end of a long member", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":"2"}]}`, out: outOf(udLong{})},
+		{name: "struct type error at the end of a long member allowing both", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":"2"}]}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct type error in a map of a long member allowing both", in: `{"M":{` + strings.Repeat(`"k":{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `"last":{"B":2}}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct type error after a name cut by a read allowing both", in: `{"A":{"B":"` + strings.Repeat("a", 500) + `"},"L":[{"A":1}],"A":{"A":1,"B":"` + strings.Repeat("a", 490) + `"},"A":{"A":"x"}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
 		{name: "struct name of invalid UTF-8 of the replacement character", in: "{\"\xff\":1}", out: outOf(udReplacement{})},
 		{name: "struct name of invalid UTF-8 of the replacement character insensitive", in: "{\"\xff\":1}", out: outOf(udReplacement{}), opts: insensitive},
 		{name: "struct name of invalid UTF-8 of the replacement character allowed insensitive", in: "{\"\xff\":1,\"K\":2}", out: outOf(udReplacement{}), opts: unmarshalDiffOptions{allowInvalidUTF8: true, matchCaseInsensitiveNames: true}},

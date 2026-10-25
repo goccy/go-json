@@ -127,6 +127,10 @@ func (s *Stream) read() bool {
 // a new one, as the old buffer is left to the strings which refer to it, or the same one, if nothing refers to it
 // ( see bracketIndex.buf ) and it has room for the bytes.
 func (s *Stream) grow() {
+	if call := s.ctx.v2; call != nil && len(call.pathNames) != 0 {
+		// the names of the path which the levels have by their places in the buffer, which the bytes are moved from
+		s.copyNames()
+	}
 	// the bytes from the cursor are moved, or from the one which is kept before it
 	from := s.cursor
 	if keep := s.keepFrom - s.offset; s.keeps && keep >= 0 && keep < from {

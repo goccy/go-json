@@ -66,6 +66,7 @@ type v2UnmarshalFromDecoder struct {
 }
 
 func (d *v2UnmarshalFromDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	copyStreamNames(ctx)
 	end, err := V2Hooks.UnmarshalFrom(ctx, cursor, depth, d.typ, p)
 	if err == ErrUseDefault {
 		return d.next.Decode(ctx, cursor, depth, p)

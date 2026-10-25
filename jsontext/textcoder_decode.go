@@ -325,15 +325,12 @@ func takeSkipper(allowDuplicateNames, allowInvalidUTF8 bool) unsafe.Pointer {
 // releaseSkipper is textcoder.ReleaseSkipper.
 func releaseSkipper(skipper unsafe.Pointer) { putEncoder((*encoder)(skipper)) }
 
-// validValue is textcoder.ValidValue: v is checked as Value.IsValid checks it.
+// validValue is textcoder.ValidValue: v is checked as Value.IsValid checks it, by the scanner of the skipper, which
+// doesn't write it and reports no place of an error: the count of the innermost level, which only the places tell,
+// goes on.
 func validValue(skipper unsafe.Pointer, v []byte) bool {
-	end, ok := (*encoder)(skipper).vs.readSkipped(v, 0, false)
-	return ok && end == len(v)
-}
-
-// skipNested is textcoder.SkipNested.
-func skipNested(skipper unsafe.Pointer, b []byte, i int) (int, bool) {
-	return (*encoder)(skipper).vs.readSkipped(b, i, true)
+	end, err := (*encoder)(skipper).vs.scan(v, 0)
+	return err == nil && end == len(v)
 }
 
 // readPlace reads the value at the start of the input of dec as read says, and returns the syntax error it meets,

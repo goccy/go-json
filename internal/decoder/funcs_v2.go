@@ -104,6 +104,9 @@ type V2Call struct {
 	// names are the names of no field, and the other names which are kept, of the objects of the call which are
 	// being decoded ( see nameSet ), which their arrays are used again for.
 	names callNames
+	// skipNames are the sets of the names of the objects which skipFastV2 skips, by their levels in the value it
+	// skips, which it opens 64 of at most ( see skipMaxLevel ).
+	skipNames [64]nameSet
 	// skippers are the scanners of jsontext which read the values that the call skips ( see textcoder.TakeSkipper ),
 	// by the options of the names of an object twice and of invalid UTF-8 which leave them something to read ( see
 	// skipperOf ), taken by the first value and put back when the context is released.

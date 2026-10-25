@@ -1137,10 +1137,11 @@ func (s *nameSet) insert(call *V2Call, buf, name []byte, at int64) bool {
 	return true
 }
 
-// end drops the names of the set from the names of the call, at the end of its object.
+// end drops the names of the set from the names of the call, and its map, at the end of its object.
 func (s *nameSet) end(call *V2Call) {
 	if s.n != 0 {
 		call.names.truncate(s.first, s.copies)
+		s.set = nil
 	}
 }
 

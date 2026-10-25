@@ -558,38 +558,6 @@ func unquotedName(quoted []byte) []byte {
 	return decodeLiteral(raw, info)
 }
 
-// skipValueV2 skips the value at cursor, which v2 reads whole: it must have the text which v2 allows ( see
-// textcoder.ValidValue ), which a value without an object, a byte which is not ASCII or an escape has. A value which
-// jsontext reads anyway, where names twice are rejected, is skipped and read for its text in one scan of jsontext,
-// unless the scan fails ( see textcoder.SkipNested ): then v1 skips it, for its errors, and jsontext reads it again.
-// Any other value is skipped by v1, whose skip is faster than the scan, and read by jsontext only if it has to be.
-func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
-	buf := ctx.Buf
-	start := skipWhiteSpace(buf, cursor)
-	if c := buf[start]; (c == '{' || c == '[' && buf[skipWhiteSpace(buf, start+1)] == '{') && ctx.Option.V2&V2AllowDuplicateNames == 0 && depth <= maxDecodeNestingDepth-64 {
-		// the values which jsontext reads anyway, for their names: an object, and an array which has one, as its
-		// first element shows. v1 skips no less deep a value than the scan of jsontext, which reads 64 levels ( see
-		// skipMaxLevel ).
-		if end, ok := textcoder.SkipNested(skipperOf(ctx), buf, int(start)); ok {
-			return int64(end), nil
-		}
-	}
-	end, err := skipValue(buf, start, depth)
-	if err != nil {
-		return 0, err
-	}
-	// a number and a literal, which skipValue found of their grammar, are of ASCII without an escape, and they
-	// and a string have no name
-	v, c := buf[start:end], buf[start]
-	container := c == '{' || c == '['
-	scanNames := container && ctx.Option.V2&V2AllowDuplicateNames == 0 && bytes.IndexByte(v, '{') >= 0
-	scanUTF8 := (container || c == '"') && ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(v)
-	if (scanNames || scanUTF8) && !textcoder.ValidValue(skipperOf(ctx), v) {
-		return 0, errV2Text
-	}
-	return end, nil
-}
-
 // skipperOf returns the skipper of the call of ctx of its options, which it takes for the first value: the options
 // of a call which a method makes on the context of the call around it may differ. A value is read by a skipper only
 // for names twice or invalid UTF-8, which the options don't both allow.

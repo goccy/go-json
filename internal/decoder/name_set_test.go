@@ -1,9 +1,12 @@
 package decoder
 
 import (
+	"encoding/binary"
+	"math/bits"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The sets of the names of the objects of a call share the names of the call: an object's names are its own, after
@@ -174,5 +177,58 @@ func TestCallNamesRelease(t *testing.T) {
 	many.end(call)
 	if call.names.entries != nil || call.names.copies != nil {
 		t.Fatalf("after the end of an object of many names: arrays of %d entries and %d bytes kept", cap(call.names.entries), cap(call.names.copies))
+	}
+}
+
+// oneHashName returns the name i of 16 bytes of ASCII, whose hash is the one of every such name ( see nameHash ): its
+// first word differs by the bits of i in its bytes, and its last word by the same bits rotated back by the 29 bits
+// which nameHash rotates the last word by, so that the rotation and the xor of the two words cancel them.
+func oneHashName(i int) []byte {
+	var d uint64
+	for k := range 8 {
+		d |= uint64(i>>(3*k)&7) << (8 * k)
+	}
+	name := make([]byte, 16)
+	binary.LittleEndian.PutUint64(name, 0x4040404040404040^d)
+	binary.LittleEndian.PutUint64(name[8:], 0x4040404040404040^bits.RotateLeft64(d, -29))
+	return name
+}
+
+// The names of an object of many names which have one hash are found in the time of as many names of other hashes,
+// not in a time of the square of their number: past maxListedNames, they are found by the map, whose hash the input
+// doesn't choose.
+func TestNameSetOfNamesOfOneHash(t *testing.T) {
+	const n = 40000
+	if h := nameHash(oneHashName(0)); nameHash(oneHashName(n-1)) != h || nameHash(oneHashName(n/2)) != h {
+		t.Fatal("the names have other hashes")
+	}
+	timeOf := func(nameOf func(int) []byte) time.Duration {
+		var input []byte
+		at := make([]int64, n)
+		for i := range n {
+			at[i] = int64(len(input))
+			input = append(input, nameOf(i)...)
+		}
+		best := time.Duration(1 << 62)
+		for range 3 {
+			call := new(V2Call)
+			var s nameSet
+			began := time.Now()
+			for i := range n {
+				if !s.add(call, input, at[i], at[i]+16) {
+					t.Fatalf("name %d: had it", i)
+				}
+			}
+			best = min(best, time.Since(began))
+			if s.add(call, input, at[n/2], at[n/2]+16) {
+				t.Fatal("didn't have a name twice")
+			}
+		}
+		return best
+	}
+	same := timeOf(oneHashName)
+	other := timeOf(func(i int) []byte { return []byte(strconv.Itoa(1e15 + i)) })
+	if same > 20*other+50*time.Millisecond {
+		t.Fatalf("%d names of one hash in %v, of other hashes in %v", n, same, other)
 	}
 }

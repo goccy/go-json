@@ -81,3 +81,36 @@ func TestMarshalOfKeepsNoFunctions(t *testing.T) {
 		t.Fatal("the functions are kept alive after the call")
 	}
 }
+
+// Unmarshal and UnmarshalRead with functions keep neither the functions nor what they refer to after the call: the
+// options of a call, which the pooled context holds, are cleared at its end.
+func TestUnmarshalKeepsNoFunctions(t *testing.T) {
+	for name, unmarshal := range map[string]func(in []byte, v any, opts ...Options) error{
+		"Unmarshal":     Unmarshal,
+		"UnmarshalRead": func(in []byte, v any, opts ...Options) error { return UnmarshalRead(bytes.NewReader(in), v, opts...) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			collected := make(chan struct{}, 1)
+			func() {
+				captured := new([64]byte)
+				runtime.SetFinalizer(captured, func(*[64]byte) { collected <- struct{}{} })
+				funcs := WithUnmarshalers(UnmarshalFunc(func(b []byte, v *int) error {
+					_ = captured
+					*v = 1
+					return nil
+				}))
+				var v struct{ A, B int }
+				if err := unmarshal([]byte(`{"A":2,"B":3}`), &v, funcs); err != nil {
+					t.Fatal(err)
+				}
+			}()
+			// Only one GC: the pool releases what it has after a few, whatever it holds.
+			runtime.GC()
+			select {
+			case <-collected:
+			case <-time.After(10 * time.Second):
+				t.Fatal("the functions are kept alive after the call")
+			}
+		})
+	}
+}

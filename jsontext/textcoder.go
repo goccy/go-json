@@ -27,7 +27,6 @@ func init() {
 	textcoder.TakeSkipper = takeSkipper
 	textcoder.ReleaseSkipper = releaseSkipper
 	textcoder.ValidValue = validValue
-	textcoder.SkipNested = skipNested
 }
 
 // encoderPosition returns the levels of enc and the offset of its next value.

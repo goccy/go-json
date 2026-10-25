@@ -31,8 +31,9 @@ func Benchmark_Decode_LargeSlice_EscapedString_GoJsonV2(b *testing.B) {
 	benchDecode[[]string](b, LargeSliceEscapedString, unmarshalV2)
 }
 
-// unmarshalV2Insensitive decodes as unmarshalV2 does, with the names matched without regard to their case, as v1
-// matches them: the fields of the payloads of these benchmarks have no tags, and their objects lowercase names.
+// unmarshalV2Insensitive decodes as unmarshalV2 does, with the names matched regardless of their case, and of their
+// dashes and underscores, which v1 doesn't ignore: by more than v1 matches them, into the structs of the payloads of
+// fields without tags, whose objects have the names in other cases than the fields ( see smallPayloadTagged ).
 func unmarshalV2Insensitive(data []byte, v any) error {
 	return gojsonv2.Unmarshal(data, v, gojsonv2.MatchCaseInsensitiveNames(true))
 }
@@ -49,15 +50,31 @@ func Benchmark_Decode_TwitterBinding_Unmarshal_GoJsonV2(b *testing.B) {
 	benchDecode[TwitterStruct](b, []byte(TwitterJson), unmarshalV2)
 }
 
+// The payloads of fields without tags are decoded into the structs with the tags, without options,
+// beside go-json's own into the ones without them ( see smallPayloadTagged ), and with MatchCaseInsensitiveNames
+// into the ones without them, which matches the names by more than v1 does.
+
 func Benchmark_Decode_SmallStruct_Unmarshal_GoJsonV2(b *testing.B) {
-	benchDecode[SmallPayload](b, SmallFixture, unmarshalV2Insensitive)
+	benchDecode[smallPayloadTagged](b, SmallFixture, unmarshalV2)
 }
 
 func Benchmark_Decode_MediumStruct_Unmarshal_GoJsonV2(b *testing.B) {
-	benchDecode[MediumPayload](b, MediumFixture, unmarshalV2Insensitive)
+	benchDecode[mediumPayloadTagged](b, MediumFixture, unmarshalV2)
 }
 
 func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonV2(b *testing.B) {
+	benchDecode[largePayloadTagged](b, LargeFixture, unmarshalV2)
+}
+
+func Benchmark_Decode_SmallStruct_Unmarshal_GoJsonV2CaseInsensitive(b *testing.B) {
+	benchDecode[SmallPayload](b, SmallFixture, unmarshalV2Insensitive)
+}
+
+func Benchmark_Decode_MediumStruct_Unmarshal_GoJsonV2CaseInsensitive(b *testing.B) {
+	benchDecode[MediumPayload](b, MediumFixture, unmarshalV2Insensitive)
+}
+
+func Benchmark_Decode_LargeStruct_Unmarshal_GoJsonV2CaseInsensitive(b *testing.B) {
 	benchDecode[LargePayload](b, LargeFixture, unmarshalV2Insensitive)
 }
 
@@ -133,6 +150,10 @@ func Benchmark_Decode_GitHubREST_Unmarshal_GoJsonV2(b *testing.B) {
 }
 
 func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonV2(b *testing.B) {
+	benchDecode[gitHubGraphQLIssuesTagged](b, githubGraphQLIssues, unmarshalV2)
+}
+
+func Benchmark_Decode_GitHubGraphQL_Unmarshal_GoJsonV2CaseInsensitive(b *testing.B) {
 	benchDecode[GitHubGraphQLIssues](b, githubGraphQLIssues, unmarshalV2Insensitive)
 }
 
@@ -154,10 +175,18 @@ func newGoJsonV2ReadInsensitiveDecoder(r io.Reader) streamDecoder {
 }
 
 func Benchmark_Decode_SmallStruct_ChunkedStream_GoJsonV2(b *testing.B) {
-	benchStream(b, streamSmallPayload, newGoJsonV2ReadInsensitiveDecoder)
+	benchStream(b, streamSmallTaggedPayload, newGoJsonV2ReadDecoder)
 }
 
 func Benchmark_Decode_MediumStruct_ChunkedStream_GoJsonV2(b *testing.B) {
+	benchStream(b, streamMediumTaggedPayload, newGoJsonV2ReadDecoder)
+}
+
+func Benchmark_Decode_SmallStruct_ChunkedStream_GoJsonV2CaseInsensitive(b *testing.B) {
+	benchStream(b, streamSmallPayload, newGoJsonV2ReadInsensitiveDecoder)
+}
+
+func Benchmark_Decode_MediumStruct_ChunkedStream_GoJsonV2CaseInsensitive(b *testing.B) {
 	benchStream(b, streamMediumPayload, newGoJsonV2ReadInsensitiveDecoder)
 }
 

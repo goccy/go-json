@@ -227,7 +227,7 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		return strings.Repeat(`{"R":`, around-1) + `{"Z":` + strings.Repeat("[", levels) + strings.Repeat("]", levels) +
 			strings.Repeat("}", around)
 	}
-	return []unmarshalDiffCase{
+	cases := []unmarshalDiffCase{
 		{name: "struct", in: `{"X":1,"y":2}`, out: outOf(udPoint{})},
 		{name: "struct merged", in: `{"y":2}`, out: outOf(udPoint{X: 5, Y: 6})},
 		{name: "struct null", in: `null`, out: outOf(udPoint{X: 5})},
@@ -460,6 +460,7 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct string option pointer to a slice", in: `{"P":["1"]}`, out: outOf(udStringOptionMore{})},
 		{name: "struct string option rejected value of a syntax error", in: `{"S":{"A":}}`, out: outOf(udStringOptionMore{})},
 	}
+	return append(cases, skippedValueCases()...)
 }
 
 type udDuration struct{ D time.Duration }

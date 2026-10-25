@@ -5,7 +5,6 @@ import (
 	"errors"
 	"reflect"
 	"runtime"
-	"sync"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
@@ -168,10 +167,6 @@ type emptyInterface struct {
 	ptr unsafe.Pointer
 }
 
-// configPool holds the configs of the options of the calls which have options, which would escape on the stack:
-// they are applied by the calls of their interface.
-var configPool = sync.Pool{New: func() any { return new(options.Config) }}
-
 // noOptions is the config of a call without options.
 var noOptions options.Config
 
@@ -184,11 +179,12 @@ func unmarshalInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Point
 	return err
 }
 
-// beginCall sets ctx for a call by the options, and returns their config, which endCall drops.
+// beginCall sets ctx for a call by the options, and returns their config, which endCall drops: the config of the call
+// of ctx, which would escape on the stack, as the options are applied by the calls of their interface.
 func beginCall(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 	cfg := &noOptions
 	if len(opts) > 0 {
-		cfg = configPool.Get().(*options.Config)
+		cfg = &ctx.V2Call().Options
 		cfg.Apply(opts)
 	}
 	setCall(ctx, cfg)
@@ -216,7 +212,6 @@ func endCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 	if cfg != &noOptions {
 		// the config may hold the functions of the caller
 		*cfg = options.Config{}
-		configPool.Put(cfg)
 	}
 }
 

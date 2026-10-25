@@ -274,10 +274,9 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 		dc.stream = s
 	}
 	s.BeginV2(input)
-	// the buffer of the decoder, which the stream reads in place if it can, and its offset and the end of its input,
-	// by which the decoder is found to have read more for the stream
+	// the buffer of the decoder, which the stream reads in place if it can, and its offset, by which the decoder is
+	// found to have dropped bytes of its input for the stream
 	_, base, _ := textcoder.DecoderBuffer(d)
-	read := int64(len(buf)) + from
 	if s.BorrowV2(d, from) {
 		*input = lentInput{r: r}
 	} else {
@@ -288,10 +287,12 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 	s.SetPath(ctx.V2Call().Path, levels)
 	setCall(ctx, cfg)
 	err = decodeStreamValue(s, typ, p, int64(depth), from, start)
-	// moved is set if the stream read past the input of the decoder: from its reader, or through the decoder into
-	// its buffer, which moves it, and the decoder goes on from the rest which the stream read
-	b, b0, _ := textcoder.DecoderBuffer(d)
-	moved := input.readR || b0 != base || int64(len(b))+b0 != read
+	// moved is set if the decoder has the input of the value no more where it was: the stream read it from the
+	// reader of the decoder, or through the decoder into its buffer, which moved its bytes to read more, dropping the
+	// ones before the ones which the stream kept. The decoder goes on from the rest which the stream read then. The
+	// bytes which the stream read through the decoder into the room after its input are where the decoder reads them.
+	_, b0, _ := textcoder.DecoderBuffer(d)
+	moved := input.readR || b0 != base
 	if err == nil {
 		var rest []byte
 		if moved {

@@ -40,6 +40,42 @@ func TestUnmarshalDecodeNameErrorReadsNoMore(t *testing.T) {
 	}
 }
 
+// failingAtOnce fails without reading its value.
+type failingAtOnce struct{}
+
+var errFailingAtOnce = errors.New("failed without reading")
+
+func (*failingAtOnce) UnmarshalJSONFrom(*jsontext.Decoder) error { return errFailingAtOnce }
+
+// After the error of a method which read nothing of its value, a member of an object which the first read of the
+// decoder ends in, the decoder is before the object, which it still has: the stream which decodes the object member
+// by member, which gives the method a decoder of its own, read the rest of the object into the room of the buffer of
+// the decoder, after the bytes it had, if it read more. After the error of a method of an object which the first read
+// holds whole, the decoder is after the object.
+func TestUnmarshalDecodeMethodErrorKeepsValue(t *testing.T) {
+	const object = `{"B":3,"A":1,"C":2}`
+	in := object + ` 5`
+	for i := 1; i < len(in); i++ {
+		for _, opts := range [][]json.Options{nil, {jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true)}} {
+			dec := jsontext.NewDecoder(io.MultiReader(strings.NewReader(in[:i]), strings.NewReader(in[i:])))
+			var v struct {
+				A    failingAtOnce
+				B, C int
+			}
+			if err := json.UnmarshalDecode(dec, &v, opts...); !errors.Is(err, errFailingAtOnce) {
+				t.Fatalf("first read of %d bytes: got %v", i, err)
+			}
+			want := object
+			if i >= len(object) {
+				want = "5"
+			}
+			if next, err := dec.ReadValue(); err != nil || string(next) != want {
+				t.Fatalf("first read of %d bytes, options %v: after the error: %s, %v, want %s", i, opts, next, err, want)
+			}
+		}
+	}
+}
+
 func TestUnmarshalDecodeOf(t *testing.T) {
 	type record struct {
 		Name string `json:"name"`

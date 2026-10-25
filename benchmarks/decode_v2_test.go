@@ -3,6 +3,7 @@ package benchmark
 import (
 	"io"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,6 +118,27 @@ func Benchmark_Decode_Times_Unmarshal_GoJson(b *testing.B) {
 
 func Benchmark_Decode_Times_Unmarshal_GoJsonV2(b *testing.B) {
 	benchDecode[[]time.Time](b, timesDocument, unmarshalV2)
+}
+
+func unmarshalV2DuplicateNames(data []byte, v any) error {
+	return gojsonv2.Unmarshal(data, v, gojsontext.AllowDuplicateNames(true))
+}
+
+// Benchmark_Decode_DeepDuplicateNames_Unmarshal_GoJsonV2 decodes into an interface{} an input whose object 1,000
+// levels deep has a name twice, which AllowDuplicateNames allows: the input is decoded again once, by the merging of
+// v2, not once for each level around the object, which would make it tens of times slower, as the comparison with
+// master notices.
+func Benchmark_Decode_DeepDuplicateNames_Unmarshal_GoJsonV2(b *testing.B) {
+	for _, c := range []struct{ name, open, close string }{
+		{"objects", `{"a":`, `}`},
+		{"arrays", `[`, `]`},
+		{"objects_in_arrays", `[{"a":`, `}]`},
+	} {
+		data := []byte(strings.Repeat(c.open, 1000) + `{"x":1,"x":2}` + strings.Repeat(c.close, 1000))
+		b.Run(c.name, func(b *testing.B) {
+			benchDecode[any](b, data, unmarshalV2DuplicateNames)
+		})
+	}
 }
 
 // TestGitHubPayloadsV2 checks that the v2 decoding of the payloads of the GitHub API gives the values of go-json's

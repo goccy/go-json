@@ -12,6 +12,34 @@ import (
 	json "github.com/goccy/go-json/v2"
 )
 
+// endReader gives its input at the first read, and fails the test at a read after it: the input of a reader which
+// would block there.
+type endReader struct {
+	t   *testing.T
+	in  string
+	end bool
+}
+
+func (r *endReader) Read(p []byte) (int, error) {
+	if r.end {
+		r.t.Errorf("a read after the input %q, which a reader which blocks would not return", r.in)
+		return 0, io.EOF
+	}
+	r.end = true
+	return copy(p, r.in), nil
+}
+
+// The syntax error of a name twice in an object, before its colon, is returned without a read of the input after
+// the colon, which a reader which blocks would not give.
+func TestUnmarshalDecodeNameErrorReadsNoMore(t *testing.T) {
+	in := `{"A":1,"A":`
+	dec := jsontext.NewDecoder(&endReader{t: t, in: in})
+	var v struct{ A int }
+	if err := json.UnmarshalDecode(dec, &v); err == nil {
+		t.Fatalf("%s: no error", in)
+	}
+}
+
 func TestUnmarshalDecodeOf(t *testing.T) {
 	type record struct {
 		Name string `json:"name"`

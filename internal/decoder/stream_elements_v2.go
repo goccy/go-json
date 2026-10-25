@@ -246,6 +246,34 @@ func (s *Stream) placeAt(err error, from int64) error {
 	return err
 }
 
+// placeDelimiterError is placeAt for err, the error of the next member or element of an object or an array which is
+// read token by token, after from, the end of the token before it: an error at a comma or a colon, which is not
+// one where it is, is found again after the byte after it which is not white space has been read, as encoding/json/v2
+// reads the token after a delimiter before it reports the delimiter, and its error tells that token.
+func (s *Stream) placeDelimiterError(err error, from int64) error {
+	if c := s.buf[s.cursor]; c == ',' || c == ':' {
+		s.readPastDelimiter(from)
+	}
+	return s.placeAt(err, from)
+}
+
+// readPastDelimiter reads the input after the comma or the colon at the cursor, keeping the bytes from the total
+// offset from, up to the first byte after it which is not white space, or the end of the input.
+func (s *Stream) readPastDelimiter(from int64) {
+	keeps, keepFrom := s.keepFromHere(from)
+	at := s.offset + s.cursor + 1
+	for {
+		p := at - s.offset
+		for p < s.length && isWhiteSpace[s.buf[p]] {
+			p++
+		}
+		if at = s.offset + p; p < s.length || !s.read() {
+			break
+		}
+	}
+	s.keeps, s.keepFrom = keeps, keepFrom
+}
+
 // placeValue is placeAt for the value at the cursor, which ends at end.
 func (s *Stream) placeValue(err error, from, end int64) error {
 	s.setPlace(from, end)
@@ -680,7 +708,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		keeps, keepFrom := s.keepFromHere(step)
 		quoted, ok, err := s.nextMemberV2(k == 0)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			unknown.end(ctx.v2)
@@ -783,7 +811,7 @@ func (s *Stream) decodeStructMembersV2(d *v2StructDecoder, p unsafe.Pointer, dep
 		}
 		_, _, start, ok, err := s.nextMember(k == 0)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			s.keeps, s.keepFrom = keeps, keepFrom
@@ -944,7 +972,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 		keeps, keepFrom := s.keepFromHere(step)
 		quoted, ok, err := s.nextMemberV2(i == 0)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			names.end(ctx.v2)
@@ -1034,7 +1062,7 @@ func (s *Stream) decodeSliceElementsV2(d *v2SliceDecoder, p unsafe.Pointer, dept
 		if err != nil || !ok {
 			t.finish(idx, idx, err)
 			if err != nil {
-				return s.placeAt(err, step)
+				return s.placeDelimiterError(err, step)
 			}
 			s.popLevel(lv)
 			return nil
@@ -1162,7 +1190,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 	for idx := 0; ; idx++ {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			for ; idx < d.alen; idx++ {
@@ -1270,7 +1298,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		keeps, keepFrom := s.keepFromHere(step)
 		quoted, ok, err := s.nextMemberV2(k == 0)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			names.end(ctx.v2)
@@ -1319,7 +1347,7 @@ func (s *Stream) decodeAnyArrayV2(d *v2InterfaceDecoder, a *[]any, depth, from i
 	for idx := 0; ; idx++ {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			s.popLevel(lv)

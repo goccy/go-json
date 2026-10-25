@@ -42,6 +42,13 @@ type udOuter struct {
 	C int
 }
 
+// udIntField, udStringField, udRawField and udMapField have a field whose value encoding/json/v2 reads whole, as its
+// kind is not the one of the value or it is raw, or by a map of values which it reads whole.
+type udIntField struct{ A int }
+type udStringField struct{ A string }
+type udRawField struct{ A jsontext.Value }
+type udMapField struct{ A map[string]int }
+
 // udLong is a struct of members whose values are objects and arrays of objects, which a stream decodes element by
 // element when they are long.
 type udLong struct {
@@ -412,6 +419,14 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct type error at the end of a long member", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":"2"}]}`, out: outOf(udLong{})},
 		{name: "struct type error at the end of a long member allowing both", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":"2"}]}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
 		{name: "struct type error in a map of a long member allowing both", in: `{"M":{` + strings.Repeat(`"k":{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `"last":{"B":2}}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct colon after a value of a member", in: `{"A":{"A":1:}}`, out: outOf(udLong{})},
+		{name: "struct colon after an element of a member", in: `{"L":[{"A":1}:]}`, out: outOf(udLong{})},
+		{name: "struct colon after a value of a member allowing both", in: `{"A":{"A":1:}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct colon in a value read whole of an int", in: `{"A":[1:]}`, out: outOf(udIntField{})},
+		{name: "struct colon in a value read whole of an int allowing both", in: `{"A":[1:]}`, out: outOf(udIntField{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct colon in a value read whole of a string", in: `{"A":[1:]}`, out: outOf(udStringField{})},
+		{name: "struct colon in a raw value", in: `{"A":[1:]}`, out: outOf(udRawField{})},
+		{name: "struct colon in a value of a map read whole", in: `{"A":{"a":[1:]}}`, out: outOf(udMapField{})},
 		{name: "struct type error after a name cut by a read allowing both", in: `{"A":{"B":"` + strings.Repeat("a", 500) + `"},"L":[{"A":1}],"A":{"A":1,"B":"` + strings.Repeat("a", 490) + `"},"A":{"A":"x"}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
 		{name: "struct name of invalid UTF-8 of the replacement character", in: "{\"\xff\":1}", out: outOf(udReplacement{})},
 		{name: "struct name of invalid UTF-8 of the replacement character insensitive", in: "{\"\xff\":1}", out: outOf(udReplacement{}), opts: insensitive},

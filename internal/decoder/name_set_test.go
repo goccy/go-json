@@ -227,7 +227,7 @@ func TestNameSetOfNamesOfOneHash(t *testing.T) {
 		return best
 	}
 	same := timeOf(oneHashName)
-	other := timeOf(func(i int) []byte { return []byte(strconv.Itoa(1e15 + i)) })
+	other := timeOf(func(i int) []byte { return []byte(strconv.FormatInt(1e15+int64(i), 10)) })
 	if same > 20*other+50*time.Millisecond {
 		t.Fatalf("%d names of one hash in %v, of other hashes in %v", n, same, other)
 	}

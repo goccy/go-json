@@ -229,16 +229,19 @@ func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
 		if err != nil || !valid {
 			return false
 		}
-		if _, ok := dec.(*stringDecoder); ok && info.firstEscape < 0 && !info.nonASCII {
-			// the bytes of a string without an escape, of ASCII, are its value, as decodeStringField makes it: they
-			// are not scanned again
-			ctx := s.ctx
-			ctx.Buf = s.buf[:s.length+1]
-			ctx.origin = ctx.Buf
-			*(*string)(p) = ctx.makeString(s.buf[s.cursor+1 : end-1])
-			ctx.Buf, ctx.origin = nil, nil
-			s.cursor = end
-			return true
+		switch dec.(type) {
+		case *stringDecoder, v2StringDecoder:
+			if info.firstEscape < 0 && !info.nonASCII {
+				// the bytes of a string without an escape, of ASCII, are its value, as decodeStringField and
+				// decodeStringV2 make it: they are not scanned again
+				ctx := s.ctx
+				ctx.Buf = s.buf[:s.length+1]
+				ctx.origin = ctx.Buf
+				*(*string)(p) = ctx.makeString(s.buf[s.cursor+1 : end-1])
+				ctx.Buf, ctx.origin = nil, nil
+				s.cursor = end
+				return true
+			}
 		}
 	case c == '-' || c-'0' <= 9:
 		// a number which a byte after it ends

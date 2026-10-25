@@ -205,13 +205,20 @@ func (s *Stream) decodeNested(dec Decoder, p unsafe.Pointer, depth int64) error 
 }
 
 // decodeScalar decodes the value at the cursor, which is not an object or an array, nested in depth objects and
-// arrays, by dec into p, if dec decodes a string, a number or a boolean, without the steps of decodeWhole: a string is
-// read whole first, and a number or a literal is decoded from what has been read. It reports false if the value
-// doesn't end before the end of what has been read, or has an error: decodeWhole then reads it whole and decodes it
-// again, and reports the error.
+// arrays, by dec into p, if dec decodes a string, a number or a boolean, or a nil interface{} of v2 which calls nothing
+// of the caller, without the steps of decodeWhole: a string is read whole first, and a number or a literal is decoded
+// from what has been read. It reports false if the value doesn't end before the end of what has been read, or has an
+// error: decodeWhole then reads it whole and decodes it again, and reports the error.
 func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
-	switch dec.(type) {
+	switch d := dec.(type) {
 	case *stringDecoder, *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, *numberDecoder, v2StringDecoder:
+	case *v2InterfaceDecoder:
+		// the value of a nil interface{} without functions of unmarshaling, which the decoder of v1 decodes ( see
+		// v2InterfaceDecoder.Decode ): a value which an interface value holds may be decoded by a method, and a
+		// function may be called, which read the place of the value in the stream ( see V2Call.Value )
+		if !d.empty || d.fromAny || (*[2]unsafe.Pointer)(p)[0] != nil {
+			return false
+		}
 	default:
 		return false
 	}

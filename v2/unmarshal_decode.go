@@ -170,7 +170,7 @@ func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, levels
 		// the error at its place, found again from the end of the token before the value, under its levels
 		in := buf[from-base : len(buf)-1]
 		err = unmarshalError(&errorInput{buf: buf[:len(buf)-1], base: base, att: decodePlace(in, from, levels, cfg, nil)}, err, cfg)
-		err = afterError(d, err, start, func() (int64, []byte, error) {
+		err = afterError(d, err, start, buf[start-base], func() (int64, []byte, error) {
 			return textcoder.SkipToEnd(decodePlace(in, from, levels, skipOptions, nil), depth, levels[depth].Count)
 		}, nil)
 	}
@@ -200,12 +200,18 @@ var skipOptions = func() *options.Config {
 }()
 
 // afterError leaves the decoder at d where UnmarshalDecode leaves it after err, the error of its next value, which
-// starts at the offset start: after a SemanticError, after the value, which skip reads to its end, or, if the rest
-// of the value has an error, failing every read with it; else, or if skip is nil, before the value, which putBack
-// puts back unless it is nil, the decoder having its input. If putBack can't put the input back, every read fails
-// with err. It returns err.
-func afterError(d unsafe.Pointer, err error, start int64, skip func() (int64, []byte, error), putBack func() bool) error {
-	if _, ok := err.(*SemanticError); ok && skip != nil {
+// starts at the offset start, and begins with the byte first: after a SemanticError, after the value, which skip
+// reads to its end, or, if the rest of the value has an error, failing every read with it; after a SyntacticError of
+// an object or an array, failing every read with it, as encoding/json/v2 reads them token by token and stops at the
+// error, so that a loop over the values of the input doesn't decode the value again; else, or if skip is nil, before
+// the value, which putBack puts back unless it is nil, the decoder having its input. If putBack can't put the input
+// back, every read fails with err. It returns err.
+func afterError(d unsafe.Pointer, err error, start int64, first byte, skip func() (int64, []byte, error), putBack func() bool) error {
+	switch err.(type) {
+	case *SemanticError:
+		if skip == nil {
+			break
+		}
 		end, rest, serr := skip()
 		if serr != nil {
 			// the value has no end, and the skip may have read on from the reader of the decoder
@@ -214,6 +220,11 @@ func afterError(d unsafe.Pointer, err error, start int64, skip func() (int64, []
 			textcoder.EndValue(d, start, end, rest)
 		}
 		return err
+	case *jsontext.SyntacticError:
+		if first == '{' || first == '[' {
+			textcoder.FailDecoder(d, err)
+			return err
+		}
 	}
 	if putBack != nil && !putBack() {
 		textcoder.FailDecoder(d, err)
@@ -251,6 +262,8 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels
 		return err
 	}
 	buf, r := textcoder.DecoderInput(d, from)
+	// the first byte of the value, which BeginValue read
+	first := buf[start-from]
 	*input = lentInput{buf: buf, r: r}
 	s := decoder.TakeStreamV2(input)
 	s.StartAt(from)
@@ -272,7 +285,7 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels
 			// the stream read past the input of the decoder, which has it no more
 			putBack = func() bool { return putBackFrom(d, s, from) }
 		}
-		err = afterError(d, err, start, streamSkip(s, input.readR, depth, levels[depth].Count), putBack)
+		err = afterError(d, err, start, first, streamSkip(s, input.readR, depth, levels[depth].Count), putBack)
 	}
 	clearCall(ctx)
 	decoder.ReleaseStreamV2(s)
@@ -335,6 +348,8 @@ func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, level
 	}
 	s := st.stream
 	buf, _ := textcoder.DecoderInput(d, from)
+	// the first byte of the value, which BeginValue read
+	first := buf[start-from]
 	s.Resume(from, buf)
 	// the state of the call of the method, which the call of the value sets aside: its options, its path, its value
 	// and the place of its error, and its state of the methods, as a method of the value is given a decoder of its
@@ -355,7 +370,7 @@ func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, level
 		textcoder.EndValue(d, start, s.Offset(), s.Unread())
 	} else {
 		err = streamError(s, err, cfg)
-		err = afterError(d, err, start, streamSkip(s, true, depth, levels[depth].Count), func() bool {
+		err = afterError(d, err, start, first, streamSkip(s, true, depth, levels[depth].Count), func() bool {
 			// the decoder gave the stream its input
 			return putBackFrom(d, s, from)
 		})

@@ -294,29 +294,31 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 	ctx := s.Context()
 	setCall(ctx, cfg)
 	err = decodeStreamValue(s, typ, p, int64(depth), from, start)
-	// moved is set if the decoder has the input of the value no more where it was: the stream read it from the
-	// reader of the decoder, or through the decoder into its buffer, which moved its bytes to read more, dropping the
-	// ones before the ones which the stream kept. The decoder goes on from the rest which the stream read then. The
-	// bytes which the stream read through the decoder into the room after its input are where the decoder reads them.
-	moved := input.readR
-	if borrowed && !moved {
-		// the offset of the buffer of the decoder: the one of what the stream read, while it reads the buffer in
-		// place, or the decoder's, once the stream left the buffer for its own, which a decoder attached at a value
-		// reads on from ( see decoder.Stream.ReadOn )
-		_, b0 := s.Read()
-		if !s.ReadsInPlace() {
-			_, b0, _ = textcoder.DecoderBuffer(d)
-		}
-		moved = b0 != base
-	}
 	if err == nil {
+		// the decoder goes on after the value in its buffer, which has the input after it, also if it dropped the
+		// start of the value for the stream, which read more through it ( see textcoder.EndValue ), but after the
+		// value in the rest which the stream read from the reader of the decoder
 		var rest []byte
-		if moved {
-			// the input after the value, which the stream read
+		if input.readR {
 			rest = s.Unread()
 		}
 		textcoder.EndValue(d, start, s.Offset(), rest)
 	} else {
+		// moved is set if the decoder has the input of the value no more where it was: the stream read it from the
+		// reader of the decoder, or through the decoder into its buffer, which moved its bytes to read more,
+		// dropping the ones before the ones which the stream kept. The bytes which the stream read through the
+		// decoder into the room after its input are where the decoder reads them.
+		moved := input.readR
+		if borrowed && !moved {
+			// the offset of the buffer of the decoder: the one of what the stream read, while it reads the buffer
+			// in place, or the decoder's, once the stream left the buffer for its own, which a decoder attached at a
+			// value reads on from ( see decoder.Stream.ReadOn )
+			_, b0 := s.Read()
+			if !s.ReadsInPlace() {
+				_, b0, _ = textcoder.DecoderBuffer(d)
+			}
+			moved = b0 != base
+		}
 		err = streamError(s, err, cfg)
 		var putBack func() bool
 		if moved {

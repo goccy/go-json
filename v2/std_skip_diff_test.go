@@ -87,6 +87,20 @@ func skippedValues() []skippedValue {
 		{name: "object of a cut fraction", value: `{"a":1.}`},
 		{name: "string of a bad escape", value: `"a\x"`},
 		{name: "string of a control character", value: "\"a\x01\""},
+		{name: "deep value of a syntax error", value: deep + `{"a":1,"b":x}` + deepEnd},
+		{name: "array of a syntax error after a deep value", value: `[` + deep + deepEnd + `,1,x]`},
+		{name: "object of a syntax error after a deep value", value: `{"a":` + deep + deepEnd + `,"b":1,"c":x}`},
+		{name: "array of many elements and a syntax error", value: `[` + strings.Repeat("1,", 300) + `x]`},
+		{name: "object of escaped names and a syntax error", value: `{"a\nb":1,"c\u0041":x}`},
+		{name: "object of a long name and a syntax error", value: `{"` + long + `":x}`},
+		{name: "object of a long name and a missing colon", value: `{"` + long + `" 1}`},
+		{name: "array of a missing comma", value: `[1 2]`},
+		{name: "object of a syntax error in a long member", value: `{"a":"` + long + `","b":{"c":[1,2,x]}}`},
+		{name: "object of a colon after a value", value: `{"a":1:}`},
+		{name: "array of a colon after an element", value: `[1:]`},
+		{name: "array in an object of a colon after an element", value: `{"a":[1:]}`},
+		{name: "object of a name of invalid UTF-8 and a syntax error", value: "{\"\xff\":x}"},
+		{name: "object of a name of invalid UTF-8 inside and a syntax error", value: "{\"a\xffb\":[1,x]}"},
 	}
 }
 

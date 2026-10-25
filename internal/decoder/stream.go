@@ -136,6 +136,10 @@ func (s *Stream) grow() {
 	if keep := s.keepFrom - s.offset; s.keeps && keep >= 0 && keep < from {
 		from = keep
 	}
+	if call := s.ctx.v2; call != nil && call.skip.active {
+		// the end of the token before the value which a skip of v2 reads, where an error is found again from
+		from = min(from, s.skipKeepFrom())
+	}
 	remain := s.length - from
 	size := int64(len(s.buf)) - bufPadding
 	if remain >= size {

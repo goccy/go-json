@@ -106,6 +106,8 @@ type V2Call struct {
 	// have not copied yet, one for each level ( see Stream.setNameAt ): copied before the buffer drops them or the
 	// path is read ( see Stream.copyNames ).
 	pathNames []namePlace
+	// skip is what skipLongV2 follows of the levels of the value of the stream which it skips.
+	skip skipPath
 	// Place is where the error which the decoding of the stream returned is found again ( see StreamPlace ).
 	Place StreamPlace
 	// names are the names of no field, and the other names which are kept, of the objects of the call which are

@@ -673,6 +673,9 @@ func (s *Stream) copyNames() {
 		}
 		call.pathNames[i].to = 0
 	}
+	if call.skip.active {
+		s.copySkipNames()
+	}
 }
 
 // copyStreamNames copies the names of the path of the stream which ctx decodes, if it decodes one ( see
@@ -926,6 +929,10 @@ func (s *Stream) skipValueV2(depth, from int64) error {
 		return s.placeAt(err, from)
 	}
 	if !whole {
+		if s.ctx.Option.V2&(V2AllowDuplicateNames|V2AllowInvalidUTF8) == V2AllowDuplicateNames|V2AllowInvalidUTF8 {
+			// a value of the grammar only, as v1 skips it
+			return s.skipLongV2(depth)
+		}
 		call := s.ctx.v2
 		call.Value = StreamValue{From: from - s.offset, Start: s.cursor, ReadsOn: true}
 		s.copyNames()

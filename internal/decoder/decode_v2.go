@@ -924,8 +924,19 @@ func (d *v2InterfaceDecoder) decodeByKind(ctx *RuntimeContext, cursor, depth int
 // decodes it: into a copy of the value, which the interface value is set to. A pointer is the data word of the
 // interface value, which it is decoded into in place of the copy: the interface value is set as the copy would set it.
 func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
-	if t := runtime.TypeOfPtr(heldType(p, d.empty)); t.Kind() == reflect.Pointer {
-		dec, err := ctx.DecoderOfV2(ptrTypeOf(t))
+	if typ := heldType(p, d.empty); runtime.TypeOfPtr(typ).Kind() == reflect.Pointer {
+		if ptr := (*[2]unsafe.Pointer)(p)[1]; ptr != nil && ctx.v2Funcs() == nil {
+			// the value which the pointer points to, decoded through it by the decoder of its pointer type, as the
+			// decoder of a pointer to the pointer decodes a pointer which is not nil: without the type of a pointer to
+			// the pointer, which reflect makes by a lookup, as the program has none. The functions of unmarshaling
+			// are given the pointer to the pointer too, as encoding/json/v2 gives it, by the decoder of that pointer.
+			dec, err := ctx.DecoderOfV2(typ)
+			if err != nil {
+				return 0, err
+			}
+			return dec.Decode(ctx, cursor, depth, ptr)
+		}
+		dec, err := ctx.DecoderOfV2(ptrTypeOf(runtime.TypeOfPtr(typ)))
 		if err != nil {
 			return 0, err
 		}

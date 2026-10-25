@@ -53,11 +53,25 @@ func (s *Stream) BeginV2(r io.Reader) {
 	call.pathNames = append(call.pathNames[:0], namePlace{})
 }
 
-// BorrowV2 makes the stream, which BeginV2 began, read the input of dec, a jsontext.Decoder, from the offset from of
-// the whole input, in the buffer of dec, in place, and read more into it through dec, initBufSize bytes at most at a
-// time, as it reads its reader ( see readSource ): the bytes are not copied into its own buffer. It reports false,
-// having done nothing, if the buffer can't be read so ( see textcoder.DecoderBuffer ). Once a decoder attached at a
-// value reads on, the stream holds what it needs of the buffer in its own, and reads its reader ( see ReadOn ).
+// BeginV2At is BeginV2 for a value at the place levels, whose names are its own, which are made the path of the
+// call of the stream, without a copy ( see SetPath ). It returns the path the call had, whose arrays the caller
+// keeps for its next levels.
+func (s *Stream) BeginV2At(r io.Reader, levels []textcoder.Level) []textcoder.Level {
+	s.r = r
+	call := s.ctx.V2Call()
+	call.Stream = s
+	path := call.Path
+	call.Path = levels
+	call.clearPathNames()
+	return path
+}
+
+// BorrowV2 makes the stream, which BeginV2 or BeginV2At began, read the input of dec, a jsontext.Decoder, from the
+// offset from of the whole input, in the buffer of dec, in place, and read more into it through dec, initBufSize
+// bytes at most at a time, as it reads its reader ( see readSource ): the bytes are not copied into its own buffer.
+// It reports false, having done nothing, if the buffer can't be read so ( see textcoder.DecoderBuffer ). Once a
+// decoder attached at a value reads on, the stream holds what it needs of the buffer in its own, and reads its reader
+// ( see ReadOn ).
 func (s *Stream) BorrowV2(dec unsafe.Pointer, from int64) bool {
 	buf, base, ok := textcoder.DecoderBuffer(dec)
 	if !ok || from < base {
@@ -126,8 +140,10 @@ func (s *Stream) EndV2() {
 		// the buffer of the stream, which read the one of a jsontext.Decoder in place
 		s.buf, s.own, s.src = s.own, nil, nil
 	}
+	// the value of the call, which refers to nothing, is set by the next decoding before it reads it, but not the
+	// place, which the caller reads after a failure before the decoding too ( see DecodeV2After )
 	call := s.ctx.v2
-	call.Stream, call.Value, call.Place = nil, StreamValue{}, StreamPlace{}
+	call.Stream, call.Place.Set = nil, false
 	if len(call.names.entries) != 0 {
 		call.names.truncate(0, 0)
 	}
@@ -414,17 +430,6 @@ func (call *V2Call) clearPathNames() {
 	} else {
 		call.pathNames = make([]namePlace, n)
 	}
-}
-
-// TakePath makes levels, the place of the next value which the stream decodes, whose names are its own, the path of
-// the call of the stream, which BeginV2 began, and returns the path it had, whose arrays the caller keeps for its
-// next levels: SetPath without a copy.
-func (s *Stream) TakePath(levels []textcoder.Level) []textcoder.Level {
-	call := s.ctx.v2
-	path := call.Path
-	call.Path = levels
-	call.clearPathNames()
-	return path
 }
 
 // RestorePath sets the path of the call of the stream back to saved, which SetPath returned, and returns the path

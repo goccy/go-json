@@ -276,7 +276,10 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 		s = decoder.NewStream(nil)
 		dc.stream = s
 	}
-	s.BeginV2(input)
+	// the count of the level of the value, of the levels which the stream takes as its path, which the call keeps the
+	// former path of for its next levels
+	count := levels[depth].Count
+	dc.levels = s.BeginV2At(input, levels)
 	// the buffer of the decoder, which the stream reads in place if it can, and its offset, by which the decoder is
 	// found to have dropped bytes of its input for the stream
 	borrowed := s.BorrowV2(d, from)
@@ -289,10 +292,6 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 		s.StartAt(from)
 	}
 	ctx := s.Context()
-	// the count of the level of the value, of the levels which the stream takes as its path, which the call keeps the
-	// former path of for its next levels
-	count := levels[depth].Count
-	dc.levels = s.TakePath(levels)
 	setCall(ctx, cfg)
 	err = decodeStreamValue(s, typ, p, int64(depth), from, start)
 	// moved is set if the decoder has the input of the value no more where it was: the stream read it from the

@@ -76,6 +76,27 @@ func TestUnmarshalDecodeMethodErrorKeepsValue(t *testing.T) {
 	}
 }
 
+// After the error of an output which is not a non-nil pointer, which reads nothing, the decoder is before its next
+// value, also after the error of a value before it, which has a place in the input.
+func TestUnmarshalDecodeInvalidOutputAfterError(t *testing.T) {
+	for _, out := range []any{nil, 5, (*int)(nil)} {
+		dec := jsontext.NewDecoder(strings.NewReader(`["x", 1, {"a":[2,3]}, 4]`))
+		if _, err := dec.ReadToken(); err != nil {
+			t.Fatal(err)
+		}
+		var i int
+		if err := json.UnmarshalDecode(dec, &i); err == nil {
+			t.Fatal("no error of a string decoded into an int")
+		}
+		if err := json.UnmarshalDecode(dec, out); err == nil {
+			t.Fatalf("%#v: no error", out)
+		}
+		if next, err := dec.ReadValue(); err != nil || string(next) != "1" {
+			t.Fatalf("%#v: after the error: %s, %v", out, next, err)
+		}
+	}
+}
+
 func TestUnmarshalDecodeOf(t *testing.T) {
 	type record struct {
 		Name string `json:"name"`

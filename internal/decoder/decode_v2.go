@@ -3,6 +3,7 @@ package decoder
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	stderrors "errors"
 	"fmt"
 	"math/bits"
@@ -1005,7 +1006,7 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && strings.IndexByte(key, 0xef) >= 0 && !validV2Text(buf[cursor:c]) {
 			return 0, errV2Text
 		}
-		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.add(ctx.V2Call(), unsafe.Slice(unsafe.StringData(key), len(key))) {
+		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafe.Slice(unsafe.StringData(key), len(key))) {
 			return 0, errV2Text
 		}
 		cursor = skipWhiteSpace(buf, c)
@@ -1072,44 +1073,65 @@ func (d *v2InterfaceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64
 // kept in a map, so that an object of many names is not quadratic in its names.
 const maxListedNames = 32
 
-// nameSet is the names of an object, among which add finds a name that the object has twice: the n names of the
-// names of the call from the index first ( see callNames ), whose bits are in mask ( see jsonstring.NameBit ), and
-// past maxListedNames, the keys of set too. A name whose bit is not in mask is not compared with the names, as most
-// names are not. The zero nameSet has no name.
+// nameSet is the names of an object, among which add finds a name that the object has twice: the n entries of the
+// names of the call from the entry first ( see callNames ), and the copies from copies on, whose bits are in mask,
+// one of 256 for each name ( see nameHash ), and past maxListedNames, the keys of set too. A name whose bit is not
+// in mask is not compared with the names, as most names are not. The zero nameSet has no name.
 type nameSet struct {
-	mask     uint64
-	first, n int
-	set      map[string]struct{}
+	first, n, copies int
+	mask             [4]uint64
+	set              map[string]struct{}
 }
 
-// add adds the name, and reports whether the set didn't have it. The names of the call keep a copy of it, after the
-// ones of the objects which its object is in, which the keys of set are: they are not written while the object is
-// open, and an array which the names of the call leave for a larger one is not written again.
-func (s *nameSet) add(call *V2Call, name []byte) bool {
-	names := &call.names
+// add adds the name buf[start:end] of the input, which is not written while the object is decoded, and reports
+// whether the set didn't have it.
+func (s *nameSet) add(call *V2Call, buf []byte, start, end int64) bool {
+	return s.insert(call, buf, buf[start:end], start)
+}
+
+// addCopy adds a copy of the name, and reports whether the set didn't have it: buf is the input of the names which
+// add added to the set, if any.
+func (s *nameSet) addCopy(call *V2Call, buf, name []byte) bool {
+	return s.insert(call, buf, name, -1)
+}
+
+// insert adds the name, at the offset at of buf, the input, or copied if at is negative, and reports whether the set
+// didn't have it. The name is compared with the names of its bit by their hashes, and with the ones of its hash by
+// their bytes. The entries of the call are written after the ones of the objects which its object is in, which the
+// keys of set are: they are not written while the object is open, as the objects in it end before its next name, and
+// an array of copies which the call leaves for a larger one is not written again.
+func (s *nameSet) insert(call *V2Call, buf, name []byte, at int64) bool {
+	t := &call.names
+	if s.n == 0 {
+		s.first, s.copies = len(t.entries), len(t.copies)
+	}
+	h := nameHash(name)
 	if s.set != nil {
-		if _, exists := s.set[string(name)]; exists {
+		if _, exists := s.set[unsafeString(name)]; exists {
 			return false
 		}
-		names.add(s.first+s.n, name)
-		s.set[unsafeString(names.get(s.first+s.n))] = struct{}{}
-		s.n++
-		return true
+	} else if w, bit := &s.mask[h>>62], uint64(1)<<(h>>56&63); *w&bit == 0 {
+		*w |= bit
+	} else {
+		for i := range t.entries[s.first:] {
+			if e := &t.entries[s.first+i]; e.hash == h && e.n == int64(len(name)) && string(t.name(e, buf)) == string(name) {
+				return false
+			}
+		}
 	}
-	if s.n == 0 {
-		s.first = len(names.ends)
+	if at < 0 {
+		at = -1 - int64(len(t.copies))
+		t.copies = append(t.copies, name...)
 	}
-	if bit := jsonstring.NameBit(name); s.mask&bit == 0 {
-		s.mask |= bit
-	} else if names.has(s.first, s.first+s.n, name) {
-		return false
-	}
-	names.add(s.first+s.n, name)
+	t.entries = append(t.entries, nameEntry{hash: h, at: at, n: int64(len(name))})
 	s.n++
-	if s.n > maxListedNames {
+	switch {
+	case s.set != nil:
+		s.set[unsafeString(t.name(&t.entries[len(t.entries)-1], buf))] = struct{}{}
+	case s.n > maxListedNames:
 		s.set = make(map[string]struct{}, 2*s.n)
-		for i := s.first; i < s.first+s.n; i++ {
-			s.set[unsafeString(names.get(i))] = struct{}{}
+		for i := range t.entries[s.first:] {
+			s.set[unsafeString(t.name(&t.entries[s.first+i], buf))] = struct{}{}
 		}
 	}
 	return true
@@ -1118,62 +1140,77 @@ func (s *nameSet) add(call *V2Call, name []byte) bool {
 // end drops the names of the set from the names of the call, at the end of its object.
 func (s *nameSet) end(call *V2Call) {
 	if s.n != 0 {
-		call.names.truncate(s.first)
+		call.names.truncate(s.first, s.copies)
 	}
 }
 
 // unsafeString is the string of the bytes of b, which are not written while it is used.
 func unsafeString(b []byte) string { return unsafe.String(unsafe.SliceData(b), len(b)) }
 
-// callNames are the names of no field of the objects of a call which are being decoded, as encoding/json/jsontext
-// keeps the names of the objects which are open: back to back in buf, an object after the objects which it is in,
-// the end of each in ends. They are copies, which keep nothing of the input. The names of an object which an error
-// ended are dropped by the next name of an object around it, at the end of the value of a stream which they are in
-// ( see Stream.DecodeV2After ), or when the context is released: a call which no error ended leaves none.
-type callNames struct {
-	buf  []byte
-	ends []int
-}
-
-// start is the position in buf of the name at the index i.
-func (n *callNames) start(i int) int {
-	if i == 0 {
-		return 0
-	}
-	return n.ends[i-1]
-}
-
-func (n *callNames) get(i int) []byte { return n.buf[n.start(i):n.ends[i]] }
-
-// has reports whether one of the names from the index first up to end is the name: a name of another length, or of
-// another last byte, is not compared.
-func (n *callNames) has(first, end int, name []byte) bool {
-	start := n.start(first)
-	for _, e := range n.ends[first:end] {
-		if e-start == len(name) && (len(name) == 0 || n.buf[e-1] == name[len(name)-1]) && string(n.buf[start:e]) == string(name) {
-			return true
+// nameHash returns the hash of name, whose top eight bits are its bit in the mask of a nameSet: of its first and its
+// last eight bytes, which are all of its bytes up to 16 bytes, and of the words between them. The bytes of a name of
+// up to eight bytes are read by smaller words, which are all of them up to three bytes, and from four bytes.
+func nameHash(name []byte) uint64 {
+	n := len(name)
+	var a, b uint64
+	switch {
+	case n > 8:
+		a, b = binary.LittleEndian.Uint64(name), binary.LittleEndian.Uint64(name[n-8:])
+		for i := 8; i < n-8; i += 8 {
+			a = (a ^ binary.LittleEndian.Uint64(name[i:])) * 0x9E3779B97F4A7C15
 		}
-		start = e
+	case n >= 4:
+		a = uint64(binary.LittleEndian.Uint32(name)) | uint64(binary.LittleEndian.Uint32(name[n-4:]))<<32
+	case n > 0:
+		a = uint64(name[0]) | uint64(name[n>>1])<<8 | uint64(name[n-1])<<16
 	}
-	return false
+	h := (a ^ bits.RotateLeft64(b, 29) ^ uint64(n)<<58) * 0x9E3779B97F4A7C15
+	return h ^ h>>31
 }
 
-// add puts the name at the index i, after the names of its object, past which the names of the objects in it which
-// an error ended are dropped.
-func (n *callNames) add(i int, name []byte) {
-	n.buf = append(n.buf[:n.start(i)], name...)
-	n.ends = append(n.ends[:i], len(n.buf))
+// callNames are the names of no field, and the other names which are kept, of the objects of a call which are being
+// decoded, as encoding/json/jsontext keeps the names of the objects which are open: the entries of the names of an
+// object, after the ones of the objects which it is in ( see nameSet ). A name is kept by its place in the input, or
+// by a copy in copies, for a name which the input doesn't hold as it is, or which a stream may move: the copies keep
+// nothing of the input. An error ends the objects around the object of the error too, but in the value of a method of
+// a stream, whose error the method may ignore: the names of the objects which an error ended are dropped at the end
+// of the value of a stream which they are in ( see Stream.DecodeV2After ), or when the stream or the context is
+// released. A call which no error ended leaves none.
+type callNames struct {
+	entries []nameEntry
+	copies  []byte
 }
 
-// truncate drops the names from the index first on. Back to no name, it drops the arrays which a value of many long
-// names made large, of the sizes over which an encoder of jsontext drops the arrays of its names ( see putEncoder ),
-// so that a context in the pool doesn't pin them: then no object has a name in them.
-func (n *callNames) truncate(first int) {
+// nameEntry is a name of an object: its hash, and its n bytes, at the offset at of the input, or at the offset -1-at
+// of the copies.
+type nameEntry struct {
+	hash uint64
+	at   int64
+	n    int64
+}
+
+// name returns the name of e, whose input is buf.
+func (t *callNames) name(e *nameEntry, buf []byte) []byte {
+	if e.at < 0 {
+		at := -1 - e.at
+		return t.copies[at : at+e.n]
+	}
+	return buf[e.at : e.at+e.n]
+}
+
+// mark returns the numbers of the entries and of the copies of the names of the call, which truncate goes back to.
+func (t *callNames) mark() (int, int) { return len(t.entries), len(t.copies) }
+
+// truncate drops the entries from entries on, and the copies from copies on. Back to no name, it drops the arrays
+// which a value of many names or long names made large, over the sizes over which an encoder of jsontext drops the
+// arrays of its names ( see putEncoder ), so that a context in the pool doesn't pin them: then no object has a name
+// in them.
+func (t *callNames) truncate(entries, copies int) {
 	const large = 64 << 10
-	if first == 0 && (cap(n.buf) > large || cap(n.ends) > large/8) {
-		*n = callNames{}
+	if entries == 0 && (cap(t.copies) > large || cap(t.entries) > large/int(unsafe.Sizeof(nameEntry{}))) {
+		*t = callNames{}
 		return
 	}
-	n.buf = n.buf[:n.start(first)]
-	n.ends = n.ends[:first]
+	t.entries = t.entries[:entries]
+	t.copies = t.copies[:copies]
 }

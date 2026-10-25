@@ -308,10 +308,13 @@ func (d *v2StructDecoder) unknownMember(ctx *RuntimeContext, unknown *nameSet, r
 	case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:
 		return &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
 	case rejectDuplicateNames:
+		var added bool
 		if name == nil {
-			name = buf[start+1 : end-1]
+			added = unknown.add(ctx.V2Call(), buf, start+1, end-1)
+		} else {
+			added = unknown.addCopy(ctx.V2Call(), buf, name)
 		}
-		if !unknown.add(ctx.V2Call(), name) {
+		if !added {
 			return &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 		}
 	}
@@ -838,7 +841,7 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		if err != nil {
 			return 0, err
 		}
-		if keyNames && !names.add(ctx.V2Call(), unquotedName(buf[start:next])) {
+		if keyNames && !names.addCopy(ctx.V2Call(), nil, unquotedName(buf[start:next])) {
 			return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 		}
 		key := k.Elem()

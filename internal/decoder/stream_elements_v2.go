@@ -50,8 +50,8 @@ func TakeStreamV2(r io.Reader) *Stream {
 func ReleaseStreamV2(s *Stream) {
 	call := s.ctx.v2
 	call.Stream, call.Value, call.Place = nil, StreamValue{}, StreamPlace{}
-	if len(call.names.ends) != 0 {
-		call.names.truncate(0)
+	if len(call.names.entries) != 0 {
+		call.names.truncate(0, 0)
 	}
 	if call.skippers != [3]unsafe.Pointer{} {
 		releaseSkippers(call)
@@ -159,9 +159,9 @@ func (s *Stream) DecodeV2(dec Decoder, p unsafe.Pointer, depth int64) error {
 func (s *Stream) DecodeV2After(dec Decoder, p unsafe.Pointer, depth, from, start int64) error {
 	// the names of the objects of the value which an error ended are dropped after it: the value of a method, whose
 	// error the method may ignore, leaves none to the objects around it ( see callNames )
-	names := len(s.ctx.v2.names.ends)
+	entries, copies := s.ctx.v2.names.mark()
 	err := s.decodeV2After(dec, p, depth, from, start)
-	s.ctx.v2.names.truncate(names)
+	s.ctx.v2.names.truncate(entries, copies)
 	return err
 }
 
@@ -667,7 +667,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		case ctx.Option.V2&V2RejectUnknownMembers != 0 && d.fallback == nil:
 			return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}, step)
 		case rejectDuplicateNames:
-			if !unknown.add(ctx.V2Call(), name) {
+			if !unknown.addCopy(ctx.V2Call(), nil, name) {
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
 		}
@@ -841,7 +841,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 			return s.placeAt(err, step)
 		}
 		name := unquotedName(quoted)
-		if keyNames && !names.add(ctx.V2Call(), name) {
+		if keyNames && !names.addCopy(ctx.V2Call(), nil, name) {
 			return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 		}
 		key := k.Elem()
@@ -1047,7 +1047,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 			return s.placeAt(errV2Text, step)
 		}
 		name := ctx.copyString(unquotedName(quoted))
-		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.add(ctx.V2Call(), unsafe.Slice(unsafe.StringData(name), len(name))) {
+		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafe.Slice(unsafe.StringData(name), len(name))) {
 			start := s.cursor - int64(len(quoted))
 			return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 		}

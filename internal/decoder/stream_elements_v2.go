@@ -1356,8 +1356,12 @@ func (s *Stream) decodeMergingV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth,
 			return s.placeAt(&errors.UnmarshalError{GoType: reflect.TypeOf(held), Start: s.cursor}, from)
 		}
 		if m == nil {
-			m = map[string]any{}
-			*(*any)(p) = m
+			// a new map, of the entries of the object, which are decoded first
+			m, err := s.decodeNewAnyObjectV2(d, depth, from)
+			if m != nil {
+				*(*any)(p) = m
+			}
+			return err
 		}
 		return s.decodeAnyObjectV2(d, m, depth, from)
 	}
@@ -1365,9 +1369,175 @@ func (s *Stream) decodeMergingV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth,
 	if held != nil && !ok {
 		return s.placeAt(&errors.UnmarshalError{GoType: reflect.TypeOf(held), Start: s.cursor}, from)
 	}
+	if a == nil {
+		// a new slice, of the elements of the array, which are decoded first
+		a, err := s.decodeNewAnyArrayV2(d, depth, from)
+		if a != nil {
+			*(*any)(p) = a
+		}
+		return err
+	}
 	err := s.decodeAnyArrayV2(d, &a, depth, from)
 	*(*any)(p) = a
 	return err
+}
+
+// decodeNewAnyObjectV2 decodes the object at the cursor into a new map[string]interface{}, as decodeObjectInto does,
+// after from, the total offset of the end of the token before it: the entries are pushed to the stack of the
+// context, as decodeAnyObject pushes them for v1, and put into a map of their number at the end, which it returns,
+// with the entries before an error. The value of a name which the object had is decoded into its first value.
+func (s *Stream) decodeNewAnyObjectV2(d *v2InterfaceDecoder, depth, from int64) (map[string]any, error) {
+	depth, lv, err := s.openElementsV2(true, depth, from)
+	if err != nil {
+		return nil, err
+	}
+	ctx := s.ctx
+	base := len(ctx.entryStack)
+	var names anyNames
+	for k := 0; ; k++ {
+		// the end of the token before the member, which the place of its errors is read again from, kept until the
+		// value of the member
+		step := s.offset + s.cursor
+		keeps, keepFrom := s.keepFromHere(step)
+		key, info, start, ok, err := s.nextMember(k == 0)
+		if err != nil {
+			return ctx.anyEntries(base), s.placeDelimiterError(err, step)
+		}
+		if !ok {
+			s.keeps, s.keepFrom = keeps, keepFrom
+			s.popLevel(lv)
+			return ctx.anyEntries(base), nil
+		}
+		quoted := s.buf[start:s.cursor]
+		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(quoted) && !validV2Text(quoted) {
+			return ctx.anyEntries(base), s.placeAt(errV2Text, step)
+		}
+		name := ctx.copyString(decodeLiteral(key, info))
+		at := names.index(ctx, base, name)
+		if at >= 0 && ctx.Option.V2&V2AllowDuplicateNames == 0 {
+			return ctx.anyEntries(base), s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
+		}
+		plain := info.firstEscape < 0 && !info.nonASCII
+		if !plain {
+			s.copyName(unsafe.Slice(unsafe.StringData(name), len(name)))
+		}
+		nameEnd := s.offset + s.cursor
+		if err := s.memberValue(); err != nil {
+			return ctx.anyEntries(base), s.placeAt(err, step)
+		}
+		if plain {
+			s.setNameAt(lv, k, nameEnd-int64(len(name))-1, nameEnd-1)
+		} else {
+			s.setName(lv, k)
+		}
+		s.keeps, s.keepFrom = keeps, keepFrom
+		if at >= 0 {
+			// the value of a name which the object had, which is decoded into the first one: out of ctx.slot, which
+			// the values in it are decoded into, from nil
+			value := ctx.entryStack[at].value
+			err = s.decodeNestedV2(d, unsafe.Pointer(&value), depth, nameEnd)
+			ctx.entryStack[at].value = value
+		} else {
+			err = s.decodeNestedV2(d, unsafe.Pointer(&ctx.slot), depth, nameEnd)
+			ctx.entryStack = append(ctx.entryStack, anyEntry{key: name, value: ctx.slot})
+			ctx.slot = nil
+		}
+		if err != nil {
+			return ctx.anyEntries(base), err
+		}
+		s.level(lv).Count = int64(2*k + 2)
+	}
+}
+
+// anyNames finds the names of the entries of an object which decodeNewAnyObjectV2 pushed: by the bits of their
+// hashes, one of 256 for each name, and a comparison with the names of the entries of its bit, up to maxListedNames
+// names, and by the keys of a map of their entries past them, so that an object of many names is not quadratic in
+// its names.
+type anyNames struct {
+	mask [4]uint64
+	set  map[string]int
+}
+
+// index returns the index in the stack of the entry of the name, which the entries of the stack from base are, or -1
+// if they don't have it, and adds the name, which the caller pushes the entry of then.
+func (n *anyNames) index(ctx *RuntimeContext, base int, name string) int {
+	entries := ctx.entryStack[base:]
+	if n.set != nil {
+		if at, ok := n.set[name]; ok {
+			return at
+		}
+		n.set[name] = len(ctx.entryStack)
+		return -1
+	}
+	h := nameHash(unsafe.Slice(unsafe.StringData(name), len(name))) & 255
+	w, bit := &n.mask[h>>6], uint64(1)<<(h&63)
+	if *w&bit != 0 {
+		for i := range entries {
+			if entries[i].key == name {
+				return base + i
+			}
+		}
+	}
+	*w |= bit
+	if len(entries) == maxListedNames {
+		// the names, past which they are found by the map
+		n.set = make(map[string]int, 2*maxListedNames)
+		for i := range entries {
+			n.set[entries[i].key] = base + i
+		}
+		n.set[name] = len(ctx.entryStack)
+	}
+	return -1
+}
+
+// anyEntries returns a new map of the entries of the stack of the context from base, which it removes.
+func (ctx *RuntimeContext) anyEntries(base int) map[string]any {
+	entries := ctx.entryStack[base:]
+	m := make(map[string]any, len(entries))
+	for i := range entries {
+		m[entries[i].key] = entries[i].value
+	}
+	ctx.popEntries(base)
+	return m
+}
+
+// decodeNewAnyArrayV2 decodes the array at the cursor into a new []interface{}, as decodeArrayInto does, after from,
+// the total offset of the end of the token before it: the elements are pushed to the stack of the context, as
+// decodeAnyArray pushes them for v1, and copied into a slice of their number at the end, which it returns, with the
+// elements before an error.
+func (s *Stream) decodeNewAnyArrayV2(d *v2InterfaceDecoder, depth, from int64) ([]any, error) {
+	depth, lv, err := s.openElementsV2(false, depth, from)
+	if err != nil {
+		return nil, err
+	}
+	ctx := s.ctx
+	base := len(ctx.anyStack)
+	for idx := 0; ; idx++ {
+		step, ok, err := s.nextElementV2(idx)
+		if err != nil {
+			return ctx.anyElements(base), s.placeDelimiterError(err, step)
+		}
+		if !ok {
+			s.popLevel(lv)
+			return ctx.anyElements(base), nil
+		}
+		err = s.decodeNestedV2(d, unsafe.Pointer(&ctx.slot), depth, step)
+		ctx.anyStack = append(ctx.anyStack, ctx.slot)
+		ctx.slot = nil
+		if err != nil {
+			return ctx.anyElements(base), err
+		}
+		s.level(lv).Count = int64(idx + 1)
+	}
+}
+
+// anyElements returns a new slice of the elements of the stack of the context from base, which it removes: an empty
+// one, not nil, if there are none.
+func (ctx *RuntimeContext) anyElements(base int) []any {
+	elems := make([]any, len(ctx.anyStack)-base)
+	copy(elems, ctx.anyStack[base:])
+	ctx.popAny(base)
+	return elems
 }
 
 // decodeAnyObjectV2 decodes the object at the cursor into m, as decodeObjectInto does, after from, the total offset

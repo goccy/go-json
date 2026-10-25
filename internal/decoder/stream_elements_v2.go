@@ -360,6 +360,17 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		return s.decodeNestedV2(d.next, p, depth, from)
 	case *v2FuncDecoder:
 		return s.decodeFuncsV2(d, p, depth, from)
+	case *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, v2StringDecoder:
+		// a string, a number or a literal which the buffer has whole is decoded in it, as v1 decodes it, after from,
+		// which a read for the rest of a string keeps
+		if c := s.buf[s.cursor]; c != '{' && c != '[' {
+			keeps, keepFrom := s.keepFromHere(from)
+			decoded := s.decodeScalar(dec, p, depth)
+			s.keeps, s.keepFrom = keeps, keepFrom
+			if decoded {
+				return nil
+			}
+		}
 	}
 	keeps, keepFrom := s.keepFromHere(from)
 	end, whole, err := s.elementEnd(depth)
@@ -573,7 +584,10 @@ func (s *Stream) memberValueV2() (int64, error) {
 // the name in the buffer for, into the spare name of the path ( see setName ).
 func (s *Stream) copyName(name []byte) {
 	call := s.ctx.v2
-	call.spareName = append(call.spareName[:0], name...)
+	if call.spareName = append(call.spareName[:0], name...); call.spareName == nil {
+		// the name "", which is a name, as a level without a name has none ( see textcoder.Level )
+		call.spareName = []byte{}
+	}
 }
 
 // setName makes the name which copyName copied the last name of the level lv of the path, of its member k, whose

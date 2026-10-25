@@ -195,7 +195,7 @@ func beginCall(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 	return cfg
 }
 
-// setCall sets ctx for a call by the options of cfg, &noOptions or a config of the pool, which endCall drops.
+// setCall sets ctx for a call by the options of cfg, which clearCall drops from ctx.
 func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 	flags := decoder.V2Semantics
 	if cfg != &noOptions {
@@ -212,15 +212,20 @@ func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 
 // endCall drops what beginCall set in ctx for a call, and cfg, the config of its options.
 func endCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
-	call := ctx.V2Call()
-	call.Funcs, call.Config = nil, nil
-	if st := (*fromState)(call.From); st != nil && st.att.In != nil {
-		st.release()
-	}
+	clearCall(ctx)
 	if cfg != &noOptions {
 		// the config may hold the functions of the caller
 		*cfg = options.Config{}
 		configPool.Put(cfg)
+	}
+}
+
+// clearCall drops what setCall set in ctx for a call.
+func clearCall(ctx *decoder.RuntimeContext) {
+	call := ctx.V2Call()
+	call.Funcs, call.Config = nil, nil
+	if st := (*fromState)(call.From); st != nil && st.att.In != nil {
+		st.release()
 	}
 }
 

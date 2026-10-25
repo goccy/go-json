@@ -19,7 +19,8 @@ type Level struct {
 	Count int64
 	// Name is the last name of an object, unquoted: of the value which is open or next, if Count is odd. The names
 	// before it are not kept: a method writes a single value, which is checked for duplicate names in itself, and
-	// the place of a value is the last name of each object.
+	// the place of a value is the last name of each object. It is nil where the level has no name, and empty but
+	// not nil for the name "".
 	Name []byte
 }
 

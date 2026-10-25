@@ -11,8 +11,10 @@
   names looked up in a table as v1's of the names of the fields, and matched by the field which
   the folded name of each field matches, and bools and numbers decoded by the decoders of v1
   without another around them, plain names of folded names found by v1's table as they are read,
-  numbers and literals of no field skipped without another read, and pointers which interface
-  values hold decoded in place, since 2026-10-24
+  numbers and literals of no field skipped without another read, pointers which interface
+  values hold decoded in place, the scalars of the objects which a read of a stream cuts decoded
+  in its buffer, the options of `UnmarshalDecode` without a pool, and the names of no field
+  compared by their lengths and last bytes first, since 2026-10-24
 
 ## Goal
 
@@ -32,7 +34,7 @@ and allocation profiles in a linux/arm64 container; the percentages are of the t
 |---|---|---|---|
 | `SmallStruct_Unmarshal`, case-insensitive | 114 ns | 149 ns | the config of the options of each call, which comes from a pool and is cleared after it (6%), and the loop of `v2StructDecoder`, which keeps more values across its calls than v1's, in the stack |
 | `MediumStruct_Unmarshal`, case-insensitive | 770 ns, 7 allocations | 1.57 µs, 7 allocations | the values of no field, which jsontext reads for their names and their UTF-8 ( `skipValueV2`, 48%, a third of it the white space of the indented input at each token ), and the names of no field, kept for their duplicates (10%): work which v1 doesn't do |
-| `LargeStruct_Unmarshal`, case-insensitive | 10.1 µs, 66 allocations | 25.8 µs, 66 allocations | the names of no field, kept for their duplicates ( `nameSet.add`, 29%: the copy of each name, and the comparison with the names of its object where its bit is one of theirs ), the values of no field (30%), and the length of the names without '_' and '-' ( `foldedLength`, 9% ) |
+| `LargeStruct_Unmarshal`, case-insensitive | 10.1 µs, 66 allocations | 24.6 µs, 66 allocations | the names of no field, kept for their duplicates ( `nameSet.add`, 29%: the copy of each name, and the comparison with the names of its object where its bit is one of theirs ), the values of no field (30%), and the length of the names without '_' and '-' ( `foldedLength`, 9% ) |
 | `GitHubGraphQL_Unmarshal`, case-insensitive | 60 µs, 135 allocations | 61.5 µs, 135 allocations | not looked into since the plain names of another case are found by v1's table as they are read |
 | `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 191 ns, 8 allocations | 269 ns, no allocation | the value of each method read and checked by `ReadValue` (40%), and `reflect.PointerTo` of the type of the pointer which the interface holds (14%), which the program has no pointer type of; `DecoderOfV2` (7%) |
 | 1.5 MB of records into `[]struct{}`, by `UnmarshalRead` | | 1.6 MB and 48 allocations | not looked into since the names of no field are kept in one stack of the call (3.9 MB and 71,903 allocations before) |
@@ -46,13 +48,13 @@ and allocation profiles in a linux/arm64 container; the percentages are of the t
 
 | Benchmark | v1 | v2 | Cause found |
 |---|---|---|---|
-| `Code_ChunkedStream` | 2.34 ms | 2.76 ms | the ones of `Code_Unmarshal`, and the objects which a read cuts, decoded member by member ( `decodeStructElementsV2` ), each scalar through `elementEnd` and `decodeWholeV2` |
-| `Records_ChunkedStream` | 4.91 ms | 5.64 ms | about 7,300 records, one at each read of 512 bytes, are cut by the read and decoded member by member; each whole record pays `nextElementV2`, `decodeNestedV2` and `decodeWholeV2` apart, where v1 decodes a run of them under one setting of the buffer ( `decodeRun` ) |
-| `SkipRecords_ChunkedStream` | 1.94 ms | 4.63 ms | a value of no field which the buffer doesn't hold whole is skipped by a `jsontext.Decoder`, token by token, which checks it as encoding/json/v2 does |
-| `CodeAny_ChunkedStream` | 4.17 ms | 5.48 ms | `decodeAnyObjectV2` allocates the value of each member ( moved to the heap ): 61,000 allocations against 29,500 |
-| `Twitter_ChunkedStream` | 10.9 µs | 13.4 µs | the objects which a read cuts, decoded member by member ( `decodeStructElementsV2` ) |
-| `NDJSON_ChunkedStream` (a record by `UnmarshalDecode`, against `Decoder.Decode`) | 2.47 ms | 3.78 ms | each call takes its state from three pools and applies its options, calls the hooks of jsontext, sets the path of the stream, and copies 512 bytes of the buffer of the decoder for a record of 180 |
-| `MediumStruct_ChunkedStream`, case-insensitive | 1.7 µs | 2.7 µs | the ones of `MediumStruct_Unmarshal` |
+| `Code_ChunkedStream` | 2.37 ms | 2.67 ms | the objects which a read cuts, decoded member by member ( `decodeStructElementsV2` ): for each member the name copied for the path of its errors, the bytes kept from the token before its value, and the end of a value which is not a scalar looked for before it is decoded; small costs, none of which is more than 5% |
+| `Records_ChunkedStream` | 4.27 ms | 4.88 ms | the records which a read cuts, about one in three, decoded member by member as in `Code_ChunkedStream`; the records which the buffer holds whole are decoded as fast as v1's run of them ( `decodeRun` ) |
+| `SkipRecords_ChunkedStream` | 1.89 ms | 4.64 ms | a value of no field which the buffer doesn't hold whole is skipped by a `jsontext.Decoder`, token by token as encoding/json/jsontext's `SkipValue` reads it, which reads it for its names and its UTF-8 as encoding/json/v2 does. A skip by the scan of `ReadValue`, which would drop what it read, takes 30-40% off by an estimate, as encoding/json/jsontext documents `SkipValue` ( "semantically equivalent to calling ReadValue and discarding the result" ); but after a `SyntacticError` the decoder would not be where encoding/json/jsontext's is ( `InputOffset`, `StackDepth` ), and the error may have another place. Left for later by decision (2026-10-24) |
+| `CodeAny_ChunkedStream` | 4.14 ms | 5.37 ms | the objects which a read cuts, decoded member by member: each scalar of an interface{} looked for its end and decoded whole. The value of each member is allocated (61,000 allocations against 29,500); decoding it in a slot of the stack of the context instead took none of the time off (2026-10-24) |
+| `Twitter_ChunkedStream` | 11.0 µs | 12.7 µs | the ones of `Code_ChunkedStream` |
+| `NDJSON_ChunkedStream` (a record by `UnmarshalDecode`, against `Decoder.Decode`) | 2.48 ms | 3.63 ms | the setup of each call (about 14%): two pools, the hooks of jsontext, the path of the stream and the copy of the buffer of the decoder; and the records which a read cuts, as in `Code_ChunkedStream` |
+| `MediumStruct_ChunkedStream`, case-insensitive | 1.68 µs | 2.64 µs | the ones of `MediumStruct_Unmarshal` |
 
 ## Constraints
 

@@ -297,8 +297,10 @@ func (s *Stream) decodeTopV2(dec Decoder, p unsafe.Pointer, depth, from int64, k
 	s.keeps, s.keepFrom = keeps, keepFrom
 	switch {
 	case err == errLongValue:
+		// an object or an array, which what has been read doesn't hold whole: the decoder is not one of a pointer
+		// or a method, which decodeNestedV2 looks through
 		s.beginElements()
-		return s.decodeNestedV2(dec, p, depth, from)
+		return s.decodeLongV2(dec, p, depth, from)
 	case err != nil:
 		return s.placeAt(err, from)
 	}
@@ -547,6 +549,26 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		err = s.decodeWholeV2(dec, p, depth, end, from)
 	} else {
 		err = s.placeAt(err, from)
+	}
+	s.keeps, s.keepFrom = keeps, keepFrom
+	return err
+}
+
+// decodeLongV2 is decodeNestedV2 for the object or the array at the cursor which what has been read doesn't hold
+// whole, found by scanValue: it is decoded element by element, or, if dec doesn't decode it so, read whole and
+// decoded, without the lookup of its end by elementEnd, which looks at the same bytes again and indexes them.
+func (s *Stream) decodeLongV2(dec Decoder, p unsafe.Pointer, depth, from int64) error {
+	decoded, err := s.decodeElementsV2(dec, p, depth, from)
+	if decoded {
+		return err
+	}
+	start := s.offset + s.cursor
+	keeps, keepFrom := s.keepFromHere(from)
+	end, err := s.wholeEnd(depth)
+	if err == nil {
+		err = s.decodeWholeV2(dec, p, depth, end, from)
+	} else {
+		err = s.placeAt(s.wholeValueError(err, start), from)
 	}
 	s.keeps, s.keepFrom = keeps, keepFrom
 	return err

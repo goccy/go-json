@@ -31,6 +31,7 @@ Priority 3
 - [decoder-new-decoder-allocations.md](decoder-new-decoder-allocations.md)
 - [decoder-stream-speed-amd64.md](decoder-stream-speed-amd64.md)
 - [decoder-code-unmarshal-debt.md](decoder-code-unmarshal-debt.md)
+- [decoder-tests-judged-by-time.md](decoder-tests-judged-by-time.md)
 - [encoder-v2-indent-offsets.md](encoder-v2-indent-offsets.md)
 - [encoder-map-key-types.md](encoder-map-key-types.md)
 - [encoder-small-deviations.md](encoder-small-deviations.md)

@@ -20,7 +20,11 @@
   their hashes, the values of no field skipped in one read, by v1's skip when both
   `AllowDuplicateNames` and `AllowInvalidUTF8` are set, the members of no field skipped in a loop
   of their own, the '_' and '-' of folded names counted as they are read, and the options of
-  `Unmarshal` and `UnmarshalRead` in the state of their call, since 2026-10-25
+  `Unmarshal` and `UnmarshalRead` in the state of their call, since 2026-10-25; the members of a
+  struct decoded by a loop of the options, chosen once for the object, which with
+  `AllowDuplicateNames` and `AllowInvalidUTF8` is v1's, the setup of a call of `Unmarshal` without
+  options with fewer calls, and most names of no field added to their set by `nameSet.addListed`,
+  which makes no call, also since 2026-10-25
 
 ## Goal
 
@@ -45,17 +49,26 @@ the repository), which decodes these payloads as v1 does, and v2 with `MatchCase
 
 | Benchmark | v1 | v2 | Cause found |
 |---|---|---|---|
-| `SmallStruct_Unmarshal` | 105 ns | 117 ns; 119 ns as v1; 141 ns case-insensitive | the loop of `v2StructDecoder`, which keeps more values across its calls than v1's (their loads after the calls are a third of its own time, which is twice v1's), and the setup of the call |
-| `MediumStruct_Unmarshal` | 759 ns, 7 allocations | 1.00 µs; 817 ns as v1; 1.10 µs case-insensitive; 7 allocations | the names of no field, kept for their duplicates, and the values of no field, whose strings are read for their UTF-8 and whose objects for their names: work which v1 doesn't do; as v1, not looked into |
-| `LargeStruct_Unmarshal` | 10.0 µs, 66 allocations | 14.0 µs; 11.0 µs as v1; 16.3 µs case-insensitive; 66 allocations | the names of no field, kept for their duplicates ( `nameSet.insert`, 20%: 1,027 names, each about 2.6 ns, of which the call, the hash and the append of its entry are most ), the values of no field (about 1.2 times v1's skip of them), and the loop of the members of no field |
-| `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 194 ns, 8 allocations | 235 ns, no allocation | the value of each method read and checked by `ReadValue` (40%), and `reflect.PointerTo` of the type of the pointer which the interface holds (14%), which the program has no pointer type of; `DecoderOfV2` (7%): a profile of 2026-10-23, at 269 ns, before the values of methods were skipped in one read |
-| `TwitterBinding_Unmarshal` | 4.85 µs | 5.00 µs; 5.03 µs as v1 | not looked into |
+| `SmallStruct_Unmarshal` | 113 ns | 121 ns; 123 ns as v1; 151 ns case-insensitive | in a profile, against v1: the setup of the call, about 3 ns more (`beginCall`, `endCall` and `DecoderOfV2`, calls which are not inlined), the strings, about 2 ns more (`decodeStringV2` against `decodeStringField`), and the bits of the fields, kept for their duplicates, about 2 ns; as v1, the options which the call applies |
+| `MediumStruct_Unmarshal` | 767 ns, 7 allocations | 952 ns; 769 ns as v1; 1.11 µs case-insensitive; 7 allocations | the names of no field, kept for their duplicates, and the values of no field, whose strings are read for their UTF-8 and whose objects for their names: work which v1 doesn't do |
+| `LargeStruct_Unmarshal` | 10.1 µs, 66 allocations | 12.9 µs; 9.97 µs as v1; 16.6 µs case-insensitive; 66 allocations | the names of no field, kept for their duplicates (`nameSet.addListed`, 15%: 1,028 names, each about 1.9 ns, mostly the loads of the name, which the hash depends on, and of the word of the mask, which depends on the hash; a copy of its code in the loop of the members took about 0.45 µs off, not kept, so as not to have the code twice), and the values of no field (about 1.05 times v1's skip of them) |
+| `InterfaceUnmarshaler_Unmarshal` (`UnmarshalJSON` of the values of interfaces) | 194 ns, 8 allocations | 233 ns, no allocation | the value of each method read and checked by `ReadValue` (40%), and `reflect.PointerTo` of the type of the pointer which the interface holds (14%), which the program has no pointer type of; `DecoderOfV2` (7%): a profile of 2026-10-23, at 269 ns, before the values of methods were skipped in one read |
+| `TwitterBinding_Unmarshal` | 4.87 µs | 4.95 µs; 4.80 µs as v1 (2026-10-25, with the loops of the options) | not looked into |
 | 1.5 MB of records into `[]struct{}`, by `UnmarshalRead` | | 1.6 MB and 48 allocations, measured before 2026-10-25 | not looked into since the names of no field are kept in one stack of the call (3.9 MB and 71,903 allocations before) |
 
 `CodeAny_Unmarshal` and `Code_Unmarshal` are within 2% of v1, as `LargeSlice_EscapedString` was
 when measured 2026-10-24; `TwitterGeneric_Unmarshal` is 2.2% slower than v1 (10.4 µs against
 10.2 µs; 10.2 µs as v1); and `Times_Unmarshal`, `GitHubREST_Unmarshal`, `GitHubGraphQL_Unmarshal`
 and `SmallStruct_ChunkedStream` are faster than v1.
+
+A deep input costs the collector more for each level: it scans the whole stack of the goroutine
+in each of its cycles, and with `GOGC=1` its cycles grow with what the decoding allocates. The
+input of `Benchmark_Decode_DeepDuplicateNames_Unmarshal_GoJsonV2`, whose deepest object has a name
+twice, decoded into an `interface{}` again by the merging of v2 with `AllowDuplicateNames`, takes
+32 times as long 4,000 levels deep as 250 levels deep with `GOGC=1`, and 16 times without the
+collector; encoding/json/v2 takes 30 to 38 times. A level of the merging is three frames of about
+600 bytes (`decodeElem`, `decodeMerging` and `decodeObjectInto`), which fewer frames would make
+cheaper (measured 2026-10-25).
 
 `UnmarshalRead` and `UnmarshalDecode` against v1's `Decoder`, from a reader of 4 KiB at a time (the
 `ChunkedStream` benchmarks; the stream reads 512 bytes at a time in both):
@@ -68,7 +81,7 @@ and `SmallStruct_ChunkedStream` are faster than v1.
 | `CodeAny_ChunkedStream` | 4.20 ms | 4.83 ms | the objects which a read cuts, decoded member by member: each scalar of an interface{} looked for its end and decoded whole. The value of each member is allocated (61,000 allocations against 29,500, measured 2026-10-24); decoding it in a slot of the stack of the context instead took none of the time off (2026-10-24) |
 | `Twitter_ChunkedStream` | 11.1 µs | 12.2 µs; 12.2 µs as v1 | the ones of `Code_ChunkedStream` |
 | `NDJSON_ChunkedStream` (a record by `UnmarshalDecode`, against `Decoder.Decode`) | 2.50 ms | 3.65 ms | the setup of each call (about 14%): two pools, the hooks of jsontext, the path of the stream and the copy of the buffer of the decoder; and the records which a read cuts, as in `Code_ChunkedStream` |
-| `MediumStruct_ChunkedStream` | 1.69 µs | 2.24 µs; 2.00 µs as v1; 2.35 µs case-insensitive | the ones of `MediumStruct_Unmarshal`, and the ones of `Code_ChunkedStream` |
+| `MediumStruct_ChunkedStream` | 1.69 µs | 2.21 µs; 2.00 µs as v1; 2.35 µs case-insensitive | the ones of `MediumStruct_Unmarshal`, and the ones of `Code_ChunkedStream` |
 
 ## Constraints
 

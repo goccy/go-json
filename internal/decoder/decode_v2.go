@@ -72,12 +72,33 @@ func CompileToGetDecoderV2(typ unsafe.Pointer, stringifyNumbers bool) (Decoder, 
 }
 
 // DecoderOfV2 returns the decoder of the semantics of encoding/json/v2 of the type, for the options and the
-// functions of unmarshaling of ctx.
+// functions of unmarshaling of ctx. The decoder of a call without functions is remembered with the decoders of the
+// context as v1's DecoderOf remembers them, under the address of the type marked by its lowest bits, which no type
+// has: the decoders of v2 are other than v1's, and other with StringifyNumbers. A decoder in neither entry of its set
+// is the one of the shared table, which takes the first entry, and the one decoded before it the second.
 func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
+	stringifyNumbers := ctx.Option.V2&V2StringifyNumbers != 0
 	if funcs := ctx.v2Funcs(); funcs != nil {
-		return funcs.decoderOf(typ, ctx.Option.V2&V2StringifyNumbers != 0)
+		return funcs.decoderOf(typ, stringifyNumbers)
 	}
-	return CompileToGetDecoderV2(typ, ctx.Option.V2&V2StringifyNumbers != 0)
+	if ctx.recentDecoders == nil {
+		return CompileToGetDecoderV2(typ, stringifyNumbers)
+	}
+	key := uintptr(typ) | 1 | uintptr(ctx.Option.V2&V2StringifyNumbers)>>2
+	set := &ctx.recentDecoders[(uint64(key)*runtime.TypeHashMultiplier)>>recentDecoderHashShift]
+	if set[0].typeptr == key {
+		return set[0].dec, nil
+	}
+	if set[1].typeptr == key {
+		return set[1].dec, nil
+	}
+	dec, err := CompileToGetDecoderV2(typ, stringifyNumbers)
+	if err != nil {
+		return nil, err
+	}
+	set[1] = set[0]
+	set[0] = recentDecoder{typeptr: key, dec: dec}
+	return dec, nil
 }
 
 // compileV2 returns the decoder of a value of typ by the semantics of v2.

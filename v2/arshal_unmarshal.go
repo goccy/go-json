@@ -107,7 +107,12 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 	e := (*emptyInterface)(unsafe.Pointer(&out))
 	ctx := decoder.TakeRuntimeContext()
 	buf := ctx.SetInput(in)
-	cfg := beginCall(ctx, opts)
+	cfg := &noOptions
+	if len(opts) > 0 {
+		cfg = beginCallOf(ctx, opts)
+	} else {
+		setPlainCall(ctx)
+	}
 	err := decodeInput(ctx, buf, e.typ, e.ptr, cfg)
 	endCall(ctx, cfg)
 	ctx.Option.V2 = 0
@@ -137,7 +142,12 @@ func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 	ctx := decoder.TakeRuntimeContext()
 	p := reusedValue(ctx, out)
 	buf := ctx.SetInput(in)
-	cfg := beginCall(ctx, opts)
+	cfg := &noOptions
+	if len(opts) > 0 {
+		cfg = beginCallOf(ctx, opts)
+	} else {
+		setPlainCall(ctx)
+	}
 	err := decodeInput(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
 	endCall(ctx, cfg)
 	ctx.Option.V2 = 0
@@ -176,18 +186,9 @@ type emptyInterface struct {
 // noOptions is the config of a call without options.
 var noOptions options.Config
 
-// beginCall sets ctx for a call by the options, and returns their config, which endCall drops. A call without
-// options, as most are, is set by setPlainCall, which the compiler inlines here.
-func beginCall(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
-	if len(opts) > 0 {
-		return beginCallOf(ctx, opts)
-	}
-	setPlainCall(ctx)
-	return &noOptions
-}
-
-// beginCallOf is beginCall of a call with options, whose config is the one of the call of ctx, which would escape on
-// the stack, as the options are applied by the calls of their interface.
+// beginCallOf sets ctx for a call by the options, and returns their config, which endCall drops: the config of the
+// call of ctx, which would escape on the stack, as the options are applied by the calls of their interface. A call
+// without options is set by setPlainCall, which the compiler inlines into the callers.
 func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 	cfg := &ctx.V2Call().Options
 	cfg.Apply(opts)
@@ -214,7 +215,7 @@ func setPlainCall(ctx *decoder.RuntimeContext) {
 	call.Config, call.Funcs = &noOptions, nil
 }
 
-// endCall drops what beginCall set in ctx for a call, and cfg, the config of its options.
+// endCall drops what beginCallOf or setPlainCall set in ctx for a call, and cfg, the config of its options.
 func endCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 	clearCall(ctx)
 	if cfg != &noOptions {

@@ -83,10 +83,15 @@ func (c *Config) ApplyTo(dst *Config) {
 	}
 }
 
-// Apply sets the options in order: an option set later overrides a property set by an earlier one.
+// Apply sets the options in order: an option set later overrides a property set by an earlier one. A Bool, as most
+// options are, is applied without a call of its method.
 func (c *Config) Apply(opts []Options) {
 	for _, o := range opts {
-		if o != nil {
+		switch o := o.(type) {
+		case Bool:
+			o.ApplyTo(c)
+		case nil:
+		default:
 			o.ApplyTo(c)
 		}
 	}

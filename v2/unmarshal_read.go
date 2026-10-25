@@ -52,7 +52,12 @@ func UnmarshalReadOf[T any](in io.Reader, out *T, opts ...Options) error {
 // the options.
 func unmarshalStream(s *decoder.Stream, typ, p unsafe.Pointer, opts []Options) error {
 	ctx := s.Context()
-	cfg := beginCall(ctx, opts)
+	cfg := &noOptions
+	if len(opts) > 0 {
+		cfg = beginCallOf(ctx, opts)
+	} else {
+		setPlainCall(ctx)
+	}
 	err := decodeStream(s, typ, p, cfg)
 	endCall(ctx, cfg)
 	return err

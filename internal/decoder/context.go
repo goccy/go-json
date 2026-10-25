@@ -45,9 +45,9 @@ type RuntimeContext struct {
 	// before it copies the result to the value of the caller.
 	valueType unsafe.Pointer
 	value     unsafe.Pointer
-	// recentDecoders are the decoders of the types decoded last, in the sets indexed by the address of the type.
-	// Only the contexts of the pool have them: a Decoder has a context of its own, which it would allocate
-	// with them for every stream.
+	// recentDecoders are the decoders of the types decoded last, in the sets indexed by the address of the type,
+	// and the decoders of v2 by the address marked by its lowest bits ( see DecoderOfV2 ). Only the contexts of the
+	// pool have them: a Decoder has a context of its own, which it would allocate with them for every stream.
 	recentDecoders *[recentDecoderSets]recentDecoderSet
 	// v2 is the state of the calls of the v2 json package which use the context, which is kept with it once a call
 	// made it ( see V2Call ).
@@ -79,7 +79,7 @@ type recentDecoderSet [recentDecoderWays]recentDecoder
 //
 // A runtime context remembers the decoders of the types it decoded last: the same types are decoded again
 // and again in most of the programs, and this is cheaper than a lookup of the table shared by every goroutine.
-// The first entry of the set is looked at here, which is inlined into the callers; the rest in lookupDecoder.
+// The first entry of the set is looked at here; the rest in lookupDecoder.
 func (ctx *RuntimeContext) DecoderOf(typ unsafe.Pointer) (Decoder, error) {
 	if ctx.recentDecoders == nil {
 		return CompileToGetDecoder(typ)

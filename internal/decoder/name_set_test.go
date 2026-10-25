@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 // The sets of the names of the objects of a call share the names of the call: an object's names are its own, after
@@ -100,8 +99,17 @@ func TestNameSetOfManyNames(t *testing.T) {
 
 // A name of the input and a copy of the same name are the same name, and names which differ by any of their bytes,
 // or by their lengths, are not, whatever their lengths: the bytes between the first and the last eight of a long
-// name too.
+// name too. The names of the input are added by add, and by addListed before add, as the loops of the decoding add
+// most names: the input has no room after it, so that its last names are added by add.
 func TestNameSetOfNamesOfTheInput(t *testing.T) {
+	for _, listed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "add", true: "addListed"}[listed], func(t *testing.T) {
+			testNameSetOfNamesOfTheInput(t, listed)
+		})
+	}
+}
+
+func testNameSetOfNamesOfTheInput(t *testing.T, listed bool) {
 	call := new(V2Call)
 	var names []string
 	for n := 0; n <= 40; n++ {
@@ -120,6 +128,13 @@ func TestNameSetOfNamesOfTheInput(t *testing.T) {
 		at = append(at, int64(len(input)))
 		input = append(input, name...)
 	}
+	input = input[:len(input):len(input)]
+	add := func(s *nameSet, start, end int64) bool {
+		if listed && s.addListed(call, input, start, end) {
+			return true
+		}
+		return s.add(call, input, start, end)
+	}
 	// sets of a few names, which are compared by their hashes, and one of all, of a map
 	sets := [][2]int{{0, len(names)}}
 	for first := 0; first < len(names); first += 7 {
@@ -129,8 +144,13 @@ func TestNameSetOfNamesOfTheInput(t *testing.T) {
 		names, at := names[set[0]:set[1]], at[set[0]:set[1]]
 		var s nameSet
 		for i, name := range names {
-			if !s.add(call, input, at[i], at[i]+int64(len(name))) {
+			if !add(&s, at[i], at[i]+int64(len(name))) {
 				t.Fatalf("add %q of the input: had it", name)
+			}
+		}
+		for i, name := range names {
+			if add(&s, at[i], at[i]+int64(len(name))) {
+				t.Fatalf("add %q of the input again: didn't have it", name)
 			}
 		}
 		for _, name := range names {
@@ -146,11 +166,32 @@ func TestNameSetOfNamesOfTheInput(t *testing.T) {
 			}
 		}
 		for i, name := range names {
-			if copies.add(call, input, at[i], at[i]+int64(len(name))) {
+			if add(&copies, at[i], at[i]+int64(len(name))) {
 				t.Fatalf("add %q of the input to the set of its copies: didn't have it", name)
 			}
 		}
 		copies.end(call)
+	}
+}
+
+// A set which addListed starts, in an object after the names of the object around it, begins after them: its end
+// drops its names alone.
+func TestNameSetOfAddListedAfterAnObject(t *testing.T) {
+	call := new(V2Call)
+	// room for the entries, so that addListed takes the name
+	call.names.entries = make([]nameEntry, 0, 4)
+	input := []byte(`"b"` + strings.Repeat(" ", 16))
+	var outer, inner nameSet
+	outer.addCopy(call, nil, []byte("a"))
+	if !inner.addListed(call, input, 1, 2) {
+		t.Fatal("addListed didn't take the name")
+	}
+	inner.end(call)
+	if len(call.names.entries) != 1 {
+		t.Fatalf("after the end of the inner object: %d names, want 1", len(call.names.entries))
+	}
+	if outer.addCopy(call, nil, []byte("a")) {
+		t.Fatal("the outer object lost its name")
 	}
 }
 
@@ -194,41 +235,37 @@ func oneHashName(i int) []byte {
 	return name
 }
 
-// The names of an object of many names which have one hash are found in the time of as many names of other hashes,
-// not in a time of the square of their number: past maxListedNames, they are found by the map, whose hash the input
-// doesn't choose.
+// The names of an object of many names which have one hash are told apart by their bytes, and not compared with one
+// another: past maxListedNames, they are keys of the map of the set, whose hash the input doesn't choose, so that the
+// time of an object of many names of one hash is not the square of their number.
 func TestNameSetOfNamesOfOneHash(t *testing.T) {
-	const n = 40000
+	const n = 4 * maxListedNames
 	if h := nameHash(oneHashName(0)); nameHash(oneHashName(n-1)) != h || nameHash(oneHashName(n/2)) != h {
 		t.Fatal("the names have other hashes")
 	}
-	timeOf := func(nameOf func(int) []byte) time.Duration {
-		var input []byte
-		at := make([]int64, n)
-		for i := range n {
-			at[i] = int64(len(input))
-			input = append(input, nameOf(i)...)
-		}
-		best := time.Duration(1 << 62)
-		for range 3 {
-			call := new(V2Call)
-			var s nameSet
-			began := time.Now()
-			for i := range n {
-				if !s.add(call, input, at[i], at[i]+16) {
-					t.Fatalf("name %d: had it", i)
-				}
-			}
-			best = min(best, time.Since(began))
-			if s.add(call, input, at[n/2], at[n/2]+16) {
-				t.Fatal("didn't have a name twice")
-			}
-		}
-		return best
+	var input []byte
+	at := make([]int64, n)
+	for i := range n {
+		at[i] = int64(len(input))
+		input = append(input, oneHashName(i)...)
 	}
-	same := timeOf(oneHashName)
-	other := timeOf(func(i int) []byte { return []byte(strconv.FormatInt(1e15+int64(i), 10)) })
-	if same > 20*other+50*time.Millisecond {
-		t.Fatalf("%d names of one hash in %v, of other hashes in %v", n, same, other)
+	call := new(V2Call)
+	var s nameSet
+	for i := range n {
+		if s.addListed(call, input, at[i], at[i]+16) || s.add(call, input, at[i], at[i]+16) {
+			continue
+		}
+		t.Fatalf("name %d: had it", i)
+	}
+	if len(s.set) != n {
+		t.Fatalf("%d names of one hash, of which %d are keys of the map of the set", n, len(s.set))
+	}
+	for i := range n {
+		if _, ok := s.set[string(oneHashName(i))]; !ok {
+			t.Fatalf("name %d is not a key of the map of the set", i)
+		}
+	}
+	if s.add(call, input, at[n/2], at[n/2]+16) {
+		t.Fatal("didn't have a name twice")
 	}
 }

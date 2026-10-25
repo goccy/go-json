@@ -320,8 +320,10 @@ key:
 		w := load64(buf, c)
 		if special := keyEndBytes(w) | w&keyHigh; special != 0 {
 			if c += int64(bits.TrailingZeros64(special) / 8); char(b, c) == '"' {
-				if names && !call.skipNames[level-1].add(call, buf, cursor+1, c) {
-					return cursor, level, objects, resumeAfterKey, skipNameTwice
+				if names {
+					if s := &call.skipNames[level-1]; !s.addListed(call, buf, cursor+1, c) && !s.add(call, buf, cursor+1, c) {
+						return cursor, level, objects, resumeAfterKey, skipNameTwice
+					}
 				}
 				cursor = c + 1
 				goto afterKey

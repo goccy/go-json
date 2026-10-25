@@ -1089,6 +1089,51 @@ func (s *nameSet) add(call *V2Call, buf []byte, start, end int64) bool {
 	return s.insert(call, buf, buf[start:end], start)
 }
 
+// addListed adds the name buf[start:end] of the input as add adds it, if it can without a call, and reports whether
+// it did: a name of up to 16 bytes, where buf has room for two words from start, of an object of fewer than
+// maxListedNames names, whose bit is not in the mask, in an entry of the array of the call which has room. It makes
+// no call, so that it has no frame and doesn't save its arguments, as insert does for the calls on its other paths:
+// the loops which add most names call it before add.
+func (s *nameSet) addListed(call *V2Call, buf []byte, start, end int64) bool {
+	n := end - start
+	if n > 16 || start+16 > int64(cap(buf)) || s.set != nil || s.n >= maxListedNames {
+		return false
+	}
+	a, b := inputNameWords(buf, start, n)
+	h := mixNameWords(a, b, n)
+	t := &call.names
+	entries := t.entries
+	w, bit := &s.mask[h>>62], uint64(1)<<(h>>56&63)
+	if *w&bit != 0 || len(entries) >= cap(entries) {
+		return false
+	}
+	*w |= bit
+	if s.n == 0 {
+		s.first, s.copies = len(entries), len(t.copies)
+	}
+	// within the capacity, which the compiler sees, so that the slice and the index need no call of a panic, and the
+	// length of the entries of the call written alone: their array is the same, without the write barrier of its
+	// pointer
+	entries = entries[:len(entries)+1]
+	entries[len(entries)-1] = nameEntry{hash: h, at: start, n: n}
+	(*sliceHeader)(unsafe.Pointer(&t.entries)).len = len(entries)
+	s.n++
+	return true
+}
+
+// inputNameWords returns the words of the name buf[at:at+n] of the input of up to 16 bytes, where buf has room for
+// two words from at, as nameHash makes them of its bytes: the first word without the bytes after the name, and the
+// last one for more than eight bytes.
+func inputNameWords(buf []byte, at, n int64) (uint64, uint64) {
+	a, b := load64(buf, at), uint64(0)
+	if n < 8 {
+		a &= 1<<(uint(n)*8&63) - 1
+	} else if n > 8 {
+		b = load64(buf, at+n-8)
+	}
+	return a, b
+}
+
 // addCopy adds a copy of the name, and reports whether the set didn't have it: buf is the input of the names which
 // add added to the set, if any.
 func (s *nameSet) addCopy(call *V2Call, buf, name []byte) bool {
@@ -1108,12 +1153,7 @@ func (s *nameSet) insert(call *V2Call, buf, name []byte, at int64) bool {
 	}
 	var h uint64
 	if n := int64(len(name)); at >= 0 && n <= 16 && at+16 <= int64(cap(buf)) {
-		a, b := load64(buf, at), uint64(0)
-		if n < 8 {
-			a &= 1<<(uint(n)*8&63) - 1
-		} else if n > 8 {
-			b = load64(buf, at+n-8)
-		}
+		a, b := inputNameWords(buf, at, n)
 		h = mixNameWords(a, b, n)
 	} else {
 		h = nameHash(name)

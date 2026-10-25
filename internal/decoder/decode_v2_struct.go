@@ -347,11 +347,12 @@ func (d *v2StructDecoder) decodeMembersOnce(ctx *RuntimeContext, cursor, depth i
 			}
 			seen |= bit
 		} else {
+			call := ctx.V2Call()
 			var added bool
 			if name == nil {
-				added = unknown.add(ctx.V2Call(), buf, start+1, end-1)
+				added = unknown.addListed(call, buf, start+1, end-1) || unknown.add(call, buf, start+1, end-1)
 			} else {
-				added = unknown.addCopy(ctx.V2Call(), buf, name)
+				added = unknown.addCopy(call, buf, name)
 			}
 			if !added {
 				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}

@@ -755,6 +755,22 @@ func (s *Stream) setNameAt(lv, k int, from, to int64) {
 	call := s.ctx.v2
 	call.Path[lv].Count = int64(2*k + 1)
 	call.pathNames[lv] = namePlace{from: from, to: to}
+	call.namesFrom = min(call.namesFrom, lv)
+}
+
+// exactField returns the field of the name key of an object, which nextMember found, with what it found of it in
+// info, and reports whether it is plain, as plainFieldV2 finds the field of a plain name in the buffer: a name of
+// ASCII without an escape, which is the field whose name is the name as it is. The field of any other is found by
+// memberOf.
+func exactField(keys *structKeys, key []byte, info stringInfo) (*structFieldSet, bool) {
+	if info.firstEscape >= 0 || info.nonASCII {
+		return nil, false
+	}
+	if !keys.hasExactLength(len(key)) {
+		return nil, true
+	}
+	w0, w1 := keyWords(key)
+	return keys.findExact(key, w0, w1), true
 }
 
 // copyNames copies the names which the levels of the path have by their places in the buffer ( see setNameAt )
@@ -762,7 +778,8 @@ func (s *Stream) setNameAt(lv, k int, from, to int64) {
 // the decoding or by a method or a function which reads a jsontext.Decoder.
 func (s *Stream) copyNames() {
 	call := s.ctx.v2
-	for i, np := range call.pathNames {
+	for i := call.namesFrom; i < len(call.pathNames); i++ {
+		np := call.pathNames[i]
 		if np.to == 0 {
 			continue
 		}
@@ -772,6 +789,7 @@ func (s *Stream) copyNames() {
 		}
 		call.pathNames[i].to = 0
 	}
+	call.namesFrom = len(call.pathNames)
 	if call.skip.active {
 		s.copySkipNames()
 	}
@@ -911,7 +929,7 @@ func (s *Stream) decodeStructMembersV2(d *v2StructDecoder, p unsafe.Pointer, dep
 		if !keeps {
 			s.keeps, s.keepFrom = true, step
 		}
-		_, _, start, ok, err := s.nextMember(k == 0)
+		key, info, start, ok, err := s.nextMember(k == 0)
 		if err != nil {
 			return s.placeDelimiterError(err, step)
 		}
@@ -920,7 +938,7 @@ func (s *Stream) decodeStructMembersV2(d *v2StructDecoder, p unsafe.Pointer, dep
 			s.popLevel(lv)
 			return nil
 		}
-		field, _, plain := plainFieldV2(d.keyDecoder.keys, s.buf[:s.length+1], start)
+		field, plain := exactField(d.keyDecoder.keys, key, info)
 		if !plain {
 			// a name which v2StructDecoder.Decode finds by memberOf, which is copied decoded
 			candidate, _, err := d.keyDecoder.decodeKey(s.buf[:s.length+1], start, false)

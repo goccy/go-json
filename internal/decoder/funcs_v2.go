@@ -106,6 +106,9 @@ type V2Call struct {
 	// have not copied yet, one for each level ( see Stream.setNameAt ): copied before the buffer drops them or the
 	// path is read ( see Stream.copyNames ).
 	pathNames []namePlace
+	// namesFrom is the first level of Path which may have a name by its place: the levels before it have none, so
+	// that copyNames looks at the levels whose names were set since it copied them, not at the whole path.
+	namesFrom int
 	// skip is what skipLongV2 follows of the levels of the value of the stream which it skips.
 	skip skipPath
 	// Place is where the error which the decoding of the stream returned is found again ( see StreamPlace ).

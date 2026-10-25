@@ -1096,16 +1096,28 @@ func (s *nameSet) addCopy(call *V2Call, buf, name []byte) bool {
 }
 
 // insert adds the name, at the offset at of buf, the input, or copied if at is negative, and reports whether the set
-// didn't have it. The name is compared with the names of its bit by their hashes, and with the ones of its hash by
-// their bytes. The entries of the call are written after the ones of the objects which its object is in, which the
-// keys of set are: they are not written while the object is open, as the objects in it end before its next name, and
-// an array of copies which the call leaves for a larger one is not written again.
+// didn't have it. The hash of a name of the input of up to 16 bytes is made here of its words, as nameHash makes it,
+// where buf has room for two words from at. The name is compared with the names of its bit by their hashes, and with
+// the ones of its hash by their bytes. The entries of the call are written after the ones of the objects which its
+// object is in, which the keys of set are: they are not written while the object is open, as the objects in it end
+// before its next name, and an array of copies which the call leaves for a larger one is not written again.
 func (s *nameSet) insert(call *V2Call, buf, name []byte, at int64) bool {
 	t := &call.names
 	if s.n == 0 {
 		s.first, s.copies = len(t.entries), len(t.copies)
 	}
-	h := nameHash(name)
+	var h uint64
+	if n := int64(len(name)); at >= 0 && n <= 16 && at+16 <= int64(cap(buf)) {
+		a, b := load64(buf, at), uint64(0)
+		if n < 8 {
+			a &= 1<<(uint(n)*8&63) - 1
+		} else if n > 8 {
+			b = load64(buf, at+n-8)
+		}
+		h = mixNameWords(a, b, n)
+	} else {
+		h = nameHash(name)
+	}
 	if s.set != nil {
 		if _, exists := s.set[unsafeString(name)]; exists {
 			return false
@@ -1148,23 +1160,31 @@ func (s *nameSet) end(call *V2Call) {
 // unsafeString is the string of the bytes of b, which are not written while it is used.
 func unsafeString(b []byte) string { return unsafe.String(unsafe.SliceData(b), len(b)) }
 
-// nameHash returns the hash of name, whose top eight bits are its bit in the mask of a nameSet: of its first and its
-// last eight bytes, which are all of its bytes up to 16 bytes, and of the words between them. The bytes of a name of
-// up to eight bytes are read by smaller words, which are all of them up to three bytes, and from four bytes.
+// nameHash returns the hash of name, whose top eight bits are its bit in the mask of a nameSet: of its first word, of
+// its first eight bytes, or of all of them for a name of less than eight bytes, mixed with the words between it and
+// the last one, and of its last word, of its last eight bytes, for a name of more than eight bytes ( see
+// mixNameWords ). The words of a name of up to 16 bytes are all of its bytes.
 func nameHash(name []byte) uint64 {
 	n := len(name)
 	var a, b uint64
-	switch {
-	case n > 8:
-		a, b = binary.LittleEndian.Uint64(name), binary.LittleEndian.Uint64(name[n-8:])
-		for i := 8; i < n-8; i += 8 {
-			a = (a ^ binary.LittleEndian.Uint64(name[i:])) * 0x9E3779B97F4A7C15
+	if n >= 8 {
+		a = binary.LittleEndian.Uint64(name)
+		if n > 8 {
+			b = binary.LittleEndian.Uint64(name[n-8:])
+			for i := 8; i < n-8; i += 8 {
+				a = (a ^ binary.LittleEndian.Uint64(name[i:])) * 0x9E3779B97F4A7C15
+			}
 		}
-	case n >= 4:
-		a = uint64(binary.LittleEndian.Uint32(name)) | uint64(binary.LittleEndian.Uint32(name[n-4:]))<<32
-	case n > 0:
-		a = uint64(name[0]) | uint64(name[n>>1])<<8 | uint64(name[n-1])<<16
+	} else {
+		for i := n - 1; i >= 0; i-- {
+			a = a<<8 | uint64(name[i])
+		}
 	}
+	return mixNameWords(a, b, int64(n))
+}
+
+// mixNameWords returns the hash of a name of n bytes of the words a and b ( see nameHash ).
+func mixNameWords(a, b uint64, n int64) uint64 {
 	h := (a ^ bits.RotateLeft64(b, 29) ^ uint64(n)<<58) * 0x9E3779B97F4A7C15
 	return h ^ h>>31
 }

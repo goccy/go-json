@@ -39,16 +39,29 @@ const maxReusedStreamBuffer = 4 * (initBufSize + bufPadding)
 // RuntimeContext.V2Call ), whose path is the top level.
 func TakeStreamV2(r io.Reader) *Stream {
 	s := streamsV2.Get().(*Stream)
+	s.BeginV2(r)
+	return s
+}
+
+// BeginV2 makes the stream, which has no reader ( see EndV2 ), read r, for a decoding of v2 by the state of the
+// call of its context, whose path is the top level.
+func (s *Stream) BeginV2(r io.Reader) {
 	s.r = r
 	call := s.ctx.V2Call()
 	call.Stream = s
 	call.Path = append(call.Path[:0], textcoder.Level{})
 	call.pathNames = append(call.pathNames[:0], namePlace{})
-	return s
 }
 
-// ReleaseStreamV2 puts the stream back, without its reader and the state of its call.
+// ReleaseStreamV2 puts the stream back, without its reader and the state of its call ( see EndV2 ).
 func ReleaseStreamV2(s *Stream) {
+	s.EndV2()
+	streamsV2.Put(s)
+}
+
+// EndV2 drops the reader of the stream and the state of its call, which may then read another reader ( see
+// BeginV2 ).
+func (s *Stream) EndV2() {
 	call := s.ctx.v2
 	call.Stream, call.Value, call.Place = nil, StreamValue{}, StreamPlace{}
 	if len(call.names.entries) != 0 {
@@ -65,7 +78,6 @@ func ReleaseStreamV2(s *Stream) {
 	s.r, s.readErr, s.err = nil, nil, nil
 	s.keeps, s.keepFrom = false, 0
 	s.ctx.Option.Flags, s.ctx.Option.V2 = 0, 0
-	streamsV2.Put(s)
 }
 
 // StartAt makes the stream, which has read nothing, start at the offset of the input, which its reader reads from.

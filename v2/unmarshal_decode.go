@@ -54,10 +54,12 @@ func UnmarshalDecodeOf[T any](in *jsontext.Decoder, out *T, opts ...Options) err
 }
 
 // decodeCall is the state of a call of UnmarshalDecode, which the calls reuse: the levels of the place of the value,
-// the input of the decoder which a stream reads, and the config of the options of the call.
+// the input of the decoder which a stream reads, the stream, which a call takes once, and the config of the options
+// of the call.
 type decodeCall struct {
 	levels []textcoder.Level
 	input  lentInput
+	stream *decoder.Stream
 	cfg    options.Config
 }
 
@@ -113,7 +115,7 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 	case attached && st.att.In != nil:
 		err = decodeOnStream(d, in, st, levels, depth, typ, p, cfg)
 	default:
-		err = decodeLent(d, in, &dc.input, levels, depth, typ, p, cfg)
+		err = decodeLent(d, in, dc, levels, depth, typ, p, cfg)
 	}
 	return err
 }
@@ -252,10 +254,10 @@ func (l *lentInput) Read(p []byte) (int, error) {
 }
 
 // decodeLent decodes the next value of the decoder at d, of in, into the value at p, of the pointer type typ, by the
-// options of cfg: a stream reads the input of the decoder by input, from the end of the token before
+// options of cfg: the stream of dc reads the input of the decoder by its input, from the end of the token before
 // the value, as UnmarshalRead reads it, and the decoder goes on after the value. levels and depth are the place of
 // the value ( see textcoder.DecoderPlace ).
-func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
+func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
 	from := in.InputOffset()
 	start, err := textcoder.BeginValue(d)
 	if err != nil {
@@ -264,8 +266,15 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels
 	buf, r := textcoder.DecoderInput(d, from)
 	// the first byte of the value, which BeginValue read
 	first := buf[start-from]
+	input := &dc.input
 	*input = lentInput{buf: buf, r: r}
-	s := decoder.TakeStreamV2(input)
+	s := dc.stream
+	if s == nil {
+		// the stream of the call, as the pool of TakeStreamV2 makes one
+		s = decoder.NewStream(nil)
+		dc.stream = s
+	}
+	s.BeginV2(input)
 	s.StartAt(from)
 	ctx := s.Context()
 	s.SetPath(ctx.V2Call().Path, levels)
@@ -288,7 +297,7 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels
 		err = afterError(d, err, start, first, streamSkip(s, input.readR, depth, levels[depth].Count), putBack)
 	}
 	clearCall(ctx)
-	decoder.ReleaseStreamV2(s)
+	s.EndV2()
 	return err
 }
 

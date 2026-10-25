@@ -59,7 +59,7 @@ func unmarshalStream(s *decoder.Stream, typ, p unsafe.Pointer, opts []Options) e
 		setPlainCall(ctx)
 	}
 	err := decodeStream(s, typ, p, cfg)
-	endCall(ctx, cfg)
+	endCall(ctx)
 	return err
 }
 

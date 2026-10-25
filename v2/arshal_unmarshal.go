@@ -113,8 +113,21 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 	} else {
 		setPlainCall(ctx)
 	}
-	err := decodeInput(ctx, buf, e.typ, e.ptr, cfg)
-	endCall(ctx, cfg)
+	// the value is decoded as decodeInput decodes it, here, as v1's Unmarshal decodes its value itself
+	var dec decoder.Decoder
+	var err error
+	if e.typ != nil && e.ptr != nil {
+		dec, err = ctx.DecoderOfV2(e.typ)
+	}
+	if dec == nil {
+		err = outputError(ctx, e.typ, err)
+	} else {
+		var cursor int64
+		if cursor, err = dec.Decode(ctx, 0, 0, e.ptr); err != nil || ctx.HasTypeError() || !endsAt(buf, cursor) {
+			err = inputError(ctx, buf, cursor, err, cfg)
+		}
+	}
+	endCall(ctx)
 	ctx.Option.V2 = 0
 	decoder.ReleaseRuntimeContext(ctx)
 	// the decoder refers to the value by its address only.
@@ -149,7 +162,7 @@ func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 		setPlainCall(ctx)
 	}
 	err := decodeInput(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
-	endCall(ctx, cfg)
+	endCall(ctx)
 	ctx.Option.V2 = 0
 	returnValue(p, out)
 	decoder.ReleaseRuntimeContext(ctx)
@@ -186,13 +199,31 @@ type emptyInterface struct {
 // noOptions is the config of a call without options.
 var noOptions options.Config
 
-// beginCallOf sets ctx for a call by the options, and returns their config, which endCall drops: the config of the
-// call of ctx, which would escape on the stack, as the options are applied by the calls of their interface. A call
-// without options is set by setPlainCall, which the compiler inlines into the callers.
+// beginCallOf sets ctx for a call by the options, and returns their config, which endCall drops if it holds more than
+// flags ( see endCall ): the config of the call of ctx, which would escape on the stack, as the options are applied by
+// the calls of their interface. The options are applied as Config.Apply applies them, and the call is set as setCall
+// sets it, here, without their calls. A call without options is set by setPlainCall, which the compiler inlines into
+// the callers.
 func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
-	cfg := &ctx.V2Call().Options
-	cfg.Apply(opts)
-	setCall(ctx, cfg)
+	call := ctx.V2Call()
+	cfg := &call.Options
+	// the flags of the call before, which endCall leaves, as they refer to nothing
+	cfg.Set, cfg.Value = 0, 0
+	for _, o := range opts {
+		switch o := o.(type) {
+		case options.Bool:
+			o.ApplyTo(cfg)
+		case nil:
+		default:
+			o.ApplyTo(cfg)
+		}
+	}
+	ctx.Option.Flags = 0
+	ctx.Option.V2 = unmarshalFlags(cfg)
+	call.Config, call.Funcs = cfg, nil
+	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
+		call.Funcs = u.funcs
+	}
 	return cfg
 }
 
@@ -215,12 +246,35 @@ func setPlainCall(ctx *decoder.RuntimeContext) {
 	call.Config, call.Funcs = &noOptions, nil
 }
 
-// endCall drops what beginCallOf or setPlainCall set in ctx for a call, and cfg, the config of its options.
-func endCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
-	clearCall(ctx)
-	if cfg != &noOptions {
-		// the config may hold the functions of the caller
-		*cfg = options.Config{}
+// endCall drops what beginCallOf or setPlainCall set in ctx for a call which refers to something of the caller or of
+// the input: the decoder of the methods which read a jsontext.Decoder, and the options of the call if they hold more
+// than flags, which may hold the functions of the caller, are dropped by endCallOf, so that the compiler inlines the
+// rest. The config of the call, its options or noOptions, and the flags of its options refer to nothing: the next call
+// sets them.
+func endCall(ctx *decoder.RuntimeContext) {
+	// the state of the methods or the options which hold more than flags, tested by one comparison, so that the cost
+	// of the function is within the budget of the inliner on the platforms of 64 bits
+	if call := ctx.CurrentV2Call(); uintptr(call.From)|uintptr(call.Options.Set&configHolds) != 0 {
+		endCallOf(call)
+	}
+}
+
+// configHolds are the options of a config which hold more than flags: strings, and the functions of the caller.
+const configHolds = options.IndentSet | options.PrefixSet | options.MarshalersSet | options.UnmarshalersSet
+
+// configHolds fits in a uintptr of 32 bits, which endCall tests it as: the conversion of a constant which overflows
+// doesn't compile.
+const _ = uint32(configHolds)
+
+// endCallOf is endCall of a call which has a state of the methods which read a jsontext.Decoder, or options which
+// hold more than flags.
+func endCallOf(call *decoder.V2Call) {
+	call.Funcs, call.Config = nil, nil
+	if call.From != nil {
+		releaseFrom(call)
+	}
+	if call.Options.Set&configHolds != 0 {
+		call.Options = options.Config{}
 	}
 }
 
@@ -228,7 +282,15 @@ func endCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 func clearCall(ctx *decoder.RuntimeContext) {
 	call := ctx.V2Call()
 	call.Funcs, call.Config = nil, nil
-	if st := (*fromState)(call.From); st != nil && st.att.In != nil {
+	if call.From != nil {
+		releaseFrom(call)
+	}
+}
+
+// releaseFrom releases the decoder of the methods of the call, which has a state of them, if it was attached in the
+// call.
+func releaseFrom(call *decoder.V2Call) {
+	if st := (*fromState)(call.From); st.att.In != nil {
 		st.release()
 	}
 }
@@ -267,6 +329,15 @@ func decodeInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer,
 		return outputError(ctx, typ, err)
 	}
 	cursor, err := dec.Decode(ctx, 0, 0, p)
+	if err != nil || ctx.HasTypeError() || !endsAt(buf, cursor) {
+		return inputError(ctx, buf, cursor, err, cfg)
+	}
+	return nil
+}
+
+// inputError returns the error of the decoding of buf, the input of ctx followed by a nul byte, which ended at cursor
+// with err, a type error which a decoder of v1 recorded, or a value after the value, by the options of cfg.
+func inputError(ctx *decoder.RuntimeContext, buf []byte, cursor int64, err error, cfg *options.Config) error {
 	if terr := ctx.V2TypeError(); terr != nil {
 		// a type error which a decoder of v1 recorded, before any error it returned
 		err = terr
@@ -275,11 +346,11 @@ func decodeInput(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer,
 		// a value after the value, which is found by unmarshalError
 		err = errAfterValue
 	}
-	if err != nil {
-		ctx.DiscardTypeError()
-		return unmarshalError(&errorInput{buf: buf[:len(buf)-1]}, err, cfg)
+	if err == nil {
+		return nil
 	}
-	return nil
+	ctx.DiscardTypeError()
+	return unmarshalError(&errorInput{buf: buf[:len(buf)-1]}, err, cfg)
 }
 
 // outputDecoder returns the decoder of the output, the value at p of the pointer type typ, which must be a non-nil

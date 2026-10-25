@@ -133,6 +133,10 @@ type StreamPlace struct {
 	Set       bool
 }
 
+// CurrentV2Call returns the state of the call of the v2 json package which decodes by ctx, which the call made by
+// V2Call, so it is never nil.
+func (ctx *RuntimeContext) CurrentV2Call() *V2Call { return ctx.v2 }
+
 // V2Call returns the state of the call of the v2 json package which decodes by ctx, which it makes the first time.
 func (ctx *RuntimeContext) V2Call() *V2Call {
 	if ctx.v2 == nil {

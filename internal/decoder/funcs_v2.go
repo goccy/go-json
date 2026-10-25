@@ -86,6 +86,9 @@ type V2Call struct {
 	// Config are the options of the call, which a method or a function of unmarshaling which reads a
 	// jsontext.Decoder is given.
 	Config *options.Config
+	// Options are the options of a call of Unmarshal or of UnmarshalRead which has options, which Config points to:
+	// the context, which a pool keeps, holds them for its calls.
+	Options options.Config
 	// From is the state of the v2 json package for the methods and the functions which read a jsontext.Decoder,
 	// which the decoder doesn't know.
 	From unsafe.Pointer

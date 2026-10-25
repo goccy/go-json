@@ -227,7 +227,7 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		if fold {
 			field, end, plain = d.foldedFieldV2(ctx, buf, start)
 		} else {
-			field, end, plain = plainFieldV2(d.keyDecoder.keys, buf, start, false)
+			field, end, plain = plainFieldV2(d.keyDecoder.keys, buf, start)
 		}
 		// name is the name decoded, which a name of no field is checked by, or nil for a name whose field the lookup
 		// decided, which is as the input has it
@@ -385,7 +385,7 @@ func (d *v2StructDecoder) skipUnknownMembers(ctx *RuntimeContext, unknown *nameS
 		if fold {
 			field, end, plain = d.foldedFieldV2(ctx, buf, start)
 		} else {
-			field, end, plain = plainFieldV2(d.keyDecoder.keys, buf, start, false)
+			field, end, plain = plainFieldV2(d.keyDecoder.keys, buf, start)
 		}
 		if field != nil || !plain {
 			return start, false, nil
@@ -434,11 +434,11 @@ func fieldSeen(idx int, more *[]uint64, n int) bool {
 
 // plainFieldV2 finds the field of the name at cursor in buf, a quote, if the name has only bytes of ASCII which are
 // not an escape or a control character ( a plain name, which most names are ): the field whose name is the name as
-// it is, or, if folded, the field which structDecoder.decodeKey finds for it by its folded name. It returns the field
-// or nil, the position after the name, and whether the name is plain. The name is read word by word, as decodeKey
-// reads it, up to the capacity of buf, whose nul byte at the end stops a name before it. A name which is not plain,
-// or which is near the end of a buffer without room for a word after it, is left to decodeKey and memberOf.
-func plainFieldV2(keys *structKeys, buf []byte, cursor int64, folded bool) (*structFieldSet, int64, bool) {
+// it is. It returns the field or nil, the position after the name, and whether the name is plain. The name is read
+// word by word, as decodeKey reads it, up to the capacity of buf, whose nul byte at the end stops a name before it. A
+// name which is not plain, or which is near the end of a buffer without room for a word after it, is left to
+// decodeKey and memberOf.
+func plainFieldV2(keys *structKeys, buf []byte, cursor int64) (*structFieldSet, int64, bool) {
 	start := cursor + 1
 	if start+16 > int64(cap(buf)) {
 		return nil, 0, false
@@ -452,12 +452,6 @@ func plainFieldV2(keys *structKeys, buf []byte, cursor int64, folded bool) (*str
 		}
 		next := start + n + 1
 		w0 &= (special ^ (special - 1)) >> 8
-		if folded {
-			if !keys.hasLength(int(n)) {
-				return nil, next, true
-			}
-			return keys.findASCII(buf[start:start+n], w0, 0), next, true
-		}
 		if !keys.hasExactLength(int(n)) {
 			return nil, next, true
 		}
@@ -485,25 +479,73 @@ func plainFieldV2(keys *structKeys, buf []byte, cursor int64, folded bool) (*str
 	if buf[end] != '"' {
 		return nil, 0, false
 	}
-	if folded {
-		if !keys.hasLength(int(end - start)) {
-			return nil, end + 1, true
-		}
-		return keys.findASCII(buf[start:end], w0, load64(buf, end-8)), end + 1, true
-	}
 	if !keys.hasExactLength(int(end - start)) {
 		return nil, end + 1, true
 	}
 	return keys.findExact(buf[start:end], w0, load64(buf, end-8)), end + 1, true
 }
 
+// foldedPlainFieldV2 is plainFieldV2 for the names which may match a field by their folded names: the field which
+// structDecoder.decodeKey finds for a plain name by its folded name, and, for a name of no such field, the number of
+// its '_' and '-', which the words of the name are counted for as they are read ( see foldKey ).
+func foldedPlainFieldV2(keys *structKeys, buf []byte, cursor int64) (*structFieldSet, int64, int, bool) {
+	start := cursor + 1
+	if start+16 > int64(cap(buf)) {
+		return nil, 0, 0, false
+	}
+	w0 := load64(buf, start)
+	if special := specialKeyBytes(w0); special != 0 {
+		n := int64(bits.TrailingZeros64(special) / 8)
+		if buf[start+n] != '"' {
+			return nil, 0, 0, false
+		}
+		next := start + n + 1
+		w0 &= (special ^ (special - 1)) >> 8
+		if keys.hasLength(int(n)) {
+			if field := keys.findASCII(buf[start:start+n], w0, 0); field != nil {
+				return field, next, 0, true
+			}
+		}
+		return nil, next, dashCount(w0), true
+	}
+	dashes := dashCount(w0)
+	end := start + 8
+	w := load64(buf, end)
+	special := specialKeyBytes(w)
+	for special == 0 {
+		dashes += dashCount(w)
+		end += 8
+		if end+8 > int64(cap(buf)) {
+			return nil, 0, 0, false
+		}
+		w = load64(buf, end)
+		special = specialKeyBytes(w)
+	}
+	end += int64(bits.TrailingZeros64(special) / 8)
+	if buf[end] != '"' {
+		return nil, 0, 0, false
+	}
+	if keys.hasLength(int(end - start)) {
+		if field := keys.findASCII(buf[start:end], w0, load64(buf, end-8)); field != nil {
+			return field, end + 1, 0, true
+		}
+	}
+	// the bytes of the last word before the special byte
+	return nil, end + 1, dashes + dashCount(w&(special-1)), true
+}
+
+// dashCount returns the number of the bytes of w which are '_' or '-', which FoldName drops ( see foldKey ).
+func dashCount(w uint64) int {
+	return bits.OnesCount64(byteMask(w, '_') | byteMask(w, '-'))
+}
+
 // foldedFieldV2 finds the field of the name at start in buf, a quote, which may match a field by its folded name, if
-// the name is plain ( see plainFieldV2 ) and its field is decided without memberOf: the field which decodeKey finds
-// for it, if its folded name matches that field ( see foldedTo ), or no field, if no field may match it by its
+// the name is plain ( see foldedPlainFieldV2 ) and its field is decided without memberOf: the field which decodeKey
+// finds for it, if its folded name matches that field ( see foldedTo ), or no field, if no field may match it by its
 // folded name without its '_' and '-' ( see foldKey ). It returns the field or nil, the position after the name, and
 // whether the field is decided so.
 func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start int64) (*structFieldSet, int64, bool) {
-	field, end, plain := plainFieldV2(d.keyDecoder.keys, buf, start, true)
+	field, end, dashes, plain := foldedPlainFieldV2(d.keyDecoder.keys, buf, start)
 	if !plain {
 		return nil, 0, false
 	}
@@ -515,10 +557,8 @@ func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start i
 		return field, end, folded[field.fieldIdx] == field
 	}
 	// a name of no field of v1, which the table of the names of the fields without '_' and '-' may find without its
-	// own, but not if no field has its length without them
-	name := buf[start+1 : end-1]
-	n := foldedLength(name)
-	return nil, end, n == len(name) && d.foldKeys == d.keyDecoder.keys || !d.foldKeys.hasLength(n)
+	// own, but not if no field has its length without them, which foldedPlainFieldV2 counts
+	return nil, end, dashes == 0 && d.foldKeys == d.keyDecoder.keys || !d.foldKeys.hasLength(int(end-start-2)-dashes)
 }
 
 // memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was:

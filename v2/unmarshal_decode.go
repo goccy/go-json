@@ -315,9 +315,9 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, depth in
 	if err != nil {
 		return err
 	}
-	buf, r := textcoder.DecoderInput(d, from)
-	// the first byte of the value, which BeginValue read
-	first := buf[start-from]
+	// the buffer of the decoder, from the offset base, which has the first byte of the value, which BeginValue read
+	b, base, inPlace := textcoder.DecoderBuffer(d)
+	first := b[start-base]
 	input := &dc.input
 	s := dc.stream
 	if s == nil {
@@ -332,7 +332,7 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, depth in
 	// a method, a function or a pointer, which the stream decodes as any value
 	var long decoder.Decoder
 	if first == '{' || first == '[' {
-		if b, base, ok := textcoder.DecoderBuffer(d); ok && from >= base {
+		if inPlace && from >= base {
 			if dec, derr := outputDecoder(ctx, typ, p); derr == nil && !decoder.ReadsJSONText(dec) {
 				end, whole := decoder.WholeEndV2(b[:cap(b)], start-base, int64(len(b)))
 				if whole {
@@ -347,10 +347,11 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, depth in
 	levels := dc.place(d)
 	count := levels[depth].Count
 	dc.levels = s.BeginV2At(input, levels)
+	// the input of the decoder from the end of the token before the value, and its reader
+	buf, r := textcoder.DecoderInput(d, from)
 	// the buffer of the decoder, which the stream reads in place if it can, and its offset, by which the decoder is
 	// found to have dropped bytes of its input for the stream
 	borrowed := s.BorrowV2(d, from)
-	var base int64
 	if borrowed {
 		*input = lentInput{r: r}
 		_, base = s.Read()

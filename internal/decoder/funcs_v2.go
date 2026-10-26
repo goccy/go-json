@@ -123,6 +123,10 @@ type V2Call struct {
 	// by the options of the names of an object twice and of invalid UTF-8 which leave them something to read ( see
 	// skipperOf ), taken by the first value and put back when the context is released.
 	skippers [3]unsafe.Pointer
+	// Lent is the call of UnmarshalDecode which decodes the value of the call in the buffer of its decoder, without
+	// the stream, which it sets up for a method or a function which reads a jsontext.Decoder ( see V2Hooks.Lend ),
+	// or nil.
+	Lent unsafe.Pointer
 }
 
 // StreamValue is the value of a stream which a decoder of v2 decodes, in the innermost level of the path, for a

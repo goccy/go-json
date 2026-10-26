@@ -37,6 +37,11 @@ var V2Hooks struct {
 	// hold whole, by a jsontext.Decoder attached at its place ( see V2Call.Value ), which checks it as
 	// encoding/json/v2 checks a value it skips: it returns the error at its place.
 	SkipStreamValue func(s *Stream, depth int64) error
+	// Lend sets up the stream of the call of UnmarshalDecode of ctx, which decodes its value in the buffer of its
+	// decoder without it ( see V2Call.Lent ), as the stream is while it decodes the value whole ( see
+	// Stream.decodeWholeV2 ): for a method or a function of the value which reads a jsontext.Decoder, attached at
+	// its place, or for its error.
+	Lend func(ctx *RuntimeContext)
 }
 
 // v2MethodOf returns the first method of unmarshaling from first on which decodes a value of the type, or noMethod.

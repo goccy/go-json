@@ -257,6 +257,21 @@ func (s *Stream) DecodeV2(dec Decoder, p unsafe.Pointer, depth int64) error {
 	return s.decodeTopV2(dec, p, depth, from, keeps, keepFrom)
 }
 
+// DecodeLongV2After is DecodeV2After for an object or an array at the offset start of what has been read, which the
+// caller found not whole in it ( see WholeEndV2 ), by dec, which is not the decoder of a method, a function or a
+// pointer ( see ReadsJSONText ): it is decoded element by element at once, as decodeTopV2 decodes it after its scan.
+func (s *Stream) DecodeLongV2After(dec Decoder, p unsafe.Pointer, depth, from, start int64) error {
+	call := s.ctx.v2
+	// the names of the objects of the value which an error ended are dropped after it ( see DecodeV2After )
+	entries, copies := call.names.mark()
+	call.Place.Set = false
+	s.cursor = start - s.offset
+	s.beginElements()
+	err := s.decodeLongV2(dec, p, depth, from)
+	call.names.truncate(entries, copies)
+	return err
+}
+
 // DecodeV2After is DecodeV2 for a value at the offset start of the input, after from, the offset of the end of the
 // token before it, which the stream reads from: the white space and the delimiter between them, which were checked,
 // are skipped. It never returns io.EOF.
@@ -837,9 +852,81 @@ func (s *Stream) copyNames() {
 // copyStreamNames copies the names of the path of the stream which ctx decodes, if it decodes one ( see
 // Stream.copyNames ), for a method or a function which reads a jsontext.Decoder, which may read the path.
 func copyStreamNames(ctx *RuntimeContext) {
-	if call := ctx.v2; call != nil && call.Stream != nil {
+	call := ctx.v2
+	if call == nil {
+		return
+	}
+	if call.Stream == nil && call.Lent != nil {
+		// a value of UnmarshalDecode which is decoded in the buffer of its decoder, whose stream the method or the
+		// function needs
+		V2Hooks.Lend(ctx)
+	}
+	if call.Stream != nil {
 		call.Stream.copyNames()
 	}
+}
+
+// WholeEndV2 returns the end of the object or the array at cursor of buf, which has the input up to length, followed
+// by the room of a decoder ( see textcoder.InputRoom ), and reports whether it ends there: false for any other value.
+func WholeEndV2(buf []byte, cursor, length int64) (int64, bool) {
+	if c := buf[cursor]; c != '{' && c != '[' {
+		return 0, false
+	}
+	var sc compoundScanner
+	return sc.scan(buf, cursor, length)
+}
+
+// DecodeWholeInV2 decodes the value of buf from cursor up to end, which buf holds whole, by dec into p, as
+// decodeWholeV2 decodes the value of a stream which the buffer holds whole: nested in depth objects and arrays, in
+// buf, whose byte at end is nul while the value is decoded. A type error which a decoder of v1 recorded is the error
+// of the value, and the names of the objects of the value which an error ended are dropped after it, as
+// DecodeV2After drops them.
+func DecodeWholeInV2(ctx *RuntimeContext, buf []byte, cursor, end, depth int64, dec Decoder, p unsafe.Pointer) (int64, error) {
+	call := ctx.v2
+	entries, copies := call.names.mark()
+	saved := buf[end]
+	buf[end] = nul
+	ctx.Buf = buf[:end+1]
+	ctx.origin = ctx.Buf
+	next, err := dec.Decode(ctx, cursor, depth, p)
+	if err == nil && ctx.typeError != nil {
+		err = ctx.v2Error()
+	}
+	buf[end] = saved
+	ctx.Buf, ctx.origin = nil, nil
+	if err != nil {
+		ctx.DiscardTypeError()
+	}
+	call.names.truncate(entries, copies)
+	return next, err
+}
+
+// LendAt makes the stream, which BorrowV2 made read the buffer of a jsontext.Decoder from the offset from, the end of
+// the token before its next value, at that value, at the offset start, as decodeWholeV2 is while it decodes it: for
+// a value which the caller decodes whole in the buffer ( see V2Hooks.Lend ).
+func (s *Stream) LendAt(from, start int64) {
+	call := s.ctx.v2
+	call.Place.Set = false
+	s.cursor = start - s.offset
+	call.Value = StreamValue{From: from - s.offset, Start: s.cursor}
+}
+
+// PlaceWholeV2 records the place of err, the error of the value at the cursor, which the caller decoded whole in the
+// buffer up to end ( see DecodeWholeInV2 ), after from, the total offset of the end of the token before it, as
+// decodeWholeV2 records it. It returns err.
+func (s *Stream) PlaceWholeV2(err error, from, end int64) error {
+	s.ctx.v2.Value = StreamValue{}
+	return s.placeValue(err, from, end)
+}
+
+// ReadsJSONText reports whether dec is the decoder of a method or a function which reads a jsontext.Decoder, which
+// may read on past its value, or of a pointer, whose value may be one: decodeTopV2 decodes them by decodeNestedV2.
+func ReadsJSONText(dec Decoder) bool {
+	switch dec.(type) {
+	case *v2UnmarshalFromDecoder, *v2FuncDecoder, *ptrDecoder, *basicPtrDecoder:
+		return true
+	}
+	return false
 }
 
 // decodeStructElementsV2 decodes the object at the cursor into the struct at p, as v2StructDecoder.Decode does, after

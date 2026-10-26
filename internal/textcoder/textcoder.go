@@ -153,6 +153,10 @@ var (
 	// entries of levels after its length, which are reused, whether it is a name of an object, the Outer of the
 	// attach of dec, or nil, and the number of the arrays and the objects open around it.
 	DecoderPlace func(dec unsafe.Pointer, levels []Level) ([]Level, bool, Outer, int)
+	// DecoderAt returns what DecoderPlace returns of the place of the next value of dec but its levels: whether it is
+	// a name of an object, the Outer of the attach of dec, or nil, and the number of the arrays and the objects open
+	// around it.
+	DecoderAt func(dec unsafe.Pointer) (bool, Outer, int)
 	// BeginValue reads what dec reads before its next value, which is not a name, as ReadValue reads it: the
 	// white space and the delimiter, which it checks, and returns the offset of the value in the whole input, or
 	// the error which ReadValue returns there, io.EOF after the last value of the input. The value isn't read.

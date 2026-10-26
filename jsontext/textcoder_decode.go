@@ -15,6 +15,13 @@ func init() {
 	textcoder.DetachDecoder = detachDecoder
 	textcoder.UnmarshalPlaceAt = unmarshalPlaceAt
 	textcoder.DecoderPlace = decoderPlace
+	textcoder.DecoderAt = func(dec unsafe.Pointer) (bool, textcoder.Outer, int) {
+		d := &(*Decoder)(dec).d
+		if !d.ready() {
+			d.setUp()
+		}
+		return d.st.last().needName(), d.st.outer, d.st.depth() + d.st.base
+	}
 	textcoder.BeginValue = beginValue
 	textcoder.DecoderInput = func(dec unsafe.Pointer, start int64) ([]byte, io.Reader) {
 		d := &(*Decoder)(dec).d

@@ -87,6 +87,11 @@ func (s *Stream) ViewV2(in []byte, base int64) {
 	s.readErr = io.EOF
 }
 
+// The room which a jsontext.Decoder leaves after its input for a stream which reads its buffer in place is the
+// padding of the buffer of a stream ( see textcoder.InputRoom ): the conversion of their difference, a negative
+// constant if they differ, doesn't compile then.
+const _, _ = uint(textcoder.InputRoom - bufPadding), uint(bufPadding - textcoder.InputRoom)
+
 // BorrowV2 makes the stream, which BeginV2 or BeginV2At began, read the input of dec, a jsontext.Decoder, from the
 // offset from of the whole input, in the buffer of dec, in place, and read more into it through dec, initBufSize
 // bytes at most at a time, as it reads its reader ( see readSource ): the bytes are not copied into its own buffer.

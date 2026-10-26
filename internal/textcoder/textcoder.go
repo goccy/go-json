@@ -140,10 +140,11 @@ var (
 	ReleaseDecoder func(dec unsafe.Pointer)
 )
 
-// InputRoom is the room which a decoder of a reader leaves after the input in its buffer, for a caller which reads
-// the buffer in place ( see DecoderBuffer ): bytes which may be read past the input, by the words of a scan, and the
-// nul byte after it.
-const InputRoom = 128
+// InputRoom is the room which a decoder of a reader leaves after the input in its buffer, for a stream of the decoders
+// of v2 which reads the buffer in place ( see DecoderBuffer ): the padding which the stream keeps after the input in
+// its own buffer, for the nul byte after the input and a block of 64 bytes which a scan reads from any byte of the
+// input, past it from the last bytes.
+const InputRoom = 64
 
 // The decoding of the next value of a *jsontext.Decoder by the v2 json package ( UnmarshalDecode ), which reads the
 // value itself from the input of the decoder, and then makes the decoder go on after it.

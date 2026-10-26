@@ -51,7 +51,7 @@ type decoder struct {
 	base   int64         // the offset of buf[0] in the input
 
 	pos                int   // the read offset: the end of the last token or value
-	prevStart, prevEnd int   // the last token or value
+	prevStart, prevEnd int   // the last token or value, whose start may be before the buffer ( see endValue )
 	rerr               error // the error of the reader in the current call
 	peekErr            error // an error which PeekKind found, which the next read reports
 
@@ -210,7 +210,8 @@ func (d *decoder) makeRoom(n int) int {
 	if cap(d.buf)-len(d.buf) >= n && !d.shared {
 		return 0
 	}
-	shift := d.prevStart
+	// the start of the last token, or of the buffer if it is before the buffer
+	shift := max(d.prevStart, 0)
 	keep := len(d.buf) - shift
 	if keep+n <= cap(d.buf) && !d.shared {
 		copy(d.buf, d.buf[shift:])
@@ -560,7 +561,9 @@ func (d *decoder) done(start, end int) {
 // doesn't own stay as they are.
 func (d *decoder) invalidate() {
 	if d.bb == nil && !d.shared && d.prevEnd > d.prevStart {
-		d.buf[d.prevStart] = '#'
+		if d.prevStart >= 0 {
+			d.buf[d.prevStart] = '#'
+		}
 		d.prevStart = d.prevEnd
 	}
 }

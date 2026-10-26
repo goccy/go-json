@@ -138,6 +138,62 @@ func TestUnmarshalDecodeFunctionInFunctionPlace(t *testing.T) {
 	}
 }
 
+// stringThenFail decodes a string into interface{} by UnmarshalDecode of the decoder of the function, and fails
+// after it; it decodes an array as stringThenFail of its elements.
+var stringThenFail = json.WithUnmarshalers(json.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {
+	switch dec.PeekKind() {
+	case '"':
+		var s string
+		if err := json.UnmarshalDecode(dec, &s); err != nil {
+			return err
+		}
+		return errors.New("after the string")
+	case '[':
+		var a []any
+		if err := json.UnmarshalDecode(dec, &a); err != nil {
+			return err
+		}
+		*v = a
+		return nil
+	}
+	return errors.ErrUnsupported
+}))
+
+// The error of a function which read its whole value by UnmarshalDecode is at the start of the value, also when the
+// buffer of the decoder no longer has the start, a long value read in small reads. The places are the ones of
+// encoding/json/v2.
+func TestUnmarshalDecodeFunctionErrorAfterValue(t *testing.T) {
+	long := `"` + strings.Repeat("x", 3000) + `"`
+	for _, c := range []struct {
+		in     string
+		ptr    jsontext.Pointer
+		offset int64
+	}{
+		{`"bad"`, "", 0},
+		{`["bad"]`, "/0", 1},
+		{`[["bad"]]`, "/0/0", 2},
+		{long, "", 0},
+		{`[` + long + `]`, "/0", 1},
+		{`[1,` + long + `]`, "/1", 3},
+	} {
+		for _, n := range []int{1, 64, 0} {
+			for _, read := range []bool{true, false} {
+				var v any
+				var err error
+				if r := (&roomReader{Reader: strings.NewReader(c.in), most: n}); read {
+					err = json.UnmarshalRead(r, &v, stringThenFail)
+				} else {
+					err = json.UnmarshalDecode(jsontext.NewDecoder(r), &v, stringThenFail)
+				}
+				var serr *json.SemanticError
+				if !errors.As(err, &serr) || serr.JSONPointer != c.ptr || serr.ByteOffset != c.offset {
+					t.Fatalf("%.20s, reads of %d, UnmarshalRead %v: got %v, want the error at %q@%d", c.in, n, read, err, c.ptr, c.offset)
+				}
+			}
+		}
+	}
+}
+
 // After the error of an output which is not a non-nil pointer, which reads nothing, the decoder is before its next
 // value, also after the error of a value before it, which has a place in the input.
 func TestUnmarshalDecodeInvalidOutputAfterError(t *testing.T) {

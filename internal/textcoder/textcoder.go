@@ -175,7 +175,8 @@ var (
 	// EndValue makes dec go on after the next value, which was read from start to end, offsets of the whole
 	// input: in its buffer, which may have dropped the start of the value for a caller which read more into it
 	// ( see FetchInput ), or, if rest is set, from rest, the input after the value which was read from its reader,
-	// which it copies.
+	// which it copies. The value is the last value which dec read, from start, whose place a decoder attached at a
+	// value reports to the caller ( see DetachDecoder ).
 	EndValue func(dec unsafe.Pointer, start, end int64, rest []byte)
 	// PutBack makes dec read in, the input from the offset start of the whole input, which a caller read from its
 	// reader, as the next input: dec is where it was before its next value, which the caller didn't decode.

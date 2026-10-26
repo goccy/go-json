@@ -258,19 +258,17 @@ func beginValue(dec unsafe.Pointer) (int64, error) {
 func endValue(dec unsafe.Pointer, start, end int64, rest []byte) {
 	d := &(*Decoder)(dec).d
 	if rest == nil {
-		if start < d.base {
-			// the buffer dropped the start of the value for the caller, which read more into it ( see
-			// textcoder.FetchInput ): the decoder goes on after it as after an empty value at its end
-			start = end
-		}
+		// the start of the value may be before the buffer, which dropped it for the caller, which read more into
+		// it ( see textcoder.FetchInput )
 		d.done(int(start-d.base), int(end-d.base))
 	} else {
-		// the input after the value, which the reader gave the caller, in a buffer of the decoder
+		// the input after the value, which the reader gave the caller, in a buffer of the decoder, before which the
+		// value starts
 		if d.shared {
 			d.buf, d.shared = nil, false
 		}
 		d.buf = append(d.buf[:0], rest...)
-		d.base, d.pos, d.prevStart, d.prevEnd = end, 0, 0, 0
+		d.base, d.pos, d.prevStart, d.prevEnd = end, 0, int(start-end), 0
 	}
 	d.st.last().count++
 }

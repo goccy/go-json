@@ -29,7 +29,15 @@ import (
 // of an error found again from it.
 
 // streamsV2 are the streams of the calls of the v2 json package, which keep their buffers and their contexts.
-var streamsV2 = sync.Pool{New: func() any { return NewStream(nil) }}
+var streamsV2 = sync.Pool{New: func() any { return NewStreamV2() }}
+
+// NewStreamV2 returns a new stream for the decodings of v2, which a pool keeps: its context has the decoders of the
+// types decoded last, as a context of the pool of the contexts has them ( see RuntimeContext.recentDecoders ).
+func NewStreamV2() *Stream {
+	s := NewStream(nil)
+	s.ctx.recentDecoders = &[recentDecoderSets]recentDecoderSet{}
+	return s
+}
 
 // maxReusedStreamBuffer is the size of the largest buffer which a stream of the pool keeps: one which grew for a long
 // token or a value read whole is dropped.

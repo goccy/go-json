@@ -47,7 +47,8 @@ type RuntimeContext struct {
 	value     unsafe.Pointer
 	// recentDecoders are the decoders of the types decoded last, in the sets indexed by the address of the type,
 	// and the decoders of v2 by the address marked by its lowest bits ( see DecoderOfV2 ). Only the contexts of the
-	// pool have them: a Decoder has a context of its own, which it would allocate with them for every stream.
+	// pool and of the streams of v2, which pools keep too, have them: a Decoder has a context of its own, which it
+	// would allocate with them for every stream.
 	recentDecoders *[recentDecoderSets]recentDecoderSet
 	// v2 is the state of the calls of the v2 json package which use the context, which is kept with it once a call
 	// made it ( see V2Call ).

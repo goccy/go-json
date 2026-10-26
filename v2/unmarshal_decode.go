@@ -187,7 +187,7 @@ func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, st *f
 	s := dc.stream
 	if s == nil {
 		// the stream of the call, as the pool of TakeStreamV2 makes one
-		s = decoder.NewStream(nil)
+		s = decoder.NewStreamV2()
 		dc.stream = s
 	}
 	// the count of the level of the value, of the levels which the stream takes as its path
@@ -312,7 +312,7 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, levels [
 	s := dc.stream
 	if s == nil {
 		// the stream of the call, as the pool of TakeStreamV2 makes one
-		s = decoder.NewStream(nil)
+		s = decoder.NewStreamV2()
 		dc.stream = s
 	}
 	// the count of the level of the value, of the levels which the stream takes as its path, which the call keeps the

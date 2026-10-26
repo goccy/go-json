@@ -129,6 +129,7 @@ func (s *Stream) leaveSource() {
 	from := s.keepStart()
 	n := s.length - from
 	if int64(len(s.own)) <= n+bufPadding {
+		// room for the bytes, the padding after them and a read of a byte at least, as read needs it
 		s.own = make([]byte, n+bufPadding+1)
 	}
 	copy(s.own, s.buf[from:s.length])
@@ -812,23 +813,34 @@ func (s *Stream) copyName(name []byte) {
 func (s *Stream) setName(lv, k int) {
 	call := s.ctx.v2
 	l := &call.Path[lv]
-	l.Count = int64(2*k + 1)
+	l.Count = countAfterName(int64(k))
 	l.Name, call.spareName = call.spareName, l.Name[:0]
-	call.pathNames[lv].to = 0
+	call.pathNames[lv] = namePlace{}
 }
 
+// countAfterName and countAfterValue are the count of the level of an object of the path, which counts its names and
+// its values ( see textcoder.Level ), once the name of its member k is read, and once the value is.
+func countAfterName(k int64) int64  { return 2*k + 1 }
+func countAfterValue(k int64) int64 { return 2*k + 2 }
+
+// namesCounted is the number of the names of an object which the count of its level counts.
+func namesCounted(count int64) int64 { return (count + 1) / 2 }
+
 // namePlace is the place of a name of an object in the buffer of a stream: the total offsets of its first byte and of
-// the byte after it, inside the quotes. A place whose end is 0 is no name: a name is after a quote, at 1 at least.
+// the byte after it, inside the quotes. The zero namePlace is no name.
 type namePlace struct {
 	from, to int64
 }
+
+// isName reports whether the place is the one of a name: a name is after a quote, so that its end is 1 at least.
+func (np namePlace) isName() bool { return np.to != 0 }
 
 // setNameAt makes the name of the buffer from the total offset from up to to, inside its quotes, which the buffer
 // keeps, the last name of the level lv of the path, of its member k, whose colon is read, as setName does for a name
 // which copyName copied: the level has the name by its place, until copyNames copies it, before the buffer drops it.
 func (s *Stream) setNameAt(lv, k int, from, to int64) {
 	call := s.ctx.v2
-	call.Path[lv].Count = int64(2*k + 1)
+	call.Path[lv].Count = countAfterName(int64(k))
 	call.pathNames[lv] = namePlace{from: from, to: to}
 	call.namesFrom = min(call.namesFrom, lv)
 }
@@ -855,14 +867,14 @@ func (s *Stream) copyNames() {
 	call := s.ctx.v2
 	for i := call.namesFrom; i < len(call.pathNames); i++ {
 		np := call.pathNames[i]
-		if np.to == 0 {
+		if !np.isName() {
 			continue
 		}
 		l := &call.Path[i]
 		if l.Name = append(l.Name[:0], s.buf[np.from-s.offset:np.to-s.offset]...); l.Name == nil {
 			l.Name = []byte{} // the name "", which is a name
 		}
-		call.pathNames[i].to = 0
+		call.pathNames[i] = namePlace{}
 	}
 	call.namesFrom = len(call.pathNames)
 	if call.skip.active {
@@ -1010,7 +1022,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 			if !rejectDuplicateNames {
 				break
 			}
-			if idx := field.fieldIdx; idx < 64 {
+			if idx := field.fieldIdx; idx < seenFields {
 				bit := uint64(1) << uint(idx)
 				if seen&bit != 0 {
 					return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
@@ -1056,7 +1068,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		if err != nil {
 			return err
 		}
-		s.level(lv).Count = int64(2*k + 2)
+		s.level(lv).Count = countAfterValue(int64(k))
 	}
 }
 
@@ -1126,7 +1138,7 @@ func (s *Stream) decodeStructMembersV2(d *v2StructDecoder, p unsafe.Pointer, dep
 		if err != nil {
 			return err
 		}
-		s.level(lv).Count = int64(2*k + 2)
+		s.level(lv).Count = countAfterValue(int64(k))
 	}
 }
 
@@ -1193,7 +1205,7 @@ func (s *Stream) skipValueV2(depth, from int64) error {
 		return s.placeAt(err, from)
 	}
 	if !whole {
-		if s.ctx.Option.V2&(V2AllowDuplicateNames|V2AllowInvalidUTF8) == V2AllowDuplicateNames|V2AllowInvalidUTF8 {
+		if s.ctx.Option.V2&asV1Text == asV1Text {
 			// a value of the grammar only, as v1 skips it
 			return s.skipLongV2(depth)
 		}
@@ -1299,7 +1311,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 		if err != nil {
 			return err
 		}
-		s.level(lv).Count = int64(2*i + 2)
+		s.level(lv).Count = countAfterValue(int64(i))
 	}
 }
 
@@ -1603,7 +1615,7 @@ func (s *Stream) decodeNewAnyObjectV2(d *v2InterfaceDecoder, depth, from int64) 
 		}
 		plain := info.firstEscape < 0 && !info.nonASCII
 		if !plain {
-			s.copyName(unsafe.Slice(unsafe.StringData(name), len(name)))
+			s.copyName(unsafeBytes(name))
 		}
 		nameEnd := s.offset + s.cursor
 		if err := s.memberValue(); err != nil {
@@ -1629,16 +1641,15 @@ func (s *Stream) decodeNewAnyObjectV2(d *v2InterfaceDecoder, depth, from int64) 
 		if err != nil {
 			return ctx.anyEntries(base), err
 		}
-		s.level(lv).Count = int64(2*k + 2)
+		s.level(lv).Count = countAfterValue(int64(k))
 	}
 }
 
 // anyNames finds the names of the entries of an object which decodeNewAnyObjectV2 pushed: by the bits of their
-// hashes, one of 256 for each name, and a comparison with the names of the entries of its bit, up to maxListedNames
-// names, and by the keys of a map of their entries past them, so that an object of many names is not quadratic in
-// its names.
+// hashes in mask, and a comparison with the names of the entries of its bit, up to maxListedNames names, and by the
+// keys of a map of their entries past them, so that an object of many names is not quadratic in its names.
 type anyNames struct {
-	mask [4]uint64
+	mask nameMask
 	set  map[string]int
 }
 
@@ -1653,8 +1664,7 @@ func (n *anyNames) index(ctx *RuntimeContext, base int, name string) int {
 		n.set[name] = len(ctx.entryStack)
 		return -1
 	}
-	h := nameHash(unsafe.Slice(unsafe.StringData(name), len(name))) & 255
-	w, bit := &n.mask[h>>6], uint64(1)<<(h&63)
+	w, bit := n.mask.bit(nameHash(unsafeBytes(name)))
 	if *w&bit != 0 {
 		for i := range entries {
 			if entries[i].key == name {
@@ -1664,7 +1674,7 @@ func (n *anyNames) index(ctx *RuntimeContext, base int, name string) int {
 	}
 	*w |= bit
 	if len(entries) == maxListedNames {
-		// the names, past which they are found by the map
+		// the names, past which they are found by the map, which has room for as many again
 		n.set = make(map[string]int, 2*maxListedNames)
 		for i := range entries {
 			n.set[entries[i].key] = base + i
@@ -1752,11 +1762,11 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 			return s.placeAt(errV2Text, step)
 		}
 		name := ctx.copyString(unquotedName(quoted))
-		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafe.Slice(unsafe.StringData(name), len(name))) {
+		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafeBytes(name)) {
 			start := s.cursor - int64(len(quoted))
 			return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 		}
-		s.copyName(unsafe.Slice(unsafe.StringData(name), len(name)))
+		s.copyName(unsafeBytes(name))
 		nameEnd, err := s.memberValueV2()
 		if err != nil {
 			return s.placeAt(err, step)
@@ -1771,7 +1781,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		if err != nil {
 			return err
 		}
-		s.level(lv).Count = int64(2*k + 2)
+		s.level(lv).Count = countAfterValue(int64(k))
 	}
 }
 

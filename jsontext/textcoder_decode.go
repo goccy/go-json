@@ -201,7 +201,7 @@ func unmarshalPlace(in []byte, opts *options.Config, stop int64, read textcoder.
 }
 
 // decoderPlace is textcoder.DecoderPlace.
-func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) ([]textcoder.Level, bool, textcoder.Outer, int) {
+func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) []textcoder.Level {
 	d := &(*Decoder)(dec).d
 	if !d.ready() {
 		d.setUp()
@@ -231,7 +231,7 @@ func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) ([]textcoder.Lev
 			tl.Name = []byte{}
 		}
 	}
-	return levels, d.st.last().needName(), d.st.outer, d.st.depth() + d.st.base
+	return levels
 }
 
 // beginValue is textcoder.BeginValue: the start of readValue, up to the value, which is not a name.

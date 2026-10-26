@@ -16,16 +16,19 @@ import (
 
 // skipPath is what skipFastPath follows of the levels of the value which it skips, the levels 0 up to the one where
 // it stops, for the place of an error: for an array, the commas after its elements, and for an object, the number
-// of its names, and the total offset of the quote of the last one in the buffer, or -1 once the name was copied into
-// names, when a read moved the buffer. level and objects are the levels which are open while the stream reads, whose
-// names are copied then; active is set while a value is skipped.
+// of its names, and the total offset of the quote of the last one in the buffer, or copiedName once the name was
+// copied into names, when a read moved the buffer. level and objects are the levels which are open while the stream
+// reads, whose names are copied then; active is set while a value is skipped.
 type skipPath struct {
-	counts, quotes [64]int64
-	names          [64][]byte
+	counts, quotes [skipLevels]int64
+	names          [skipLevels][]byte
 	level          int64
 	objects        uint64
 	active         bool
 }
+
+// copiedName is the place of the quote of the last name of a level of a skipPath whose name is copied into names.
+const copiedName = -1
 
 // skipFastPath is skipFast for a value of a stream whose levels tr follows: an open level has no comma and no name, a
 // comma of an array and a name which is read are counted, and the place of the name, whose quote is at the total
@@ -80,7 +83,8 @@ value:
 		} else {
 			objects &^= 1 << uint(level)
 		}
-		tr.counts[level&63] = 0
+		// the mask of the index, below skipLevels, tells the compiler that it is in the bounds
+		tr.counts[level&(skipLevels-1)] = 0
 		level++
 		cursor++
 		open := c
@@ -111,6 +115,8 @@ value:
 		if c == '-' {
 			cursor++
 		}
+		// a byte minus '0' is 9 at most for a digit only, and minus '1' 8 at most for a digit but 0, as the bytes
+		// below them wrap around
 		switch d := char(b, cursor); {
 		case d == '0':
 			cursor++
@@ -188,7 +194,7 @@ afterValue:
 	switch c {
 	case ',':
 		cursor++
-		tr.counts[(level-1)&63]++
+		tr.counts[(level-1)&(skipLevels-1)]++
 		goto value
 	case ']':
 		cursor++
@@ -203,8 +209,8 @@ key:
 	for c := cursor + 1; c+8 <= length; c += 8 {
 		if special := keyEndBytes(load64(buf, c)); special != 0 {
 			if c += int64(bits.TrailingZeros64(special) / 8); char(b, c) == '"' {
-				tr.counts[(level-1)&63]++
-				tr.quotes[(level-1)&63] = base + cursor
+				tr.counts[(level-1)&(skipLevels-1)]++
+				tr.quotes[(level-1)&(skipLevels-1)] = base + cursor
 				cursor = c + 1
 				goto afterKey
 			}
@@ -316,8 +322,9 @@ func (s *Stream) tokenBefore(at int64) int64 {
 }
 
 // quoteBefore returns the position of the quote which opens the valid string of the buffer which ends at end, after
-// its closing quote: the one before it which no backslash escapes.
+// its closing quote: the one before it which no backslash escapes, an even number of backslashes before it.
 func (s *Stream) quoteBefore(end int64) int64 {
+	// the search starts before the closing quote, which is at end-1
 	i := end - 2
 	for {
 		if s.buf[i] == '"' {
@@ -356,8 +363,10 @@ func (s *Stream) pushSkipLevels(level int64, objects uint64, resume skipResume, 
 		n := tr.counts[i]
 		switch c := s.buf[p]; {
 		case i < level-1 && object:
-			l.Count = 2*n - 1
+			// in the value of the last name
+			l.Count = countAfterName(n - 1)
 		case i < level-1:
+			// in the element after the last comma
 			l.Count = n
 		case c == '[' || c == '{':
 			// the first element or name of the innermost level
@@ -365,19 +374,20 @@ func (s *Stream) pushSkipLevels(level int64, objects uint64, resume skipResume, 
 		case c == ',' || c == ':':
 			// a value or a name after the delimiter, which is read again
 			from--
-			l.Count = n
-			if object {
-				l.Count = 2 * n
-				if c == ':' {
-					l.Count--
-				}
+			switch {
+			case !object:
+				l.Count = n
+			case c == ':':
+				l.Count = countAfterName(n - 1)
+			default:
+				l.Count = countAfterValue(n - 1)
 			}
 		case object && resume != resumeAfterKey:
 			// after a value
-			l.Count = 2 * n
+			l.Count = countAfterValue(n - 1)
 		case object:
 			// after a name, before its colon
-			l.Count = 2*n - 1
+			l.Count = countAfterName(n - 1)
 		default:
 			// after an element
 			l.Count = n + 1
@@ -396,7 +406,7 @@ func (s *Stream) pushSkipLevels(level int64, objects uint64, resume skipResume, 
 // the buffer, or the one which was copied before a read moved the buffer.
 func (s *Stream) skipName(i int64) []byte {
 	tr := &s.ctx.v2.skip
-	if tr.quotes[i] < 0 {
+	if tr.quotes[i] == copiedName {
 		return tr.names[i]
 	}
 	q := tr.quotes[i] - s.offset
@@ -422,16 +432,16 @@ func (s *Stream) skipName(i int64) []byte {
 func (s *Stream) copySkipNames() {
 	tr := &s.ctx.v2.skip
 	for i := int64(0); i < tr.level; i++ {
-		if tr.objects&(1<<uint(i)) != 0 && tr.counts[i] > 0 && tr.quotes[i] >= 0 {
+		if tr.objects&(1<<uint(i)) != 0 && tr.counts[i] > 0 && tr.quotes[i] != copiedName {
 			tr.names[i] = append(tr.names[i][:0], s.skipName(i)...)
-			tr.quotes[i] = -1
+			tr.quotes[i] = copiedName
 		}
 	}
 }
 
 // skipDeepV2 skips the object or the array at the cursor, which opens the level after the level levels of the value
-// which skipLongV2 skips, which follows 64 levels at most, nested in depth objects and arrays: its levels are added
-// to the path, and the value is skipped by skipLongV2, which follows its own levels, after which the levels are
+// which skipLongV2 skips, which follows skipLevels levels at most, nested in depth objects and arrays: its levels are
+// added to the path, and the value is skipped by skipLongV2, which follows its own levels, after which the levels are
 // followed again from the path. A value nested too deep is the error of its bracket.
 func (s *Stream) skipDeepV2(depth, level int64, objects uint64) error {
 	at := s.offset + s.cursor
@@ -448,10 +458,10 @@ func (s *Stream) skipDeepV2(depth, level int64, objects uint64) error {
 	for i := int64(0); i < level; i++ {
 		l := &call.Path[n+int(i)]
 		if tr.counts[i] = l.Count; l.Object {
-			tr.counts[i] = (l.Count + 1) / 2
+			tr.counts[i] = namesCounted(l.Count)
 			tr.names[i] = append(tr.names[i][:0], l.Name...)
 		}
-		tr.quotes[i] = -1
+		tr.quotes[i] = copiedName
 	}
 	s.popLevel(n)
 	tr.active = true

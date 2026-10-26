@@ -208,23 +208,23 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	}
 	// the loop of the options, which are looked at once for the object: the object of a struct whose names are
 	// matched as they are and which has no fallback, without V2RejectUnknownMembers, is decoded by a loop of its own
-	// without V2AllowDuplicateNames and V2AllowInvalidUTF8, as encoding/json/v2 decodes it by default, if the struct
-	// has up to 64 fields, and with both, as v1 decodes it
+	// with the text of encoding/json/v2 by default, if the struct has up to seenFields fields, and with the text of v1,
+	// as v1 decodes it
 	if !d.foldAlways && d.fallback == nil && ctx.Option.V2&(V2MatchCaseInsensitiveNames|V2RejectUnknownMembers) == 0 {
-		switch ctx.Option.V2 & (V2AllowDuplicateNames | V2AllowInvalidUTF8) {
-		case 0:
-			if len(d.fields) <= 64 {
+		switch ctx.Option.V2 & asV1Text {
+		case strictText:
+			if len(d.fields) <= seenFields {
 				return d.decodeMembersOnce(ctx, cursor, depth, p)
 			}
-		case V2AllowDuplicateNames | V2AllowInvalidUTF8:
+		case asV1Text:
 			return d.decodeMembersAsV1(ctx, cursor, depth, p)
 		}
 	}
 	// the loop of the other options and structs
 	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
-	// seen are the fields which the object has, by their bits, after the first 64 in more, and unknown the names
-	// of no field which it has.
+	// seen are the fields which the object has, by their bits, after the first seenFields in more, and unknown the
+	// names of no field which it has.
 	var seen uint64
 	var more []uint64
 	var unknown nameSet
@@ -256,8 +256,8 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		// the name is checked before the colon after it, as encoding/json/v2 reads the name alone
 		if field != nil {
 			if rejectDuplicateNames {
-				if idx := field.fieldIdx; idx < 64 {
-					// the first 64 fields are the bits of seen, in a register
+				if idx := field.fieldIdx; idx < seenFields {
+					// the first fields are the bits of seen, in a register
 					bit := uint64(1) << uint(idx)
 					if seen&bit != 0 {
 						return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
@@ -313,10 +313,10 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	}
 }
 
-// decodeMembersOnce is the loop of Decode without options, for a struct of up to 64 fields whose names are matched as
-// they are and which has no fallback, from the first name of an object at cursor: a field which the object has twice,
-// by the bits of seen, and a name of no field which it has twice, by unknown, are errors, and the values of no field
-// are skipped as encoding/json/v2 reads them, for their names and their UTF-8.
+// decodeMembersOnce is the loop of Decode without options, for a struct of up to seenFields fields whose names are
+// matched as they are and which has no fallback, from the first name of an object at cursor: a field which the object
+// has twice, by the bits of seen, and a name of no field which it has twice, by unknown, are errors, and the values of
+// no field are skipped as encoding/json/v2 reads them, for their names and their UTF-8.
 func (d *v2StructDecoder) decodeMembersOnce(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	var seen uint64
@@ -578,14 +578,17 @@ func (d *v2StructDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) (
 	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
 }
 
-// fieldSeen reports whether the field of the index, 64 or more, was met before in an object of n fields, and marks
-// it met: its bit is in more, which is made when such a field is met. The first 64 fields are marked by the loops of
-// the objects themselves, in a register.
+// seenFields is the number of the first fields of a struct which the loops of an object mark met themselves, by the
+// bits of a uint64, in a register: the fields after them are marked by fieldSeen.
+const seenFields = 64
+
+// fieldSeen reports whether the field of the index, seenFields or more, was met before in an object of n fields, and
+// marks it met: its bit is in more, which is made when such a field is met, 64 bits in a word.
 func fieldSeen(idx int, more *[]uint64, n int) bool {
 	if *more == nil {
-		*more = make([]uint64, (n-64+63)/64)
+		*more = make([]uint64, (n-seenFields+63)/64)
 	}
-	idx -= 64
+	idx -= seenFields
 	w, bit := &(*more)[idx/64], uint64(1)<<uint(idx%64)
 	met := *w&bit != 0
 	*w |= bit

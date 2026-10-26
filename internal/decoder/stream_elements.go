@@ -216,7 +216,7 @@ func (s *Stream) decodeScalar(dec Decoder, p unsafe.Pointer, depth int64) bool {
 		// the value of a nil interface{} without functions of unmarshaling, which the decoder of v1 decodes ( see
 		// v2InterfaceDecoder.Decode ): a value which an interface value holds may be decoded by a method, and a
 		// function may be called, which read the place of the value in the stream ( see V2Call.Value )
-		if !d.empty || d.fromAny || (*[2]unsafe.Pointer)(p)[0] != nil {
+		if !d.empty || d.fromAny || *(*any)(p) != nil {
 			return false
 		}
 	default:

@@ -71,11 +71,20 @@ func CompileToGetDecoderV2(typ unsafe.Pointer, stringifyNumbers bool) (Decoder, 
 	return *cache.Store(typeptr, &dec), nil
 }
 
+// The marks of the keys of the decoders of v2 among the recent decoders of a context ( see DecoderOfV2 ), in the two
+// lowest bits of the address of the type, which are 0, as a type is aligned to 4 bytes at least: v2DecoderMark for a
+// decoder of v2, which is not the decoder of v1 of the type, and stringifyDecoderMark for one with StringifyNumbers
+// too, which is another again.
+const (
+	v2DecoderMark        = 1
+	stringifyDecoderMark = 2
+)
+
 // DecoderOfV2 returns the decoder of the semantics of encoding/json/v2 of the type, for the options and the
 // functions of unmarshaling of ctx. The decoder of a call without functions is remembered with the decoders of the
-// context as v1's DecoderOf remembers them, under the address of the type marked by its lowest bits, which no type
-// has: the decoders of v2 are other than v1's, and other with StringifyNumbers. A decoder in neither entry of its set
-// is the one of the shared table, which takes the first entry, and the one decoded before it the second.
+// context as v1's DecoderOf remembers them, under the address of the type with the marks of the decoders of v2. A
+// decoder in neither entry of its set is the one of the shared table, which takes the first entry, and the one decoded
+// before it the second.
 func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
 	stringifyNumbers := ctx.Option.V2&V2StringifyNumbers != 0
 	if funcs := ctx.v2Funcs(); funcs != nil {
@@ -84,7 +93,10 @@ func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
 	if ctx.recentDecoders == nil {
 		return CompileToGetDecoderV2(typ, stringifyNumbers)
 	}
-	key := uintptr(typ) | 1 | uintptr(ctx.Option.V2&V2StringifyNumbers)>>2
+	key := uintptr(typ) | v2DecoderMark
+	if stringifyNumbers {
+		key |= stringifyDecoderMark
+	}
 	set := &ctx.recentDecoders[(uint64(key)*runtime.TypeHashMultiplier)>>recentDecoderHashShift]
 	if set[0].typeptr == key {
 		return set[0].dec, nil
@@ -96,8 +108,7 @@ func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	set[1] = set[0]
-	set[0] = recentDecoder{typeptr: key, dec: dec}
+	set.keep(key, dec)
 	return dec, nil
 }
 
@@ -925,7 +936,7 @@ func (d *v2InterfaceDecoder) decodeByKind(ctx *RuntimeContext, cursor, depth int
 // interface value, which it is decoded into in place of the copy: the interface value is set as the copy would set it.
 func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	if typ := heldType(p, d.empty); runtime.TypeOfPtr(typ).Kind() == reflect.Pointer {
-		if ptr := (*[2]unsafe.Pointer)(p)[1]; ptr != nil && ctx.v2Funcs() == nil {
+		if ptr := *interfaceData(p); ptr != nil && ctx.v2Funcs() == nil {
 			// the value which the pointer points to, decoded through it by the decoder of its pointer type, as the
 			// decoder of a pointer to the pointer decodes a pointer which is not nil: without the type of a pointer to
 			// the pointer, which reflect makes by a lookup, as the program has none. The functions of unmarshaling
@@ -940,7 +951,7 @@ func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64
 		if err != nil {
 			return 0, err
 		}
-		return dec.Decode(ctx, cursor, depth, unsafe.Pointer(&(*[2]unsafe.Pointer)(p)[1]))
+		return dec.Decode(ctx, cursor, depth, unsafe.Pointer(interfaceData(p)))
 	}
 	iface := valueAt(d.ptrType, p)
 	held := iface.Elem()
@@ -967,6 +978,12 @@ func heldType(p unsafe.Pointer, empty bool) unsafe.Pointer {
 		typ = (*[2]unsafe.Pointer)(typ)[1]
 	}
 	return typ
+}
+
+// interfaceData returns the address of the data word of the interface value at p, of an interface type with methods
+// or not: its second word, after its type or its itab.
+func interfaceData(p unsafe.Pointer) *unsafe.Pointer {
+	return &(*[2]unsafe.Pointer)(p)[1]
 }
 
 // decodeMerging decodes the object or the array at cursor into the interface{} at p, which holds nothing, a
@@ -1038,7 +1055,7 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && strings.IndexByte(key, 0xef) >= 0 && !validV2Text(buf[cursor:c]) {
 			return 0, errV2Text
 		}
-		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafe.Slice(unsafe.StringData(key), len(key))) {
+		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafeBytes(key)) {
 			return 0, errV2Text
 		}
 		cursor = skipWhiteSpace(buf, c)
@@ -1107,13 +1124,26 @@ const maxListedNames = 32
 
 // nameSet is the names of an object, among which add finds a name that the object has twice: the n entries of the
 // names of the call from the entry first ( see callNames ), and the copies from copies on, whose bits are in mask,
-// one of 256 for each name ( see nameHash ), and past maxListedNames, the keys of set too. A name whose bit is not
-// in mask is not compared with the names, as most names are not. The zero nameSet has no name.
+// and past maxListedNames, the keys of set too. A name whose bit is not in mask is not compared with the names, as
+// most names are not. The zero nameSet has no name.
 type nameSet struct {
 	first, n, copies int
-	mask             [4]uint64
+	mask             nameMask
 	set              map[string]struct{}
 }
+
+// nameMask is the bits of the hashes of the names of an object ( see nameHash ), one of 256 for each name: the top
+// eight bits of the hash, of which the top two choose the word and the next six the bit in the word.
+type nameMask [4]uint64
+
+// bit returns the word of the mask which has the bit of the hash h, and the bit.
+func (m *nameMask) bit(h uint64) (*uint64, uint64) {
+	return &m[h>>62], uint64(1) << (h >> 56 & 63)
+}
+
+// maxWordsName is the length of the longest name of the input whose hash is made of its words where the input has
+// it, two words of eight bytes ( see inputNameWords ), if the input has room for them from the start of the name.
+const maxWordsName = 16
 
 // add adds the name buf[start:end] of the input, which is not written while the object is decoded, and reports
 // whether the set didn't have it.
@@ -1122,20 +1152,20 @@ func (s *nameSet) add(call *V2Call, buf []byte, start, end int64) bool {
 }
 
 // addListed adds the name buf[start:end] of the input as add adds it, if it can without a call, and reports whether
-// it did: a name of up to 16 bytes, where buf has room for two words from start, of an object of fewer than
+// it did: a name of up to maxWordsName bytes, where buf has room for two words from start, of an object of fewer than
 // maxListedNames names, whose bit is not in the mask, in an entry of the array of the call which has room. It makes
 // no call, so that it has no frame and doesn't save its arguments, as insert does for the calls on its other paths:
 // the loops which add most names call it before add.
 func (s *nameSet) addListed(call *V2Call, buf []byte, start, end int64) bool {
 	n := end - start
-	if n > 16 || start+16 > int64(cap(buf)) || s.set != nil || s.n >= maxListedNames {
+	if n > maxWordsName || start+maxWordsName > int64(cap(buf)) || s.set != nil || s.n >= maxListedNames {
 		return false
 	}
 	a, b := inputNameWords(buf, start, n)
 	h := mixNameWords(a, b, n)
 	t := &call.names
 	entries := t.entries
-	w, bit := &s.mask[h>>62], uint64(1)<<(h>>56&63)
+	w, bit := s.mask.bit(h)
 	if *w&bit != 0 || len(entries) >= cap(entries) {
 		return false
 	}
@@ -1153,14 +1183,17 @@ func (s *nameSet) addListed(call *V2Call, buf []byte, start, end int64) bool {
 	return true
 }
 
-// inputNameWords returns the words of the name buf[at:at+n] of the input of up to 16 bytes, where buf has room for
-// two words from at, as nameHash makes them of its bytes: the first word without the bytes after the name, and the
-// last one for more than eight bytes.
+// inputNameWords returns the words of the name buf[at:at+n] of the input of up to maxWordsName bytes, where buf has
+// room for two words from at, as nameHash makes them of its bytes: the first word without the bytes after the name,
+// and the last one for more than eight bytes.
 func inputNameWords(buf []byte, at, n int64) (uint64, uint64) {
 	a, b := load64(buf, at), uint64(0)
 	if n < 8 {
+		// the n low bytes of the word, which load64 reads little-endian: the mask of the shift, which is less than
+		// 64, tells the compiler so
 		a &= 1<<(uint(n)*8&63) - 1
 	} else if n > 8 {
+		// the last eight bytes, which overlap the first word if the name is shorter than 16
 		b = load64(buf, at+n-8)
 	}
 	return a, b
@@ -1184,7 +1217,7 @@ func (s *nameSet) insert(call *V2Call, buf, name []byte, at int64) bool {
 		s.first, s.copies = len(t.entries), len(t.copies)
 	}
 	var h uint64
-	if n := int64(len(name)); at >= 0 && n <= 16 && at+16 <= int64(cap(buf)) {
+	if n := int64(len(name)); at >= 0 && n <= maxWordsName && at+maxWordsName <= int64(cap(buf)) {
 		a, b := inputNameWords(buf, at, n)
 		h = mixNameWords(a, b, n)
 	} else {
@@ -1194,7 +1227,7 @@ func (s *nameSet) insert(call *V2Call, buf, name []byte, at int64) bool {
 		if _, exists := s.set[unsafeString(name)]; exists {
 			return false
 		}
-	} else if w, bit := &s.mask[h>>62], uint64(1)<<(h>>56&63); *w&bit == 0 {
+	} else if w, bit := s.mask.bit(h); *w&bit == 0 {
 		*w |= bit
 	} else {
 		for i := range t.entries[s.first:] {
@@ -1232,10 +1265,13 @@ func (s *nameSet) end(call *V2Call) {
 // unsafeString is the string of the bytes of b, which are not written while it is used.
 func unsafeString(b []byte) string { return unsafe.String(unsafe.SliceData(b), len(b)) }
 
-// nameHash returns the hash of name, whose top eight bits are its bit in the mask of a nameSet: of its first word, of
+// unsafeBytes is the bytes of the string s, which are not written.
+func unsafeBytes(s string) []byte { return unsafe.Slice(unsafe.StringData(s), len(s)) }
+
+// nameHash returns the hash of name, whose top eight bits are its bit in a nameMask: of its first word, of
 // its first eight bytes, or of all of them for a name of less than eight bytes, mixed with the words between it and
 // the last one, and of its last word, of its last eight bytes, for a name of more than eight bytes ( see
-// mixNameWords ). The words of a name of up to 16 bytes are all of its bytes.
+// mixNameWords ). The words of a name of up to maxWordsName bytes are all of its bytes.
 func nameHash(name []byte) uint64 {
 	n := len(name)
 	var a, b uint64

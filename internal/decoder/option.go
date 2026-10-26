@@ -37,6 +37,15 @@ const (
 	V2RejectUnknownMembers
 )
 
+// The options of the text which v1 accepts and encoding/json/v2 rejects by default, names twice in an object and
+// invalid UTF-8 in the strings, which the decoders of v2 test together to choose their loops.
+const (
+	// asV1Text is both options: the text is read as v1 reads it.
+	asV1Text = V2AllowDuplicateNames | V2AllowInvalidUTF8
+	// strictText is neither option: the text is read as encoding/json/v2 reads it by default.
+	strictText V2Flags = 0
+)
+
 type Option struct {
 	Flags OptionFlags
 	// V2 is in the room which Flags leaves before Context, so that Option keeps its size.

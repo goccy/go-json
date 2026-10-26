@@ -94,9 +94,18 @@ func (dc *decodeCall) lendStream() {
 // of the decoder, for a method or a function of the value, and for an error. The decoder has not counted the value
 // yet, and its levels stay as they are until the call ends it.
 func (dc *decodeCall) place(d unsafe.Pointer) []textcoder.Level {
-	levels, _, _, _ := textcoder.DecoderPlace(d, dc.levels[:0])
-	dc.levels = levels
-	return levels
+	dc.levels = textcoder.DecoderPlace(d, dc.levels[:0])
+	return dc.levels
+}
+
+// takeStream returns the stream of the call, which it makes the first time, as the pool of TakeStreamV2 makes one.
+func (dc *decodeCall) takeStream() *decoder.Stream {
+	s := dc.stream
+	if s == nil {
+		s = decoder.NewStreamV2()
+		dc.stream = s
+	}
+	return s
 }
 
 var decodeCalls = sync.Pool{New: func() any { return new(decodeCall) }}
@@ -194,12 +203,7 @@ func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, st *f
 	}
 	// the input with the nul byte after it, which the attach leaves out
 	buf, base := st.att.In[:len(st.att.In)+1], st.att.Base
-	s := dc.stream
-	if s == nil {
-		// the stream of the call, as the pool of TakeStreamV2 makes one
-		s = decoder.NewStreamV2()
-		dc.stream = s
-	}
+	s := dc.takeStream()
 	// the count of the level of the value, of the levels which the stream takes as its path
 	count := levels[depth].Count
 	dc.levels = s.BeginV2At(nil, levels)
@@ -319,27 +323,20 @@ func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, depth in
 	b, base, inPlace := textcoder.DecoderBuffer(d)
 	first := b[start-base]
 	input := &dc.input
-	s := dc.stream
-	if s == nil {
-		// the stream of the call, as the pool of TakeStreamV2 makes one
-		s = decoder.NewStreamV2()
-		dc.stream = s
-	}
+	s := dc.takeStream()
 	ctx := s.Context()
 	setCall(ctx, cfg)
 	// an object or an array which the buffer of the decoder holds whole is decoded in it, and one which it doesn't
 	// is decoded by the stream element by element at once, by the decoder found for it, unless it is the decoder of
 	// a method, a function or a pointer, which the stream decodes as any value
 	var long decoder.Decoder
-	if first == '{' || first == '[' {
-		if inPlace && from >= base {
-			if dec, derr := outputDecoder(ctx, typ, p); derr == nil && !decoder.ReadsJSONText(dec) {
-				end, whole := decoder.WholeEndV2(b[:cap(b)], start-base, int64(len(b)))
-				if whole {
-					return decodeInBuffer(dc, d, b[:cap(b)], base, from, start, end, first, depth, dec, p, cfg)
-				}
-				long = dec
+	if (first == '{' || first == '[') && inPlace && from >= base {
+		if dec, derr := outputDecoder(ctx, typ, p); derr == nil && !decoder.ReadsJSONText(dec) {
+			end, whole := decoder.WholeEndV2(b[:cap(b)], start-base, int64(len(b)))
+			if whole {
+				return decodeInBuffer(dc, d, b[:cap(b)], base, from, start, end, first, depth, dec, p, cfg)
 			}
+			long = dec
 		}
 	}
 	// the count of the level of the value, of the levels which the stream takes as its path, which the call keeps the

@@ -103,9 +103,15 @@ func lookupDecoder(set *recentDecoderSet, typ unsafe.Pointer) (Decoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	set[1] = set[0]
-	set[0] = recentDecoder{typeptr: uintptr(typ), dec: dec}
+	set.keep(uintptr(typ), dec)
 	return dec, nil
+}
+
+// keep puts dec, the decoder of the key, in the first entry of the set, and the decoder of the first entry in the
+// second.
+func (set *recentDecoderSet) keep(key uintptr, dec Decoder) {
+	set[1] = set[0]
+	set[0] = recentDecoder{typeptr: key, dec: dec}
 }
 
 const (

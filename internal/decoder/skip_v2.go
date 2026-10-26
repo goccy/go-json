@@ -18,7 +18,7 @@ import (
 // skipValueV2 skips the value at cursor, which v2 reads whole, nested in depth objects and arrays.
 func (ctx *RuntimeContext) skipValueV2(cursor, depth int64) (int64, error) {
 	buf := ctx.Buf
-	if ctx.Option.V2&(V2AllowDuplicateNames|V2AllowInvalidUTF8) == V2AllowDuplicateNames|V2AllowInvalidUTF8 {
+	if ctx.Option.V2&asV1Text == asV1Text {
 		return skipValue(buf, cursor, depth)
 	}
 	start := skipWhiteSpace(buf, cursor)
@@ -67,8 +67,8 @@ func skipStringV2(buf []byte, cursor int64) (int64, error) {
 
 // skipNestedV2 skips the object or the array at start, nested in depth objects and arrays, by skipFastV2, which
 // returns for what it doesn't do: a string of an escape or of a byte which is not ASCII, which is done here, a number
-// which is not an integer, a byte which is not valid, a name twice, or an object or an array deeper than 64 levels,
-// for which the value is skipped again from start, as v1 skips it, and read by jsontext for its text.
+// which is not an integer, a byte which is not valid, a name twice, or an object or an array deeper than skipLevels
+// levels, for which the value is skipped again from start, as v1 skips it, and read by jsontext for its text.
 func skipNestedV2(ctx *RuntimeContext, start, depth int64) (int64, error) {
 	buf := ctx.Buf
 	call := ctx.V2Call()

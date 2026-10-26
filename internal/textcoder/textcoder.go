@@ -148,14 +148,12 @@ const InputRoom = 128
 // The decoding of the next value of a *jsontext.Decoder by the v2 json package ( UnmarshalDecode ), which reads the
 // value itself from the input of the decoder, and then makes the decoder go on after it.
 var (
-	// DecoderPlace returns the place of the next value of dec: the levels of the whole input around it, the top
-	// level first, appended to levels ( see Level ), whose names are copied into the arrays of the names of the
-	// entries of levels after its length, which are reused, whether it is a name of an object, the Outer of the
-	// attach of dec, or nil, and the number of the arrays and the objects open around it.
-	DecoderPlace func(dec unsafe.Pointer, levels []Level) ([]Level, bool, Outer, int)
-	// DecoderAt returns what DecoderPlace returns of the place of the next value of dec but its levels: whether it is
-	// a name of an object, the Outer of the attach of dec, or nil, and the number of the arrays and the objects open
-	// around it.
+	// DecoderPlace returns the levels of the whole input around the next value of dec, the top level first, appended
+	// to levels ( see Level ), whose names are copied into the arrays of the names of the entries of levels after its
+	// length, which are reused.
+	DecoderPlace func(dec unsafe.Pointer, levels []Level) []Level
+	// DecoderAt returns the rest of the place of the next value of dec: whether it is a name of an object, the Outer
+	// of the attach of dec, or nil, and the number of the arrays and the objects open around it.
 	DecoderAt func(dec unsafe.Pointer) (bool, Outer, int)
 	// BeginValue reads what dec reads before its next value, which is not a name, as ReadValue reads it: the
 	// white space and the delimiter, which it checks, and returns the offset of the value in the whole input, or

@@ -13,7 +13,19 @@
   calls `PeekKind` and then returns an error: encoding/json/v2 reports the error at the offset
   of the next value, as `PeekKind` drops the token it read last; go-json at the token it read.
   The pointer is the same. Example: `[ {} ]` into `[]T`, a method which reads `{`, peeks and
-  fails: offset 3 in encoding/json/v2, 2 in go-json.
+  fails: offset 3 in encoding/json/v2, 2 in go-json. The same after a value which the method
+  read by `UnmarshalDecode`, where go-json holds the whole input ( `Unmarshal`, and
+  `UnmarshalDecode` of a decoder whose first read holds it ): `{"k":"x..."}`, a function which
+  reads the string, peeks and fails, is at the end of the string in encoding/json/v2, and at its
+  start in go-json.
+- A method or a function which reads its whole value by `UnmarshalDecode` of its decoder and
+  then returns an error: go-json reports the error at the start of the value; encoding/json/v2
+  at the last token which its decoding read, the start of a value it reads whole ( a string, a
+  number, a literal, a `jsontext.Value` ), and the closing `]` or `}` of an object or an array
+  it decodes token by token ( into a slice, a struct, a map or an `interface{}` ). Example:
+  `[{"A":1}]`, a function of `*[]any` which decodes its value into `[]struct{ A int }` and
+  fails: offset 8 in encoding/json/v2, 0 in go-json. Both are offsets at or before the error,
+  as `ByteOffset` is documented. The pointer is the same.
 - A method which reads past the end of the object or array its value is in: encoding/json/v2
   reads it and reports that the method didn't read exactly one value (a `SemanticError`); the
   decoder which go-json gives the method can't read it and returns a `SyntacticError` from the

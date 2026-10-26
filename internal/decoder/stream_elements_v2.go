@@ -66,6 +66,19 @@ func (s *Stream) BeginV2At(r io.Reader, levels []textcoder.Level) []textcoder.Le
 	return path
 }
 
+// viewedInput is the source of a stream which reads in place an input which is whole ( see ViewV2 ).
+var viewedInput byte
+
+// ViewV2 makes the stream, which BeginV2At began, read in place in, a whole input, which has a nul byte after it, from
+// the offset base of the whole input: it reads nothing more, and its buffer is its own again after EndV2. A caller
+// which decodes a value of in whole, as decodeWholeV2 decodes the value of a stream, sets the stream at the value
+// ( see LendAt ), so that a method or a function of the value finds its place by the stream.
+func (s *Stream) ViewV2(in []byte, base int64) {
+	s.src, s.own = unsafe.Pointer(&viewedInput), s.buf
+	s.buf, s.offset, s.length = in, base, int64(len(in))-1
+	s.readErr = io.EOF
+}
+
 // BorrowV2 makes the stream, which BeginV2 or BeginV2At began, read the input of dec, a jsontext.Decoder, from the
 // offset from of the whole input, in the buffer of dec, in place, and read more into it through dec, initBufSize
 // bytes at most at a time, as it reads its reader ( see readSource ): the bytes are not copied into its own buffer.

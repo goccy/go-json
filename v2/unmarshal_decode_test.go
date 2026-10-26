@@ -76,6 +76,68 @@ func TestUnmarshalDecodeMethodErrorKeepsValue(t *testing.T) {
 	}
 }
 
+// arrayOfAnyPlace is the place where arrayOfAny met null: the pointer and the input offset of its decoder.
+var arrayOfAnyPlace struct {
+	ptr    jsontext.Pointer
+	offset int64
+}
+
+// arrayOfAny decodes an array into interface{} by UnmarshalDecode of the decoder of the function, which applies the
+// function to its elements again, and fails for null, recording the place of its decoder there.
+var arrayOfAny = json.WithUnmarshalers(json.UnmarshalFromFunc(func(dec *jsontext.Decoder, v *any) error {
+	switch dec.PeekKind() {
+	case 'n':
+		arrayOfAnyPlace.ptr, arrayOfAnyPlace.offset = dec.StackPointer(), dec.InputOffset()
+		if _, err := dec.ReadToken(); err != nil {
+			return err
+		}
+		return errors.New("null")
+	case '[':
+		var a []any
+		if err := json.UnmarshalDecode(dec, &a); err != nil {
+			return err
+		}
+		*v = a
+		return nil
+	}
+	return errors.ErrUnsupported
+}))
+
+// A function of a value which a stream holds whole in its buffer, which decodes it by UnmarshalDecode of its decoder,
+// whose elements the function decodes again, finds its place in the whole input, where the buffer, whose start is
+// not the start of the input, is: the levels around the buffer, and the offsets. The places are the ones of
+// encoding/json/v2.
+func TestUnmarshalDecodeFunctionInFunctionPlace(t *testing.T) {
+	for _, c := range []struct {
+		in      string
+		ptr     jsontext.Pointer // of the error
+		funcPtr jsontext.Pointer // of the decoder of the function, before null
+		offset  int64
+	}{
+		{`[[null]]`, "/a/0/0", "/a/0", 616},
+		{`[1,[2,null]]`, "/a/1/1", "/a/1/0", 619},
+		{`[[[null]]]`, "/a/0/0/0", "/a/0/0", 617},
+	} {
+		in := `{"pad":"` + strings.Repeat("x", 600) + `","a":` + c.in + `}`
+		for _, n := range []int{64, 512, 0} {
+			arrayOfAnyPlace.ptr, arrayOfAnyPlace.offset = "", 0
+			var v struct {
+				Pad string `json:"pad"`
+				A   any    `json:"a"`
+			}
+			dec := jsontext.NewDecoder(&roomReader{Reader: strings.NewReader(in), most: n})
+			err := json.UnmarshalDecode(dec, &v, arrayOfAny)
+			var serr *json.SemanticError
+			if !errors.As(err, &serr) || serr.JSONPointer != c.ptr {
+				t.Fatalf("%s, reads of %d: got %v, want the error within %q", c.in, n, err, c.ptr)
+			}
+			if arrayOfAnyPlace.ptr != c.funcPtr || arrayOfAnyPlace.offset != c.offset {
+				t.Fatalf("%s, reads of %d: the function at %q@%d, want %q@%d", c.in, n, arrayOfAnyPlace.ptr, arrayOfAnyPlace.offset, c.funcPtr, c.offset)
+			}
+		}
+	}
+}
+
 // After the error of an output which is not a non-nil pointer, which reads nothing, the decoder is before its next
 // value, also after the error of a value before it, which has a place in the input.
 func TestUnmarshalDecodeInvalidOutputAfterError(t *testing.T) {

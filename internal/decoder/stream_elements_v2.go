@@ -29,7 +29,15 @@ import (
 // of an error found again from it.
 
 // streamsV2 are the streams of the calls of the v2 json package, which keep their buffers and their contexts.
-var streamsV2 = sync.Pool{New: func() any { return NewStream(nil) }}
+var streamsV2 = sync.Pool{New: func() any { return NewStreamV2() }}
+
+// NewStreamV2 returns a new stream for the decodings of v2, which a pool keeps: its context has the decoders of the
+// types decoded last, as a context of the pool of the contexts has them ( see RuntimeContext.recentDecoders ).
+func NewStreamV2() *Stream {
+	s := NewStream(nil)
+	s.ctx.recentDecoders = &[recentDecoderSets]recentDecoderSet{}
+	return s
+}
 
 // maxReusedStreamBuffer is the size of the largest buffer which a stream of the pool keeps: one which grew for a long
 // token or a value read whole is dropped.
@@ -39,17 +47,130 @@ const maxReusedStreamBuffer = 4 * (initBufSize + bufPadding)
 // RuntimeContext.V2Call ), whose path is the top level.
 func TakeStreamV2(r io.Reader) *Stream {
 	s := streamsV2.Get().(*Stream)
+	s.BeginV2(r)
+	return s
+}
+
+// BeginV2 makes the stream, which has no reader ( see EndV2 ), read r, for a decoding of v2 by the state of the
+// call of its context, whose path is the top level.
+func (s *Stream) BeginV2(r io.Reader) {
 	s.r = r
 	call := s.ctx.V2Call()
 	call.Stream = s
 	call.Path = append(call.Path[:0], textcoder.Level{})
-	return s
+	call.pathNames = append(call.pathNames[:0], namePlace{})
 }
 
-// ReleaseStreamV2 puts the stream back, without its reader and the state of its call.
+// BeginV2At is BeginV2 for a value at the place levels, whose names are its own, which are made the path of the
+// call of the stream, without a copy ( see SetPath ). It returns the path the call had, whose arrays the caller
+// keeps for its next levels.
+func (s *Stream) BeginV2At(r io.Reader, levels []textcoder.Level) []textcoder.Level {
+	s.r = r
+	call := s.ctx.V2Call()
+	call.Stream = s
+	path := call.Path
+	call.Path = levels
+	call.clearPathNames()
+	return path
+}
+
+// viewedInput is the source of a stream which reads in place an input which is whole ( see ViewV2 ).
+var viewedInput byte
+
+// ViewV2 makes the stream, which BeginV2At began, read in place in, a whole input, which has a nul byte after it, from
+// the offset base of the whole input: it reads nothing more, and its buffer is its own again after EndV2. A caller
+// which decodes a value of in whole, as decodeWholeV2 decodes the value of a stream, sets the stream at the value
+// ( see LendAt ), so that a method or a function of the value finds its place by the stream.
+func (s *Stream) ViewV2(in []byte, base int64) {
+	s.src, s.own = unsafe.Pointer(&viewedInput), s.buf
+	s.buf, s.offset, s.length = in, base, int64(len(in))-1
+	s.readErr = io.EOF
+}
+
+// The room which a jsontext.Decoder leaves after its input for a stream which reads its buffer in place is the
+// padding of the buffer of a stream ( see textcoder.InputRoom ): the conversion of their difference, a negative
+// constant if they differ, doesn't compile then.
+const _, _ = uint(textcoder.InputRoom - bufPadding), uint(bufPadding - textcoder.InputRoom)
+
+// BorrowV2 makes the stream, which BeginV2 or BeginV2At began, read the input of dec, a jsontext.Decoder, from the
+// offset from of the whole input, in the buffer of dec, in place, and read more into it through dec, initBufSize
+// bytes at most at a time, as it reads its reader ( see readSource ): the bytes are not copied into its own buffer.
+// It reports false, having done nothing, if the buffer can't be read so ( see textcoder.DecoderBuffer ). Once a
+// decoder attached at a value reads on, the stream holds what it needs of the buffer in its own, and reads its reader
+// ( see ReadOn ).
+func (s *Stream) BorrowV2(dec unsafe.Pointer, from int64) bool {
+	buf, base, ok := textcoder.DecoderBuffer(dec)
+	if !ok || from < base {
+		return false
+	}
+	s.src, s.own = dec, s.buf
+	s.buf, s.offset, s.length, s.cursor = buf[:cap(buf)], base, int64(len(buf)), from-base
+	s.buf[s.length] = nul
+	return true
+}
+
+// readSource is read for a stream which reads the buffer of a jsontext.Decoder in place ( see BorrowV2 ): the
+// decoder reads more into its buffer, keeping what the stream keeps, which it may move.
+func (s *Stream) readSource() bool {
+	if int64(len(s.buf))-s.length <= textcoder.InputRoom {
+		// the names of the path which the levels have by their places in the buffer, which the decoder moves, as it
+		// is full ( see textcoder.FetchInput )
+		s.copyNames()
+	}
+	buf, base, n, err := textcoder.FetchInput(s.src, s.offset+s.keepStart(), initBufSize)
+	s.cursor -= base - s.offset
+	s.buf, s.offset, s.length = buf[:cap(buf)], base, int64(len(buf))
+	s.buf[s.length] = nul
+	if err != nil {
+		s.readErr = err
+	}
+	return n > 0 || err == nil
+}
+
+// leaveSource makes the stream, which reads the buffer of a jsontext.Decoder in place, hold what a read keeps of the
+// buffer in its own, and read its reader, as a stream of a reader does.
+func (s *Stream) leaveSource() {
+	s.copyNames()
+	from := s.keepStart()
+	n := s.length - from
+	if int64(len(s.own)) <= n+bufPadding {
+		// room for the bytes, the padding after them and a read of a byte at least, as read needs it
+		s.own = make([]byte, n+bufPadding+1)
+	}
+	copy(s.own, s.buf[from:s.length])
+	s.buf, s.own, s.src = s.own, nil, nil
+	s.offset, s.cursor, s.length = s.offset+from, s.cursor-from, n
+	s.buf[s.length] = nul
+}
+
+// leaveSourceFrom makes the stream, if it reads the buffer of a jsontext.Decoder in place, hold the bytes from the
+// total offset from in its own buffer ( see leaveSource ), for a decoder attached at the value after from, which
+// may read on: the input which it reads and its place are then the ones of a stream of a reader.
+func (s *Stream) leaveSourceFrom(from int64) {
+	if s.src != nil {
+		keeps, keepFrom := s.keepFromHere(from)
+		s.leaveSource()
+		s.keeps, s.keepFrom = keeps, keepFrom
+	}
+}
+
+// ReleaseStreamV2 puts the stream back, without its reader and the state of its call ( see EndV2 ).
 func ReleaseStreamV2(s *Stream) {
+	s.EndV2()
+	streamsV2.Put(s)
+}
+
+// EndV2 drops the reader of the stream and the state of its call, which may then read another reader ( see
+// BeginV2 ).
+func (s *Stream) EndV2() {
+	if s.src != nil {
+		// the buffer of the stream, which read the one of a jsontext.Decoder in place
+		s.buf, s.own, s.src = s.own, nil, nil
+	}
+	// the value of the call, which refers to nothing, is set by the next decoding before it reads it, but not the
+	// place, which the caller reads after a failure before the decoding too ( see DecodeV2After )
 	call := s.ctx.v2
-	call.Stream, call.Value, call.Place = nil, StreamValue{}, StreamPlace{}
+	call.Stream, call.Place.Set = nil, false
 	if len(call.names.entries) != 0 {
 		call.names.truncate(0, 0)
 	}
@@ -64,7 +185,6 @@ func ReleaseStreamV2(s *Stream) {
 	s.r, s.readErr, s.err = nil, nil, nil
 	s.keeps, s.keepFrom = false, 0
 	s.ctx.Option.Flags, s.ctx.Option.V2 = 0, 0
-	streamsV2.Put(s)
 }
 
 // StartAt makes the stream, which has read nothing, start at the offset of the input, which its reader reads from.
@@ -80,6 +200,7 @@ func (s *Stream) Offset() int64 {
 // Drop empties the buffer of the stream, which a decoder attached at its value read on from and failed after: the
 // stream has nothing to give back ( see Read ), as the decoding of the value fails.
 func (s *Stream) Drop() {
+	s.copyNames()
 	s.offset += s.length
 	s.cursor, s.length = 0, 0
 	s.buf[0] = nul
@@ -100,6 +221,12 @@ func (s *Stream) Read() ([]byte, int64) {
 	return s.buf[:s.length], s.offset
 }
 
+// ReadsInPlace reports whether the stream reads the buffer of a jsontext.Decoder in place ( see BorrowV2 ), which
+// what it has read is then: it has not left it for its own buffer ( see leaveSource ).
+func (s *Stream) ReadsInPlace() bool {
+	return s.src != nil
+}
+
 // ReadError returns the error of the reader, which the stream reports at the end of what it read, or nil if the
 // reader reached the end of the input, or has not failed.
 func (s *Stream) ReadError() error {
@@ -115,6 +242,9 @@ func (s *Stream) ReadOn(p []byte) (int, error) {
 	if s.readErr != nil {
 		return 0, s.readErr
 	}
+	if s.src != nil {
+		s.leaveSource()
+	}
 	n, err := s.r.Read(p[:min(len(p), initBufSize)])
 	if err != nil {
 		s.readErr = err
@@ -125,6 +255,7 @@ func (s *Stream) ReadOn(p []byte) (int, error) {
 // Resume makes the stream go on at the offset end of the input, where a decoder attached at its value stopped: in the
 // buffer, or, if the decoder read on, before rest, what it read and didn't use, which the buffer takes.
 func (s *Stream) Resume(end int64, rest []byte) {
+	s.copyNames()
 	if rest == nil {
 		s.cursor = end - s.offset
 		return
@@ -151,6 +282,21 @@ func (s *Stream) DecodeV2(dec Decoder, p unsafe.Pointer, depth int64) error {
 		return s.endError()
 	}
 	return s.decodeTopV2(dec, p, depth, from, keeps, keepFrom)
+}
+
+// DecodeLongV2After is DecodeV2After for an object or an array at the offset start of what has been read, which the
+// caller found not whole in it ( see WholeEndV2 ), by dec, which is not the decoder of a method, a function or a
+// pointer ( see ReadsJSONText ): it is decoded element by element at once, as decodeTopV2 decodes it after its scan.
+func (s *Stream) DecodeLongV2After(dec Decoder, p unsafe.Pointer, depth, from, start int64) error {
+	call := s.ctx.v2
+	// the names of the objects of the value which an error ended are dropped after it ( see DecodeV2After )
+	entries, copies := call.names.mark()
+	call.Place.Set = false
+	s.cursor = start - s.offset
+	s.beginElements()
+	err := s.decodeLongV2(dec, p, depth, from)
+	call.names.truncate(entries, copies)
+	return err
 }
 
 // DecodeV2After is DecodeV2 for a value at the offset start of the input, after from, the offset of the end of the
@@ -193,8 +339,10 @@ func (s *Stream) decodeTopV2(dec Decoder, p unsafe.Pointer, depth, from int64, k
 	s.keeps, s.keepFrom = keeps, keepFrom
 	switch {
 	case err == errLongValue:
+		// an object or an array, which what has been read doesn't hold whole: the decoder is not one of a pointer
+		// or a method, which decodeNestedV2 looks through
 		s.beginElements()
-		return s.decodeNestedV2(dec, p, depth, from)
+		return s.decodeLongV2(dec, p, depth, from)
 	case err != nil:
 		return s.placeAt(err, from)
 	}
@@ -229,6 +377,8 @@ func (s *Stream) AfterTopLevel() (bool, error) {
 // setPlace records the place of an error of the decoding, which the buffer has from the total offset from up to end,
 // unless an inner value recorded its own ( see V2Call.Place ).
 func (s *Stream) setPlace(from, end int64) {
+	// the names of the path, which the error is found again with
+	s.copyNames()
 	if pl := &s.ctx.v2.Place; !pl.Set {
 		*pl = StreamPlace{From: from - s.offset, End: end, Set: true}
 	}
@@ -239,6 +389,34 @@ func (s *Stream) setPlace(from, end int64) {
 func (s *Stream) placeAt(err error, from int64) error {
 	s.setPlace(from, s.length)
 	return err
+}
+
+// placeDelimiterError is placeAt for err, the error of the next member or element of an object or an array which is
+// read token by token, after from, the end of the token before it: an error at a comma or a colon, which is not
+// one where it is, is found again after the byte after it which is not white space has been read, as encoding/json/v2
+// reads the token after a delimiter before it reports the delimiter, and its error tells that token.
+func (s *Stream) placeDelimiterError(err error, from int64) error {
+	if c := s.buf[s.cursor]; c == ',' || c == ':' {
+		s.readPastDelimiter(from)
+	}
+	return s.placeAt(err, from)
+}
+
+// readPastDelimiter reads the input after the comma or the colon at the cursor, keeping the bytes from the total
+// offset from, up to the first byte after it which is not white space, or the end of the input.
+func (s *Stream) readPastDelimiter(from int64) {
+	keeps, keepFrom := s.keepFromHere(from)
+	at := s.offset + s.cursor + 1
+	for {
+		p := at - s.offset
+		for p < s.length && isWhiteSpace[s.buf[p]] {
+			p++
+		}
+		if at = s.offset + p; p < s.length || !s.read() {
+			break
+		}
+	}
+	s.keeps, s.keepFrom = keeps, keepFrom
 }
 
 // placeValue is placeAt for the value at the cursor, which ends at end.
@@ -260,6 +438,7 @@ func (s *Stream) keepFromHere(from int64) (bool, int64) {
 // SetPath sets the path of the call of the stream to levels, the place of the next value which it decodes, copied
 // into path, whose arrays it reuses, and returns the path it had, which the caller sets back by RestorePath.
 func (s *Stream) SetPath(path, levels []textcoder.Level) []textcoder.Level {
+	s.copyNames()
 	call := s.ctx.v2
 	saved := call.Path
 	path = path[:0]
@@ -273,22 +452,39 @@ func (s *Stream) SetPath(path, levels []textcoder.Level) []textcoder.Level {
 		} else {
 			path = append(path, textcoder.Level{Object: l.Object, Count: l.Count})
 		}
-		name := append(path[n].Name[:0], l.Name...)
+		name := path[n].Name[:0]
+		if len(l.Name) != 0 {
+			name = append(name, l.Name...)
+		}
 		if name == nil && l.Name != nil {
 			name = []byte{} // the name "", which is a name
 		}
 		path[n].Name = name
 	}
 	call.Path = path
+	call.clearPathNames()
 	return saved
+}
+
+// clearPathNames makes the places of the names of the path of the call none, one for each level ( see setNameAt ).
+func (call *V2Call) clearPathNames() {
+	if n := len(call.Path); cap(call.pathNames) >= n {
+		call.pathNames = call.pathNames[:n]
+		clear(call.pathNames)
+	} else {
+		call.pathNames = make([]namePlace, n)
+	}
 }
 
 // RestorePath sets the path of the call of the stream back to saved, which SetPath returned, and returns the path
 // which it set, whose arrays the caller keeps for the next SetPath.
 func (s *Stream) RestorePath(saved []textcoder.Level) []textcoder.Level {
+	s.copyNames()
 	call := s.ctx.v2
 	path := call.Path
 	call.Path = saved
+	// the names of saved were copied when it was set aside ( see SetPath )
+	call.clearPathNames()
 	return path
 }
 
@@ -296,7 +492,9 @@ func (s *Stream) RestorePath(saved []textcoder.Level) []textcoder.Level {
 // its index.
 func (s *Stream) pushLevel(object bool) int {
 	call := s.ctx.v2
-	if n := len(call.Path); n < cap(call.Path) {
+	n := len(call.Path)
+	call.pathNames = append(call.pathNames[:n], namePlace{})
+	if n < cap(call.Path) {
 		// the entry, whose name keeps its array for the names of the level
 		call.Path = call.Path[:n+1]
 		l := &call.Path[n]
@@ -304,7 +502,7 @@ func (s *Stream) pushLevel(object bool) int {
 		return n
 	}
 	call.Path = append(call.Path, textcoder.Level{Object: object})
-	return len(call.Path) - 1
+	return n
 }
 
 // level returns the level i of the path.
@@ -314,7 +512,8 @@ func (s *Stream) level(i int) *textcoder.Level {
 
 // popLevel removes the level i, which ended, from the path.
 func (s *Stream) popLevel(i int) {
-	s.ctx.v2.Path = s.ctx.v2.Path[:i]
+	call := s.ctx.v2
+	call.Path, call.pathNames = call.Path[:i], call.pathNames[:i]
 }
 
 // decodeNestedV2 decodes the value at the cursor, nested in depth objects and arrays, by dec into p: whole if the
@@ -360,9 +559,10 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		return s.decodeNestedV2(d.next, p, depth, from)
 	case *v2FuncDecoder:
 		return s.decodeFuncsV2(d, p, depth, from)
-	case *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, v2StringDecoder:
+	case *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, v2StringDecoder, *v2InterfaceDecoder:
 		// a string, a number or a literal which the buffer has whole is decoded in it, as v1 decodes it, after from,
-		// which a read for the rest of a string keeps
+		// which a read for the rest of a string keeps ( see decodeScalar, which decodes a value of an interface only
+		// into a nil interface{} )
 		if c := s.buf[s.cursor]; c != '{' && c != '[' {
 			keeps, keepFrom := s.keepFromHere(from)
 			decoded := s.decodeScalar(dec, p, depth)
@@ -391,6 +591,26 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		err = s.decodeWholeV2(dec, p, depth, end, from)
 	} else {
 		err = s.placeAt(err, from)
+	}
+	s.keeps, s.keepFrom = keeps, keepFrom
+	return err
+}
+
+// decodeLongV2 is decodeNestedV2 for the object or the array at the cursor which what has been read doesn't hold
+// whole, found by scanValue: it is decoded element by element, or, if dec doesn't decode it so, read whole and
+// decoded, without the lookup of its end by elementEnd, which looks at the same bytes again and indexes them.
+func (s *Stream) decodeLongV2(dec Decoder, p unsafe.Pointer, depth, from int64) error {
+	decoded, err := s.decodeElementsV2(dec, p, depth, from)
+	if decoded {
+		return err
+	}
+	start := s.offset + s.cursor
+	keeps, keepFrom := s.keepFromHere(from)
+	end, err := s.wholeEnd(depth)
+	if err == nil {
+		err = s.decodeWholeV2(dec, p, depth, end, from)
+	} else {
+		err = s.placeAt(s.wholeValueError(err, start), from)
 	}
 	s.keeps, s.keepFrom = keeps, keepFrom
 	return err
@@ -442,10 +662,12 @@ func (s *Stream) decodeWholeV2(dec Decoder, p unsafe.Pointer, depth, end, from i
 // they are given a jsontext.Decoder attached at its place, after from, the end of the token before it, which reads
 // on from the reader of the stream. It returns ErrUseDefault if they declined the value.
 func (s *Stream) decodeAttached(typ reflect.Type, p unsafe.Pointer, depth, from int64, fn *UnmarshalFunc) error {
+	s.leaveSourceFrom(from)
 	ctx := s.ctx
 	call := ctx.v2
 	call.Value = StreamValue{From: from - s.offset, Start: s.cursor, ReadsOn: true}
 	start := s.offset + s.cursor
+	s.copyNames()
 	var err error
 	if fn != nil {
 		_, err = fn.Decode(ctx, s.cursor, depth, p, typ)
@@ -596,8 +818,153 @@ func (s *Stream) copyName(name []byte) {
 func (s *Stream) setName(lv, k int) {
 	call := s.ctx.v2
 	l := &call.Path[lv]
-	l.Count = int64(2*k + 1)
+	l.Count = countAfterName(int64(k))
 	l.Name, call.spareName = call.spareName, l.Name[:0]
+	call.pathNames[lv] = namePlace{}
+}
+
+// countAfterName and countAfterValue are the count of the level of an object of the path, which counts its names and
+// its values ( see textcoder.Level ), once the name of its member k is read, and once the value is.
+func countAfterName(k int64) int64  { return 2*k + 1 }
+func countAfterValue(k int64) int64 { return 2*k + 2 }
+
+// namesCounted is the number of the names of an object which the count of its level counts.
+func namesCounted(count int64) int64 { return (count + 1) / 2 }
+
+// namePlace is the place of a name of an object in the buffer of a stream: the total offsets of its first byte and of
+// the byte after it, inside the quotes. The zero namePlace is no name.
+type namePlace struct {
+	from, to int64
+}
+
+// isName reports whether the place is the one of a name: a name is after a quote, so that its end is 1 at least.
+func (np namePlace) isName() bool { return np.to != 0 }
+
+// setNameAt makes the name of the buffer from the total offset from up to to, inside its quotes, which the buffer
+// keeps, the last name of the level lv of the path, of its member k, whose colon is read, as setName does for a name
+// which copyName copied: the level has the name by its place, until copyNames copies it, before the buffer drops it.
+func (s *Stream) setNameAt(lv, k int, from, to int64) {
+	call := s.ctx.v2
+	call.Path[lv].Count = countAfterName(int64(k))
+	call.pathNames[lv] = namePlace{from: from, to: to}
+	call.namesFrom = min(call.namesFrom, lv)
+}
+
+// exactField returns the field of the name key of an object, which nextMember found, with what it found of it in
+// info, and reports whether it is plain, as plainFieldV2 finds the field of a plain name in the buffer: a name of
+// ASCII without an escape, which is the field whose name is the name as it is. The field of any other is found by
+// memberOf.
+func exactField(keys *structKeys, key []byte, info stringInfo) (*structFieldSet, bool) {
+	if info.firstEscape >= 0 || info.nonASCII {
+		return nil, false
+	}
+	if !keys.hasExactLength(len(key)) {
+		return nil, true
+	}
+	w0, w1 := keyWords(key)
+	return keys.findExact(key, w0, w1), true
+}
+
+// copyNames copies the names which the levels of the path have by their places in the buffer ( see setNameAt )
+// into the levels: before the buffer drops them or moves its bytes, and before the path is read, by the error of
+// the decoding or by a method or a function which reads a jsontext.Decoder.
+func (s *Stream) copyNames() {
+	call := s.ctx.v2
+	for i := call.namesFrom; i < len(call.pathNames); i++ {
+		np := call.pathNames[i]
+		if !np.isName() {
+			continue
+		}
+		l := &call.Path[i]
+		if l.Name = append(l.Name[:0], s.buf[np.from-s.offset:np.to-s.offset]...); l.Name == nil {
+			l.Name = []byte{} // the name "", which is a name
+		}
+		call.pathNames[i] = namePlace{}
+	}
+	call.namesFrom = len(call.pathNames)
+	if call.skip.active {
+		s.copySkipNames()
+	}
+}
+
+// copyStreamNames copies the names of the path of the stream which ctx decodes, if it decodes one ( see
+// Stream.copyNames ), for a method or a function which reads a jsontext.Decoder, which may read the path.
+func copyStreamNames(ctx *RuntimeContext) {
+	call := ctx.v2
+	if call == nil {
+		return
+	}
+	if call.Stream == nil && call.Lent != nil {
+		// a value of UnmarshalDecode which is decoded in the buffer of its decoder, whose stream the method or the
+		// function needs
+		V2Hooks.Lend(ctx)
+	}
+	if call.Stream != nil {
+		call.Stream.copyNames()
+	}
+}
+
+// WholeEndV2 returns the end of the object or the array at cursor of buf, which has the input up to length, followed
+// by the room of a decoder ( see textcoder.InputRoom ), and reports whether it ends there: false for any other value.
+func WholeEndV2(buf []byte, cursor, length int64) (int64, bool) {
+	if c := buf[cursor]; c != '{' && c != '[' {
+		return 0, false
+	}
+	var sc compoundScanner
+	return sc.scan(buf, cursor, length)
+}
+
+// DecodeWholeInV2 decodes the value of buf from cursor up to end, which buf holds whole, by dec into p, as
+// decodeWholeV2 decodes the value of a stream which the buffer holds whole: nested in depth objects and arrays, in
+// buf, whose byte at end is nul while the value is decoded. A type error which a decoder of v1 recorded is the error
+// of the value, and the names of the objects of the value which an error ended are dropped after it, as
+// DecodeV2After drops them.
+func DecodeWholeInV2(ctx *RuntimeContext, buf []byte, cursor, end, depth int64, dec Decoder, p unsafe.Pointer) (int64, error) {
+	call := ctx.v2
+	entries, copies := call.names.mark()
+	saved := buf[end]
+	buf[end] = nul
+	ctx.Buf = buf[:end+1]
+	ctx.origin = ctx.Buf
+	next, err := dec.Decode(ctx, cursor, depth, p)
+	if err == nil && ctx.typeError != nil {
+		err = ctx.v2Error()
+	}
+	buf[end] = saved
+	ctx.Buf, ctx.origin = nil, nil
+	if err != nil {
+		ctx.DiscardTypeError()
+	}
+	call.names.truncate(entries, copies)
+	return next, err
+}
+
+// LendAt makes the stream, which BorrowV2 made read the buffer of a jsontext.Decoder from the offset from, the end of
+// the token before its next value, at that value, at the offset start, as decodeWholeV2 is while it decodes it: for
+// a value which the caller decodes whole in the buffer ( see V2Hooks.Lend ).
+func (s *Stream) LendAt(from, start int64) {
+	call := s.ctx.v2
+	call.Place.Set = false
+	s.cursor = start - s.offset
+	call.Value = StreamValue{From: from - s.offset, Start: s.cursor}
+}
+
+// PlaceWholeV2 records the place of err, the error of the value at the cursor, which the caller decoded whole in the
+// buffer up to end ( see DecodeWholeInV2 ), after from, the total offset of the end of the token before it, as
+// decodeWholeV2 records it. It returns err.
+func (s *Stream) PlaceWholeV2(err error, from, end int64) error {
+	s.ctx.v2.Value = StreamValue{}
+	return s.placeValue(err, from, end)
+}
+
+// ReadsJSONText reports whether dec is the decoder of a method or a function which reads a jsontext.Decoder, which
+// may read on past its value, or of a pointer, whose value may be one: decodeTopV2 decodes them by decodeNestedV2.
+func ReadsJSONText(dec Decoder) bool {
+	switch dec.(type) {
+	case *v2UnmarshalFromDecoder, *v2FuncDecoder, *ptrDecoder, *basicPtrDecoder:
+		return true
+	}
+	return false
 }
 
 // decodeStructElementsV2 decodes the object at the cursor into the struct at p, as v2StructDecoder.Decode does, after
@@ -608,6 +975,11 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		return err
 	}
 	ctx := s.ctx
+	// the loop of the options, which are looked at once for the object, as v2StructDecoder.Decode chooses it
+	if !d.foldAlways && d.fallback == nil &&
+		ctx.Option.V2&(V2MatchCaseInsensitiveNames|V2RejectUnknownMembers|V2AllowDuplicateNames) == V2AllowDuplicateNames {
+		return s.decodeStructMembersV2(d, p, depth, lv)
+	}
 	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	fold := d.foldAlways || ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
 	var seen uint64
@@ -620,7 +992,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		keeps, keepFrom := s.keepFromHere(step)
 		quoted, ok, err := s.nextMemberV2(k == 0)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			unknown.end(ctx.v2)
@@ -655,7 +1027,7 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 			if !rejectDuplicateNames {
 				break
 			}
-			if idx := field.fieldIdx; idx < 64 {
+			if idx := field.fieldIdx; idx < seenFields {
 				bit := uint64(1) << uint(idx)
 				if seen&bit != 0 {
 					return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
@@ -701,7 +1073,77 @@ func (s *Stream) decodeStructElementsV2(d *v2StructDecoder, p unsafe.Pointer, de
 		if err != nil {
 			return err
 		}
-		s.level(lv).Count = int64(2*k + 2)
+		s.level(lv).Count = countAfterValue(int64(k))
+	}
+}
+
+// decodeStructMembersV2 is the loop of decodeStructElementsV2 with V2AllowDuplicateNames, for a struct whose names
+// are matched as they are, which has no fallback, without V2RejectUnknownMembers: the members of the object whose
+// level of the path is lv, after its bracket, nested in depth objects and arrays, are decoded as decodeStructElements
+// decodes them for v1, and the ones of no field skipped. The bytes from the end of the token before a member, the
+// place of its errors, are kept while its name and a string, a number or a literal of its value are read, which the
+// buffer has whole: as decodeStructElementsV2 keeps them for the name and decodeNestedV2 for the value.
+func (s *Stream) decodeStructMembersV2(d *v2StructDecoder, p unsafe.Pointer, depth int64, lv int) error {
+	ctx := s.ctx
+	// what the caller keeps: the bytes of a member are kept from the end of the token before it, unless the caller
+	// keeps them, from before the object
+	keeps, keepFrom := s.keeps, s.keepFrom
+	for k := 0; ; k++ {
+		step := s.offset + s.cursor
+		if !keeps {
+			s.keeps, s.keepFrom = true, step
+		}
+		key, info, start, ok, err := s.nextMember(k == 0)
+		if err != nil {
+			return s.placeDelimiterError(err, step)
+		}
+		if !ok {
+			s.keeps, s.keepFrom = keeps, keepFrom
+			s.popLevel(lv)
+			return nil
+		}
+		field, plain := exactField(d.keyDecoder.keys, key, info)
+		if !plain {
+			// a name which v2StructDecoder.Decode finds by memberOf, which is copied decoded
+			candidate, _, err := d.keyDecoder.decodeKey(s.buf[:s.length+1], start, false)
+			if err != nil {
+				return s.placeAt(err, step)
+			}
+			var name []byte
+			if field, name, err = d.memberOf(ctx, s.buf[start:s.cursor], candidate); err != nil {
+				if e, ok := err.(*errors.UnmarshalError); ok {
+					e.Start = start
+				}
+				return s.placeAt(err, step)
+			}
+			s.copyName(name)
+		}
+		// the name as the buffer has it, inside its quotes, which is kept up to the colon
+		nameFrom, nameEnd := s.offset+start+1, s.offset+s.cursor
+		if err := s.memberValue(); err != nil {
+			return s.placeAt(err, step)
+		}
+		if plain {
+			s.setNameAt(lv, k, nameFrom, nameEnd-1)
+		} else {
+			s.setName(lv, k)
+		}
+		switch {
+		case field == nil:
+			s.keeps, s.keepFrom = keeps, keepFrom
+			err = s.skipValueV2(depth, nameEnd)
+		case s.buf[s.cursor] != '{' && s.buf[s.cursor] != '[' && s.decodeScalar(field.dec, unsafe.Add(p, field.offset), depth):
+			// a string, a number or a literal which the buffer has whole, as decodeNestedV2 decodes it: the decoders
+			// of the values of v2 which decodeScalar decodes are the ones which decodeNestedV2 gives it
+			s.keeps, s.keepFrom = keeps, keepFrom
+		default:
+			s.keeps, s.keepFrom = keeps, keepFrom
+			err = s.decodeNestedV2(field.dec, unsafe.Add(p, field.offset), depth, nameEnd)
+		}
+		if err != nil {
+			return err
+		}
+		s.level(lv).Count = countAfterValue(int64(k))
 	}
 }
 
@@ -768,8 +1210,14 @@ func (s *Stream) skipValueV2(depth, from int64) error {
 		return s.placeAt(err, from)
 	}
 	if !whole {
+		if s.ctx.Option.V2&asV1Text == asV1Text {
+			// a value of the grammar only, as v1 skips it
+			return s.skipLongV2(depth)
+		}
+		s.leaveSourceFrom(from)
 		call := s.ctx.v2
 		call.Value = StreamValue{From: from - s.offset, Start: s.cursor, ReadsOn: true}
+		s.copyNames()
 		err := V2Hooks.SkipStreamValue(s, depth)
 		call.Value = StreamValue{}
 		return err
@@ -813,7 +1261,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 		keeps, keepFrom := s.keepFromHere(step)
 		quoted, ok, err := s.nextMemberV2(i == 0)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			names.end(ctx.v2)
@@ -868,7 +1316,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 		if err != nil {
 			return err
 		}
-		s.level(lv).Count = int64(2*i + 2)
+		s.level(lv).Count = countAfterValue(int64(i))
 	}
 }
 
@@ -897,23 +1345,127 @@ func (s *Stream) decodeSliceElementsV2(d *v2SliceDecoder, p unsafe.Pointer, dept
 	dst := (*sliceHeader)(p)
 	// the elements are decoded into the slice up to limit, and into a buffer after it, as sliceDecoder.Decode does
 	t := sliceTarget{d: d.sliceDecoder, dst: dst, limit: max(dst.cap, inPlaceSliceLength)}
-	for idx := 0; ; idx++ {
+	runs := readsWhole(d.valueDecoder)
+	for idx := 0; ; {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil || !ok {
 			t.finish(idx, idx, err)
 			if err != nil {
-				return s.placeAt(err, step)
+				return s.placeDelimiterError(err, step)
 			}
 			s.popLevel(lv)
 			return nil
+		}
+		if runs {
+			n, err := s.decodeRunV2(&t, lv, idx, depth, step)
+			if err != nil {
+				t.finish(n, n+1, err)
+				return err
+			}
+			if n > idx {
+				idx = n
+				continue
+			}
 		}
 		if err := s.decodeNestedV2(d.valueDecoder, t.elem(idx), depth, step); err != nil {
 			t.finish(idx, idx+1, err)
 			return err
 		}
 		t.decoded(idx)
-		s.level(lv).Count = int64(idx + 1)
+		idx++
+		s.level(lv).Count = int64(idx)
 	}
+}
+
+// decodeRunV2 decodes the elements of the array whose elements are read into t, from the element idx at the cursor,
+// after step, the total offset of the end of the token before it: the ones which the buffer holds whole, up to the
+// last one which is an object or an array that ends in what has been read, as decodeRun does, each as decodeWholeV2
+// decodes it, without the lookup of its end. It returns the number of the elements of the array decoded, which the
+// level lv of the path counts: idx if the buffer holds no such element. The decoder of the elements reads a value
+// whole ( see readsWhole ).
+func (s *Stream) decodeRunV2(t *sliceTarget, lv, idx int, depth, step int64) (int, error) {
+	s.indexAt(depth)
+	end, ok := s.elements.lastElementClose(s.offset+s.cursor, depth)
+	if !ok {
+		return idx, nil
+	}
+	ctx := s.ctx
+	call := ctx.v2
+	dec := t.d.valueDecoder
+	// a nul byte is put after the last element while the run is decoded, as decodeRun puts it
+	stop := end - s.offset + 1
+	saved := s.buf[stop]
+	s.buf[stop] = nul
+	buf := s.buf[:stop+1]
+	ctx.Buf, ctx.origin = buf, buf
+	var err error
+	for {
+		call.Value = StreamValue{From: step - s.offset, Start: s.cursor}
+		next, derr := dec.Decode(ctx, s.cursor, depth, t.elem(idx))
+		if derr == nil && ctx.typeError != nil {
+			derr = ctx.v2Error()
+		}
+		if derr != nil {
+			ctx.DiscardTypeError()
+			err = s.placeValue(derr, step, stop)
+			break
+		}
+		t.decoded(idx)
+		idx++
+		s.level(lv).Count = int64(idx)
+		s.cursor, step = next, s.offset+next
+		// the next element is in the run if it starts before its end
+		c := skipWhiteSpace(buf, next)
+		if buf[c] != ',' {
+			break
+		}
+		if c = skipWhiteSpace(buf, c+1); c >= stop {
+			break
+		}
+		s.cursor = c
+	}
+	s.buf[stop] = saved
+	ctx.Buf, ctx.origin = nil, nil
+	call.Value = StreamValue{}
+	return idx, err
+}
+
+// readsWhole reports whether decodeNestedV2 decodes a value which the buffer holds whole by dec as decodeWholeV2
+// decodes it: unless dec, or the decoder of the value which dec decodes through pointers, is one of a method or a
+// function which reads a jsontext.Decoder, which is given one attached at the value. The pointers of a type which
+// points to itself, through other types or not, lead to no other decoder: slow, which follows them at half the
+// pace, meets dec in them.
+func readsWhole(dec Decoder) bool {
+	slow := dec
+	for odd := false; ; odd = !odd {
+		switch d := dec.(type) {
+		case *v2UnmarshalFromDecoder, *v2FuncDecoder:
+			return false
+		case *ptrDecoder:
+			dec = d.dec
+		case *basicPtrDecoder:
+			dec = d.dec
+		default:
+			return true
+		}
+		if odd {
+			slow = pointeeDecoder(slow)
+		}
+		if dec == slow {
+			return true
+		}
+	}
+}
+
+// pointeeDecoder returns the decoder of the value which dec, a decoder of a pointer, decodes through it.
+func pointeeDecoder(dec Decoder) Decoder {
+	switch d := dec.(type) {
+	case *ptrDecoder:
+		return d.dec
+	case *basicPtrDecoder:
+		return d.dec
+	}
+	return dec
 }
 
 // decodeArrayElementsV2 decodes the array at the cursor into the array at p, as v2ArrayDecoder.Decode does, after
@@ -927,7 +1479,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 	for idx := 0; ; idx++ {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			for ; idx < d.alen; idx++ {
@@ -1005,8 +1557,12 @@ func (s *Stream) decodeMergingV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth,
 			return s.placeAt(&errors.UnmarshalError{GoType: reflect.TypeOf(held), Start: s.cursor}, from)
 		}
 		if m == nil {
-			m = map[string]any{}
-			*(*any)(p) = m
+			// a new map, of the entries of the object, which are decoded first
+			m, err := s.decodeNewAnyObjectV2(d, depth, from)
+			if m != nil {
+				*(*any)(p) = m
+			}
+			return err
 		}
 		return s.decodeAnyObjectV2(d, m, depth, from)
 	}
@@ -1014,9 +1570,173 @@ func (s *Stream) decodeMergingV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth,
 	if held != nil && !ok {
 		return s.placeAt(&errors.UnmarshalError{GoType: reflect.TypeOf(held), Start: s.cursor}, from)
 	}
+	if a == nil {
+		// a new slice, of the elements of the array, which are decoded first
+		a, err := s.decodeNewAnyArrayV2(d, depth, from)
+		if a != nil {
+			*(*any)(p) = a
+		}
+		return err
+	}
 	err := s.decodeAnyArrayV2(d, &a, depth, from)
 	*(*any)(p) = a
 	return err
+}
+
+// decodeNewAnyObjectV2 decodes the object at the cursor into a new map[string]interface{}, as decodeObjectInto does,
+// after from, the total offset of the end of the token before it: the entries are pushed to the stack of the
+// context, as decodeAnyObject pushes them for v1, and put into a map of their number at the end, which it returns,
+// with the entries before an error. The value of a name which the object had is decoded into its first value.
+func (s *Stream) decodeNewAnyObjectV2(d *v2InterfaceDecoder, depth, from int64) (map[string]any, error) {
+	depth, lv, err := s.openElementsV2(true, depth, from)
+	if err != nil {
+		return nil, err
+	}
+	ctx := s.ctx
+	base := len(ctx.entryStack)
+	var names anyNames
+	for k := 0; ; k++ {
+		// the end of the token before the member, which the place of its errors is read again from, kept until the
+		// value of the member
+		step := s.offset + s.cursor
+		keeps, keepFrom := s.keepFromHere(step)
+		key, info, start, ok, err := s.nextMember(k == 0)
+		if err != nil {
+			return ctx.anyEntries(base), s.placeDelimiterError(err, step)
+		}
+		if !ok {
+			s.keeps, s.keepFrom = keeps, keepFrom
+			s.popLevel(lv)
+			return ctx.anyEntries(base), nil
+		}
+		quoted := s.buf[start:s.cursor]
+		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(quoted) && !validV2Text(quoted) {
+			return ctx.anyEntries(base), s.placeAt(errV2Text, step)
+		}
+		name := ctx.copyString(decodeLiteral(key, info))
+		at := names.index(ctx, base, name)
+		if at >= 0 && ctx.Option.V2&V2AllowDuplicateNames == 0 {
+			return ctx.anyEntries(base), s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
+		}
+		plain := info.firstEscape < 0 && !info.nonASCII
+		if !plain {
+			s.copyName(unsafeBytes(name))
+		}
+		nameEnd := s.offset + s.cursor
+		if err := s.memberValue(); err != nil {
+			return ctx.anyEntries(base), s.placeAt(err, step)
+		}
+		if plain {
+			s.setNameAt(lv, k, nameEnd-int64(len(name))-1, nameEnd-1)
+		} else {
+			s.setName(lv, k)
+		}
+		s.keeps, s.keepFrom = keeps, keepFrom
+		if at >= 0 {
+			// the value of a name which the object had, which is decoded into the first one: out of ctx.slot, which
+			// the values in it are decoded into, from nil
+			value := ctx.entryStack[at].value
+			err = s.decodeNestedV2(d, unsafe.Pointer(&value), depth, nameEnd)
+			ctx.entryStack[at].value = value
+		} else {
+			err = s.decodeNestedV2(d, unsafe.Pointer(&ctx.slot), depth, nameEnd)
+			ctx.entryStack = append(ctx.entryStack, anyEntry{key: name, value: ctx.slot})
+			ctx.slot = nil
+		}
+		if err != nil {
+			return ctx.anyEntries(base), err
+		}
+		s.level(lv).Count = countAfterValue(int64(k))
+	}
+}
+
+// anyNames finds the names of the entries of an object which decodeNewAnyObjectV2 pushed: by the bits of their
+// hashes in mask, and a comparison with the names of the entries of its bit, up to maxListedNames names, and by the
+// keys of a map of their entries past them, so that an object of many names is not quadratic in its names.
+type anyNames struct {
+	mask nameMask
+	set  map[string]int
+}
+
+// index returns the index in the stack of the entry of the name, which the entries of the stack from base are, or -1
+// if they don't have it, and adds the name, which the caller pushes the entry of then.
+func (n *anyNames) index(ctx *RuntimeContext, base int, name string) int {
+	entries := ctx.entryStack[base:]
+	if n.set != nil {
+		if at, ok := n.set[name]; ok {
+			return at
+		}
+		n.set[name] = len(ctx.entryStack)
+		return -1
+	}
+	w, bit := n.mask.bit(nameHash(unsafeBytes(name)))
+	if *w&bit != 0 {
+		for i := range entries {
+			if entries[i].key == name {
+				return base + i
+			}
+		}
+	}
+	*w |= bit
+	if len(entries) == maxListedNames {
+		// the names, past which they are found by the map, which has room for as many again
+		n.set = make(map[string]int, 2*maxListedNames)
+		for i := range entries {
+			n.set[entries[i].key] = base + i
+		}
+		n.set[name] = len(ctx.entryStack)
+	}
+	return -1
+}
+
+// anyEntries returns a new map of the entries of the stack of the context from base, which it removes.
+func (ctx *RuntimeContext) anyEntries(base int) map[string]any {
+	entries := ctx.entryStack[base:]
+	m := make(map[string]any, len(entries))
+	for i := range entries {
+		m[entries[i].key] = entries[i].value
+	}
+	ctx.popEntries(base)
+	return m
+}
+
+// decodeNewAnyArrayV2 decodes the array at the cursor into a new []interface{}, as decodeArrayInto does, after from,
+// the total offset of the end of the token before it: the elements are pushed to the stack of the context, as
+// decodeAnyArray pushes them for v1, and copied into a slice of their number at the end, which it returns, with the
+// elements before an error.
+func (s *Stream) decodeNewAnyArrayV2(d *v2InterfaceDecoder, depth, from int64) ([]any, error) {
+	depth, lv, err := s.openElementsV2(false, depth, from)
+	if err != nil {
+		return nil, err
+	}
+	ctx := s.ctx
+	base := len(ctx.anyStack)
+	for idx := 0; ; idx++ {
+		step, ok, err := s.nextElementV2(idx)
+		if err != nil {
+			return ctx.anyElements(base), s.placeDelimiterError(err, step)
+		}
+		if !ok {
+			s.popLevel(lv)
+			return ctx.anyElements(base), nil
+		}
+		err = s.decodeNestedV2(d, unsafe.Pointer(&ctx.slot), depth, step)
+		ctx.anyStack = append(ctx.anyStack, ctx.slot)
+		ctx.slot = nil
+		if err != nil {
+			return ctx.anyElements(base), err
+		}
+		s.level(lv).Count = int64(idx + 1)
+	}
+}
+
+// anyElements returns a new slice of the elements of the stack of the context from base, which it removes: an empty
+// one, not nil, if there are none.
+func (ctx *RuntimeContext) anyElements(base int) []any {
+	elems := make([]any, len(ctx.anyStack)-base)
+	copy(elems, ctx.anyStack[base:])
+	ctx.popAny(base)
+	return elems
 }
 
 // decodeAnyObjectV2 decodes the object at the cursor into m, as decodeObjectInto does, after from, the total offset
@@ -1035,7 +1755,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		keeps, keepFrom := s.keepFromHere(step)
 		quoted, ok, err := s.nextMemberV2(k == 0)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			names.end(ctx.v2)
@@ -1047,11 +1767,11 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 			return s.placeAt(errV2Text, step)
 		}
 		name := ctx.copyString(unquotedName(quoted))
-		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafe.Slice(unsafe.StringData(name), len(name))) {
+		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafeBytes(name)) {
 			start := s.cursor - int64(len(quoted))
 			return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 		}
-		s.copyName(unsafe.Slice(unsafe.StringData(name), len(name)))
+		s.copyName(unsafeBytes(name))
 		nameEnd, err := s.memberValueV2()
 		if err != nil {
 			return s.placeAt(err, step)
@@ -1066,7 +1786,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		if err != nil {
 			return err
 		}
-		s.level(lv).Count = int64(2*k + 2)
+		s.level(lv).Count = countAfterValue(int64(k))
 	}
 }
 
@@ -1084,7 +1804,7 @@ func (s *Stream) decodeAnyArrayV2(d *v2InterfaceDecoder, a *[]any, depth, from i
 	for idx := 0; ; idx++ {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil {
-			return s.placeAt(err, step)
+			return s.placeDelimiterError(err, step)
 		}
 		if !ok {
 			s.popLevel(lv)

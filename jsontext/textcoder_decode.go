@@ -15,10 +15,38 @@ func init() {
 	textcoder.DetachDecoder = detachDecoder
 	textcoder.UnmarshalPlaceAt = unmarshalPlaceAt
 	textcoder.DecoderPlace = decoderPlace
+	textcoder.DecoderAt = func(dec unsafe.Pointer) (bool, textcoder.Outer, int) {
+		d := &(*Decoder)(dec).d
+		if !d.ready() {
+			d.setUp()
+		}
+		return d.st.last().needName(), d.st.outer, d.st.depth() + d.st.base
+	}
 	textcoder.BeginValue = beginValue
 	textcoder.DecoderInput = func(dec unsafe.Pointer, start int64) ([]byte, io.Reader) {
 		d := &(*Decoder)(dec).d
 		return d.buf[start-d.base:], d.r
+	}
+	textcoder.DecoderBuffer = func(dec unsafe.Pointer) ([]byte, int64, bool) {
+		d := &(*Decoder)(dec).d
+		return d.buf, d.base, !d.shared && d.bb == nil && d.r != nil && cap(d.buf)-len(d.buf) >= textcoder.InputRoom
+	}
+	textcoder.FetchInput = func(dec unsafe.Pointer, keep int64, n int) ([]byte, int64, int, error) {
+		d := &(*Decoder)(dec).d
+		// the bytes before keep are dropped as the ones before the last token are: the positions of the decoder
+		// before them are the start of the buffer then, which the caller sets by EndValue or PutBack
+		var shift int
+		if cap(d.buf)-len(d.buf) <= textcoder.InputRoom {
+			// the buffer is full, as a stream finds its buffer full before it reads ( see decoder.Stream.read )
+			prev := d.prevStart
+			d.prevStart = int(keep - d.base)
+			shift = d.makeRoom(n + textcoder.InputRoom)
+			d.prevStart = prev - shift
+		}
+		d.pos, d.prevStart, d.prevEnd = max(d.pos, 0), max(d.prevStart, 0), max(d.prevEnd, 0)
+		m, err := d.r.Read(d.buf[len(d.buf):min(cap(d.buf)-textcoder.InputRoom, len(d.buf)+n)])
+		d.buf = d.buf[:len(d.buf)+m]
+		return d.buf, d.base, m, err
 	}
 	textcoder.EndValue = endValue
 	textcoder.PutBack = func(dec unsafe.Pointer, start int64, in []byte) {
@@ -173,7 +201,7 @@ func unmarshalPlace(in []byte, opts *options.Config, stop int64, read textcoder.
 }
 
 // decoderPlace is textcoder.DecoderPlace.
-func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) ([]textcoder.Level, bool, textcoder.Outer, int) {
+func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) []textcoder.Level {
 	d := &(*Decoder)(dec).d
 	if !d.ready() {
 		d.setUp()
@@ -184,19 +212,26 @@ func decoderPlace(dec unsafe.Pointer, levels []textcoder.Level) ([]textcoder.Lev
 	}
 	for i := range st.levels {
 		l := &st.levels[i]
-		tl := textcoder.Level{Object: l.object, Count: l.count}
+		n := len(levels)
+		if n < cap(levels) {
+			// the entry, whose name keeps its array, which the name is copied into
+			levels = levels[:n+1]
+		} else {
+			levels = append(levels, textcoder.Level{})
+		}
+		tl := &levels[n]
+		tl.Object, tl.Count = l.object, l.count
 		if i < len(st.levels)-1 {
 			tl.Count-- // the value of the next level, which is open, is not counted
 		}
-		if l.object && l.last >= l.first {
-			if tl.Name = st.names.get(l.last); tl.Name == nil {
-				// the name "", which is a name, as a level without a name has none ( see textcoder.Level )
-				tl.Name = []byte{}
-			}
+		if !l.object || l.last < l.first {
+			tl.Name = nil
+		} else if tl.Name = append(tl.Name[:0], st.names.get(l.last)...); tl.Name == nil {
+			// the name "", which is a name, as a level without a name has none ( see textcoder.Level )
+			tl.Name = []byte{}
 		}
-		levels = append(levels, tl)
 	}
-	return levels, d.st.last().needName(), d.st.outer, d.st.depth() + d.st.base
+	return levels
 }
 
 // beginValue is textcoder.BeginValue: the start of readValue, up to the value, which is not a name.
@@ -230,14 +265,17 @@ func beginValue(dec unsafe.Pointer) (int64, error) {
 func endValue(dec unsafe.Pointer, start, end int64, rest []byte) {
 	d := &(*Decoder)(dec).d
 	if rest == nil {
+		// the start of the value may be before the buffer, which dropped it for the caller, which read more into
+		// it ( see textcoder.FetchInput )
 		d.done(int(start-d.base), int(end-d.base))
 	} else {
-		// the input after the value, which the reader gave the caller, in a buffer of the decoder
+		// the input after the value, which the reader gave the caller, in a buffer of the decoder, before which the
+		// value starts
 		if d.shared {
 			d.buf, d.shared = nil, false
 		}
 		d.buf = append(d.buf[:0], rest...)
-		d.base, d.pos, d.prevStart, d.prevEnd = end, 0, 0, 0
+		d.base, d.pos, d.prevStart, d.prevEnd = end, 0, int(start-end), 0
 	}
 	d.st.last().count++
 }

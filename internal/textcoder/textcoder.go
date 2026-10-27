@@ -140,13 +140,22 @@ var (
 	ReleaseDecoder func(dec unsafe.Pointer)
 )
 
+// InputRoom is the room which a decoder of a reader leaves after the input in its buffer, for a stream of the decoders
+// of v2 which reads the buffer in place ( see DecoderBuffer ): the padding which the stream keeps after the input in
+// its own buffer, for the nul byte after the input and a block of 64 bytes which a scan reads from any byte of the
+// input, past it from the last bytes.
+const InputRoom = 64
+
 // The decoding of the next value of a *jsontext.Decoder by the v2 json package ( UnmarshalDecode ), which reads the
 // value itself from the input of the decoder, and then makes the decoder go on after it.
 var (
-	// DecoderPlace returns the place of the next value of dec: the levels of the whole input around it, the top
-	// level first, appended to levels ( see Level ), whether it is a name of an object, the Outer of the attach of
-	// dec, or nil, and the number of the arrays and the objects open around it.
-	DecoderPlace func(dec unsafe.Pointer, levels []Level) ([]Level, bool, Outer, int)
+	// DecoderPlace returns the levels of the whole input around the next value of dec, the top level first, appended
+	// to levels ( see Level ), whose names are copied into the arrays of the names of the entries of levels after its
+	// length, which are reused.
+	DecoderPlace func(dec unsafe.Pointer, levels []Level) []Level
+	// DecoderAt returns the rest of the place of the next value of dec: whether it is a name of an object, the Outer
+	// of the attach of dec, or nil, and the number of the arrays and the objects open around it.
+	DecoderAt func(dec unsafe.Pointer) (bool, Outer, int)
 	// BeginValue reads what dec reads before its next value, which is not a name, as ReadValue reads it: the
 	// white space and the delimiter, which it checks, and returns the offset of the value in the whole input, or
 	// the error which ReadValue returns there, io.EOF after the last value of the input. The value isn't read.
@@ -154,9 +163,23 @@ var (
 	// DecoderInput returns the input of dec from the offset start of the whole input, which its buffer has: the
 	// bytes of its buffer, and its reader, which reads the input after them.
 	DecoderInput func(dec unsafe.Pointer, start int64) ([]byte, io.Reader)
+	// DecoderBuffer returns the buffer of dec, which its input up to len(buf) has been read into, and the offset of
+	// its first byte in the whole input. It reports false if a caller can't read the buffer in place and read more
+	// into it ( see FetchInput ): the array of a bytes.Buffer, of a decoder of a bytes.Buffer, which the decoder
+	// doesn't own, or a buffer without InputRoom bytes of room after its input, which a decoder of a reader leaves
+	// it.
+	DecoderBuffer func(dec unsafe.Pointer) ([]byte, int64, bool)
+	// FetchInput reads more of the input of dec into its buffer, which DecoderBuffer gave a caller, after what has
+	// been read, n bytes at most, by one read of its reader, keeping the bytes from the offset keep of the whole
+	// input, which the buffer may move to its start, and returns the buffer as DecoderBuffer does, the number of
+	// the bytes read and the error of the read, which dec doesn't keep. The state of dec is the caller's until it
+	// ends the value by EndValue, with the rest, or PutBack.
+	FetchInput func(dec unsafe.Pointer, keep int64, n int) ([]byte, int64, int, error)
 	// EndValue makes dec go on after the next value, which was read from start to end, offsets of the whole
-	// input: in its buffer, or, if rest is set, from rest, the input after the value which was read from its
-	// reader, which it copies.
+	// input: in its buffer, which may have dropped the start of the value for a caller which read more into it
+	// ( see FetchInput ), or, if rest is set, from rest, the input after the value which was read from its reader,
+	// which it copies. The value is the last value which dec read, from start, whose place a decoder attached at a
+	// value reports to the caller ( see DetachDecoder ).
 	EndValue func(dec unsafe.Pointer, start, end int64, rest []byte)
 	// PutBack makes dec read in, the input from the offset start of the whole input, which a caller read from its
 	// reader, as the next input: dec is where it was before its next value, which the caller didn't decode.

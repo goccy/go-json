@@ -54,11 +54,58 @@ func UnmarshalDecodeOf[T any](in *jsontext.Decoder, out *T, opts ...Options) err
 }
 
 // decodeCall is the state of a call of UnmarshalDecode, which the calls reuse: the levels of the place of the value,
-// the input of the decoder which a stream reads, and the config of the options of the call.
+// whose names are copies ( see textcoder.DecoderPlace ), the input of the decoder which a stream reads, the stream,
+// which a call takes once, and the config of the options of the call.
 type decodeCall struct {
 	levels []textcoder.Level
 	input  lentInput
+	stream *decoder.Stream
 	cfg    options.Config
+	// lent is the place of the value which the call decodes in the buffer of the decoder, without the stream, which
+	// lendStream sets up from it ( see decodeInBuffer ).
+	lent lentPlace
+}
+
+// lentPlace is the place of a value of UnmarshalDecode in the buffer of the decoder at d: the offsets of the end of
+// the token before the value and of the value.
+type lentPlace struct {
+	d           unsafe.Pointer
+	from, start int64
+}
+
+func init() {
+	decoder.V2Hooks.Lend = func(ctx *decoder.RuntimeContext) { (*decodeCall)(ctx.V2Call().Lent).lendStream() }
+}
+
+// lendStream sets up the stream of the call, which decodes its value in the buffer of its decoder ( see
+// decodeInBuffer ), as decodeLent sets it up, at the value, as the stream is while it decodes it whole.
+func (dc *decodeCall) lendStream() {
+	l := dc.lent
+	_, r := textcoder.DecoderInput(l.d, l.from)
+	s := dc.stream
+	dc.levels = s.BeginV2At(&dc.input, dc.place(l.d))
+	s.BorrowV2(l.d, l.from)
+	dc.input = lentInput{r: r}
+	s.LendAt(l.from, l.start)
+}
+
+// place returns the levels of the place of the next value of the decoder at d, in the levels of the call, whose names
+// are copies ( see textcoder.DecoderPlace ): a call needs them only for a value which it doesn't decode in the buffer
+// of the decoder, for a method or a function of the value, and for an error. The decoder has not counted the value
+// yet, and its levels stay as they are until the call ends it.
+func (dc *decodeCall) place(d unsafe.Pointer) []textcoder.Level {
+	dc.levels = textcoder.DecoderPlace(d, dc.levels[:0])
+	return dc.levels
+}
+
+// takeStream returns the stream of the call, which it makes the first time, as the pool of TakeStreamV2 makes one.
+func (dc *decodeCall) takeStream() *decoder.Stream {
+	s := dc.stream
+	if s == nil {
+		s = decoder.NewStreamV2()
+		dc.stream = s
+	}
+	return s
 }
 
 var decodeCalls = sync.Pool{New: func() any { return new(decodeCall) }}
@@ -68,12 +115,15 @@ var decodeCalls = sync.Pool{New: func() any { return new(decodeCall) }}
 func unmarshalDecode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts []Options) error {
 	dc := decodeCalls.Get().(*decodeCall)
 	err := dc.decode(in, typ, p, opts)
-	// the levels and the input refer to the decoder, and the config may hold the functions of the caller, which the
-	// pool must not keep alive
-	clear(dc.levels)
-	dc.levels = dc.levels[:0]
+	// the input refers to the decoder, and the config may hold the functions of the caller, which the pool must not
+	// keep alive
 	dc.input = lentInput{}
-	dc.cfg = options.Config{}
+	if dc.cfg.Set&configHolds != 0 {
+		dc.cfg = options.Config{}
+	} else {
+		// the flags, which refer to nothing
+		dc.cfg.Set, dc.cfg.Value = 0, 0
+	}
 	decodeCalls.Put(dc)
 	return err
 }
@@ -81,14 +131,14 @@ func unmarshalDecode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts []Options
 // decode is unmarshalDecode by the state of the call.
 func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts []Options) error {
 	d := unsafe.Pointer(in)
-	levels, name, outer, depth := textcoder.DecoderPlace(d, dc.levels[:0])
-	dc.levels = levels
+	name, outer, depth := textcoder.DecoderAt(d)
 	cfg := &dc.cfg
 	in.Options().ApplyTo(cfg)
 	if len(opts) > 0 {
 		if name {
 			orig := *cfg
 			cfg.Apply(opts)
+			levels := dc.place(d)
 			if err := optionsChange(&orig, cfg, levels[len(levels)-1]); err != nil && err != errChangingWhitespace {
 				// the error before the name, which is not read
 				start, berr := textcoder.BeginValue(d)
@@ -109,11 +159,11 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 	case name:
 		err = decodeName(in, typ, p, cfg)
 	case attached && st.att.In != nil && st.att.R == nil:
-		err = decodeInPlace(d, in, st, levels, depth, typ, p, cfg)
+		err = decodeInPlace(d, in, dc, st, dc.place(d), depth, typ, p, cfg)
 	case attached && st.att.In != nil:
-		err = decodeOnStream(d, in, st, levels, depth, typ, p, cfg)
+		err = decodeOnStream(d, in, st, dc.place(d), depth, typ, p, cfg)
 	default:
-		err = decodeLent(d, in, &dc.input, levels, depth, typ, p, cfg)
+		err = decodeLent(d, in, dc, depth, typ, p, cfg)
 	}
 	return err
 }
@@ -142,8 +192,10 @@ func decodeName(in *jsontext.Decoder, typ, p unsafe.Pointer, cfg *options.Config
 // decodeInPlace decodes the next value of the decoder at d, which st attached at a value which the input of a call
 // holds whole, into the value at p, of the pointer type typ, by the options of cfg: the value is
 // decoded in the input, where the decoder reads it, which goes on after it. levels and depth are the place of the
-// value ( see textcoder.DecoderPlace ).
-func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
+// value ( see textcoder.DecoderPlace ). The stream of dc reads the input in place, whose value it decodes whole, so
+// that a method or a function of the value which reads a jsontext.Decoder finds its place as in the value of a
+// stream: under the levels, at the offsets of the whole input, which the input of the call may not start at.
+func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, st *fromState, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
 	from := in.InputOffset()
 	start, err := textcoder.BeginValue(d)
 	if err != nil {
@@ -151,7 +203,13 @@ func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, levels
 	}
 	// the input with the nul byte after it, which the attach leaves out
 	buf, base := st.att.In[:len(st.att.In)+1], st.att.Base
-	ctx := decoder.TakeRuntimeContext()
+	s := dc.takeStream()
+	// the count of the level of the value, of the levels which the stream takes as its path
+	count := levels[depth].Count
+	dc.levels = s.BeginV2At(nil, levels)
+	s.ViewV2(buf, base)
+	s.LendAt(from, start)
+	ctx := s.Context()
 	setCall(ctx, cfg)
 	var next int64
 	dec, err := outputDecoder(ctx, typ, p)
@@ -164,19 +222,19 @@ func decodeInPlace(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, levels
 		decoder.SetBuf(ctx, nil)
 		ctx.DiscardTypeError()
 	}
+	ctx.V2Call().Value = decoder.StreamValue{}
 	if err == nil {
 		textcoder.EndValue(d, start, base+next, nil)
 	} else {
 		// the error at its place, found again from the end of the token before the value, under its levels
 		in := buf[from-base : len(buf)-1]
 		err = unmarshalError(&errorInput{buf: buf[:len(buf)-1], base: base, att: decodePlace(in, from, levels, cfg, nil)}, err, cfg)
-		err = afterError(d, err, start, func() (int64, []byte, error) {
-			return textcoder.SkipToEnd(decodePlace(in, from, levels, skipOptions, nil), depth, levels[depth].Count)
+		err = afterError(d, err, start, buf[start-base], func() (int64, []byte, error) {
+			return textcoder.SkipToEnd(decodePlace(in, from, levels, skipOptions, nil), depth, count)
 		}, nil)
 	}
 	clearCall(ctx)
-	ctx.Option.V2 = 0
-	decoder.ReleaseRuntimeContext(ctx)
+	s.EndV2()
 	return err
 }
 
@@ -200,12 +258,18 @@ var skipOptions = func() *options.Config {
 }()
 
 // afterError leaves the decoder at d where UnmarshalDecode leaves it after err, the error of its next value, which
-// starts at the offset start: after a SemanticError, after the value, which skip reads to its end, or, if the rest
-// of the value has an error, failing every read with it; else, or if skip is nil, before the value, which putBack
-// puts back unless it is nil, the decoder having its input. If putBack can't put the input back, every read fails
-// with err. It returns err.
-func afterError(d unsafe.Pointer, err error, start int64, skip func() (int64, []byte, error), putBack func() bool) error {
-	if _, ok := err.(*SemanticError); ok && skip != nil {
+// starts at the offset start, and begins with the byte first: after a SemanticError, after the value, which skip
+// reads to its end, or, if the rest of the value has an error, failing every read with it; after a SyntacticError of
+// an object or an array, failing every read with it, as encoding/json/v2 reads them token by token and stops at the
+// error, so that a loop over the values of the input doesn't decode the value again; else, or if skip is nil, before
+// the value, which putBack puts back unless it is nil, the decoder having its input. If putBack can't put the input
+// back, every read fails with err. It returns err.
+func afterError(d unsafe.Pointer, err error, start int64, first byte, skip func() (int64, []byte, error), putBack func() bool) error {
+	switch err.(type) {
+	case *SemanticError:
+		if skip == nil {
+			break
+		}
 		end, rest, serr := skip()
 		if serr != nil {
 			// the value has no end, and the skip may have read on from the reader of the decoder
@@ -214,6 +278,11 @@ func afterError(d unsafe.Pointer, err error, start int64, skip func() (int64, []
 			textcoder.EndValue(d, start, end, rest)
 		}
 		return err
+	case *jsontext.SyntacticError:
+		if first == '{' || first == '[' {
+			textcoder.FailDecoder(d, err)
+			return err
+		}
 	}
 	if putBack != nil && !putBack() {
 		textcoder.FailDecoder(d, err)
@@ -241,41 +310,125 @@ func (l *lentInput) Read(p []byte) (int, error) {
 }
 
 // decodeLent decodes the next value of the decoder at d, of in, into the value at p, of the pointer type typ, by the
-// options of cfg: a stream reads the input of the decoder by input, from the end of the token before
-// the value, as UnmarshalRead reads it, and the decoder goes on after the value. levels and depth are the place of
-// the value ( see textcoder.DecoderPlace ).
-func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, input *lentInput, levels []textcoder.Level, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
+// options of cfg: the stream of dc reads the input of the decoder by its input, from the end of the token before
+// the value, as UnmarshalRead reads it, and the decoder goes on after the value. depth is the depth of the place of
+// the value ( see textcoder.DecoderAt ).
+func decodeLent(d unsafe.Pointer, in *jsontext.Decoder, dc *decodeCall, depth int, typ, p unsafe.Pointer, cfg *options.Config) error {
 	from := in.InputOffset()
 	start, err := textcoder.BeginValue(d)
 	if err != nil {
 		return err
 	}
-	buf, r := textcoder.DecoderInput(d, from)
-	*input = lentInput{buf: buf, r: r}
-	s := decoder.TakeStreamV2(input)
-	s.StartAt(from)
+	// the buffer of the decoder, from the offset base, which has the first byte of the value, which BeginValue read
+	b, base, inPlace := textcoder.DecoderBuffer(d)
+	first := b[start-base]
+	input := &dc.input
+	s := dc.takeStream()
 	ctx := s.Context()
-	s.SetPath(ctx.V2Call().Path, levels)
 	setCall(ctx, cfg)
-	err = decodeStreamValue(s, typ, p, int64(depth), from, start)
+	// an object or an array which the buffer of the decoder holds whole is decoded in it, and one which it doesn't
+	// is decoded by the stream element by element at once, by the decoder found for it, unless it is the decoder of
+	// a method, a function or a pointer, which the stream decodes as any value
+	var long decoder.Decoder
+	if (first == '{' || first == '[') && inPlace && from >= base {
+		if dec, derr := outputDecoder(ctx, typ, p); derr == nil && !decoder.ReadsJSONText(dec) {
+			end, whole := decoder.WholeEndV2(b[:cap(b)], start-base, int64(len(b)))
+			if whole {
+				return decodeInBuffer(dc, d, b[:cap(b)], base, from, start, end, first, depth, dec, p, cfg)
+			}
+			long = dec
+		}
+	}
+	// the count of the level of the value, of the levels which the stream takes as its path, which the call keeps the
+	// former path of for its next levels
+	levels := dc.place(d)
+	count := levels[depth].Count
+	dc.levels = s.BeginV2At(input, levels)
+	// the input of the decoder from the end of the token before the value, and its reader
+	buf, r := textcoder.DecoderInput(d, from)
+	// the buffer of the decoder, which the stream reads in place if it can, and its offset, by which the decoder is
+	// found to have dropped bytes of its input for the stream
+	borrowed := s.BorrowV2(d, from)
+	if borrowed {
+		*input = lentInput{r: r}
+		_, base = s.Read()
+	} else {
+		*input = lentInput{buf: buf, r: r}
+		s.StartAt(from)
+	}
+	if long != nil {
+		// the stream reads in place the buffer which the scan found not to hold the value whole
+		err = s.DecodeLongV2After(long, p, int64(depth), from, start)
+	} else {
+		err = decodeStreamValue(s, typ, p, int64(depth), from, start)
+	}
 	if err == nil {
+		// the decoder goes on after the value in its buffer, which has the input after it, also if it dropped the
+		// start of the value for the stream, which read more through it ( see textcoder.EndValue ), but after the
+		// value in the rest which the stream read from the reader of the decoder
 		var rest []byte
 		if input.readR {
-			// the input after the value, which the stream read from the reader
 			rest = s.Unread()
 		}
 		textcoder.EndValue(d, start, s.Offset(), rest)
 	} else {
+		// moved is set if the decoder has the input of the value no more where it was: the stream read it from the
+		// reader of the decoder, or through the decoder into its buffer, which moved its bytes to read more,
+		// dropping the ones before the ones which the stream kept. The bytes which the stream read through the
+		// decoder into the room after its input are where the decoder reads them.
+		moved := input.readR
+		if borrowed && !moved {
+			// the offset of the buffer of the decoder: the one of what the stream read, while it reads the buffer
+			// in place, or the decoder's, once the stream left the buffer for its own, which a decoder attached at a
+			// value reads on from ( see decoder.Stream.ReadOn )
+			_, b0 := s.Read()
+			if !s.ReadsInPlace() {
+				_, b0, _ = textcoder.DecoderBuffer(d)
+			}
+			moved = b0 != base
+		}
 		err = streamError(s, err, cfg)
 		var putBack func() bool
-		if input.readR {
-			// the stream read past the input of the decoder, which has it no more
+		if moved {
+			// the stream read past the input of the decoder, which has it no more where it was
 			putBack = func() bool { return putBackFrom(d, s, from) }
 		}
-		err = afterError(d, err, start, streamSkip(s, input.readR, depth, levels[depth].Count), putBack)
+		err = afterError(d, err, start, first, streamSkip(s, moved, depth, count), putBack)
 	}
 	clearCall(ctx)
-	decoder.ReleaseStreamV2(s)
+	s.EndV2()
+	return err
+}
+
+// decodeInBuffer decodes the next value of the decoder at d, of dc, an object or an array which b, its buffer from the
+// offset base, holds whole up to end, from the offset start, after from, the end of the token before it, by dec into
+// p, in b, as the stream of dc decodes a value which it holds whole, without the stream, which lendStream sets up for
+// a method or a function of the value which reads a jsontext.Decoder, and for an error ( see decodeLent ). first and
+// depth are what decodeLent found of the value. setCall set the call by cfg, which it ends.
+func decodeInBuffer(dc *decodeCall, d unsafe.Pointer, b []byte, base, from, start, end int64, first byte, depth int, dec decoder.Decoder, p unsafe.Pointer, cfg *options.Config) error {
+	s := dc.stream
+	ctx := s.Context()
+	call := ctx.V2Call()
+	dc.lent = lentPlace{d: d, from: from, start: start}
+	call.Lent = unsafe.Pointer(dc)
+	next, err := decoder.DecodeWholeInV2(ctx, b, start-base, end, int64(depth), dec, p)
+	call.Lent = nil
+	if err == nil {
+		textcoder.EndValue(d, start, base+next, nil)
+	} else {
+		if call.Stream == nil {
+			dc.lendStream()
+		}
+		// the count of the level of the value, which the decoder has not counted yet
+		count := dc.place(d)[depth].Count
+		err = s.PlaceWholeV2(err, from, end)
+		err = streamError(s, err, cfg)
+		err = afterError(d, err, start, first, streamSkip(s, false, depth, count), nil)
+	}
+	clearCall(ctx)
+	s.EndV2()
+	// the decoder, which the pool must not keep alive
+	dc.lent = lentPlace{}
 	return err
 }
 
@@ -335,6 +488,8 @@ func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, level
 	}
 	s := st.stream
 	buf, _ := textcoder.DecoderInput(d, from)
+	// the first byte of the value, which BeginValue read
+	first := buf[start-from]
 	s.Resume(from, buf)
 	// the state of the call of the method, which the call of the value sets aside: its options, its path, its value
 	// and the place of its error, and its state of the methods, as a method of the value is given a decoder of its
@@ -355,7 +510,7 @@ func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, level
 		textcoder.EndValue(d, start, s.Offset(), s.Unread())
 	} else {
 		err = streamError(s, err, cfg)
-		err = afterError(d, err, start, streamSkip(s, true, depth, levels[depth].Count), func() bool {
+		err = afterError(d, err, start, first, streamSkip(s, true, depth, levels[depth].Count), func() bool {
 			// the decoder gave the stream its input
 			return putBackFrom(d, s, from)
 		})

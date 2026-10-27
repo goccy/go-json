@@ -102,18 +102,31 @@ type V2Call struct {
 	// spareName is the array of a name of the path which no level has, which the next name is copied into ( see
 	// Stream.setName ).
 	spareName []byte
+	// pathNames are the places in the buffer of the stream of the last names of the levels of Path which the levels
+	// have not copied yet, one for each level ( see Stream.setNameAt ): copied before the buffer drops them or the
+	// path is read ( see Stream.copyNames ).
+	pathNames []namePlace
+	// namesFrom is the first level of Path which may have a name by its place: the levels before it have none, so
+	// that copyNames looks at the levels whose names were set since it copied them, not at the whole path.
+	namesFrom int
+	// skip is what skipLongV2 follows of the levels of the value of the stream which it skips.
+	skip skipPath
 	// Place is where the error which the decoding of the stream returned is found again ( see StreamPlace ).
 	Place StreamPlace
 	// names are the names of no field, and the other names which are kept, of the objects of the call which are
 	// being decoded ( see nameSet ), which their arrays are used again for.
 	names callNames
 	// skipNames are the sets of the names of the objects which skipFastV2 skips, by their levels in the value it
-	// skips, which it opens 64 of at most ( see skipMaxLevel ).
-	skipNames [64]nameSet
+	// skips, which it opens skipLevels of at most ( see skipMaxLevel ).
+	skipNames [skipLevels]nameSet
 	// skippers are the scanners of jsontext which read the values that the call skips ( see textcoder.TakeSkipper ),
 	// by the options of the names of an object twice and of invalid UTF-8 which leave them something to read ( see
 	// skipperOf ), taken by the first value and put back when the context is released.
 	skippers [3]unsafe.Pointer
+	// Lent is the call of UnmarshalDecode which decodes the value of the call in the buffer of its decoder, without
+	// the stream, which it sets up for a method or a function which reads a jsontext.Decoder ( see V2Hooks.Lend ),
+	// or nil.
+	Lent unsafe.Pointer
 }
 
 // StreamValue is the value of a stream which a decoder of v2 decodes, in the innermost level of the path, for a
@@ -132,6 +145,10 @@ type StreamPlace struct {
 	From, End int64
 	Set       bool
 }
+
+// CurrentV2Call returns the state of the call of the v2 json package which decodes by ctx, which the call made by
+// V2Call, so it is never nil.
+func (ctx *RuntimeContext) CurrentV2Call() *V2Call { return ctx.v2 }
 
 // V2Call returns the state of the call of the v2 json package which decodes by ctx, which it makes the first time.
 func (ctx *RuntimeContext) V2Call() *V2Call {
@@ -159,6 +176,7 @@ type v2FuncDecoder struct {
 }
 
 func (d *v2FuncDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	copyStreamNames(ctx)
 	for _, fn := range d.funcs {
 		next, err := fn.Decode(ctx, cursor, depth, p, d.typ)
 		if err != ErrUseDefault {

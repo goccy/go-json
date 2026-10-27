@@ -73,11 +73,13 @@ func outOf[T any](v T) func() any {
 }
 
 var (
-	stringify    = unmarshalDiffOptions{stringifyNumbers: true}
-	invalidUTF8  = unmarshalDiffOptions{allowInvalidUTF8: true}
-	duplicates   = unmarshalDiffOptions{allowDuplicateNames: true}
-	deepArray    = strings.Repeat("[", 10001) + strings.Repeat("]", 10001)
-	deepArrayMax = strings.Repeat("[", 10000) + strings.Repeat("]", 10000)
+	stringify   = unmarshalDiffOptions{stringifyNumbers: true}
+	invalidUTF8 = unmarshalDiffOptions{allowInvalidUTF8: true}
+	duplicates  = unmarshalDiffOptions{allowDuplicateNames: true}
+	// the options of the text which v1 allows, with which a struct is decoded as v1 decodes it
+	duplicatesAndInvalidUTF8 = unmarshalDiffOptions{allowDuplicateNames: true, allowInvalidUTF8: true}
+	deepArray                = strings.Repeat("[", 10001) + strings.Repeat("]", 10001)
+	deepArrayMax             = strings.Repeat("[", 10000) + strings.Repeat("]", 10000)
 )
 
 func unmarshalDiffCases() []unmarshalDiffCase {
@@ -297,7 +299,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "string of a byte F5", in: "\"\xf5\x80\x80\x80\"", out: outOf("")},
 		{name: "string of an encoded surrogate allowed", in: "\"\xed\xa0\x80\"", out: outOf(""), opts: invalidUTF8},
 		{name: "any names equal after replacement", in: "{\"\xff\":1,\"\xfe\":2}", out: outOf[any](nil), opts: invalidUTF8},
-		{name: "any names equal after replacement allowed", in: "{\"\xff\":1,\"\xfe\":2}", out: outOf[any](nil), opts: unmarshalDiffOptions{allowInvalidUTF8: true, allowDuplicateNames: true}},
+		{name: "any names equal after replacement allowed", in: "{\"\xff\":1,\"\xfe\":2}", out: outOf[any](nil), opts: duplicatesAndInvalidUTF8},
 		{name: "deepest slice of any", in: deepArrayMax, out: outOf([]any(nil))},
 		{name: "deep slice of any", in: deepArray, out: outOf([]any(nil))},
 		{name: "deep slice of slices of any", in: deepArray, out: outOf([][]any(nil))},

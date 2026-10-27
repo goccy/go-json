@@ -16,7 +16,7 @@ func TestDecoderPlaceOfAnEmptyName(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	levels, _, _, _ := decoderPlace(unsafe.Pointer(d), nil)
+	levels := decoderPlace(unsafe.Pointer(d), nil)
 	if len(levels) != 2 || levels[1].Name == nil || len(levels[1].Name) != 0 {
 		t.Fatalf("got the levels %+v, want the name \"\" in the second one", levels)
 	}

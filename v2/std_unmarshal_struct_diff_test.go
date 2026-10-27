@@ -42,6 +42,21 @@ type udOuter struct {
 	C int
 }
 
+// udIntField, udStringField, udRawField and udMapField have a field whose value encoding/json/v2 reads whole, as its
+// kind is not the one of the value or it is raw, or by a map of values which it reads whole.
+type udIntField struct{ A int }
+type udStringField struct{ A string }
+type udRawField struct{ A jsontext.Value }
+type udMapField struct{ A map[string]int }
+
+// udLong is a struct of members whose values are objects and arrays of objects, which a stream decodes element by
+// element when they are long.
+type udLong struct {
+	A udInner
+	L []udInner
+	M map[string]udInner
+}
+
 type udOuterPtr struct {
 	*udInner
 	C int
@@ -270,6 +285,26 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct missing comma", in: `{"X":1 "y":2}`, out: outOf(udPoint{})},
 		{name: "struct trailing comma", in: `{"X":1,}`, out: outOf(udPoint{})},
 		{name: "struct name not a string", in: `{X:1}`, out: outOf(udPoint{})},
+		{name: "struct unknown name twice by escape", in: `{"Z":1,"\u005a":2}`, out: outOf(udPoint{})},
+		{name: "struct unknown name twice by escape first", in: `{"\u005a":1,"Z":2}`, out: outOf(udPoint{})},
+		{name: "struct unknown name twice before a missing colon", in: `{"Z":1,"Z" 2}`, out: outOf(udPoint{})},
+		{name: "struct field twice before a missing colon", in: `{"X":1,"X" 2}`, out: outOf(udPoint{})},
+		{name: "struct white space before the colons", in: `{"X" :1,"Z" :2}`, out: outOf(udPoint{})},
+		// the loop of the options which let a struct be decoded as v1 decodes it
+		{name: "struct allowing both", in: `{"Z":1,"X":2,"y":3}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct field twice allowing both", in: `{"X":1,"X":2}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct unknown name twice allowing both", in: `{"Z":1,"X":2,"Z":3}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct escaped names allowing both", in: `{"\u0058":1,"\u005a":2}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct names of invalid UTF-8 allowing both", in: "{\"Z\xff\":1,\"X\xff\":2}", out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct missing colon allowing both", in: `{"X" 1}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct unknown name missing colon allowing both", in: `{"Z" 1}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct missing comma allowing both", in: `{"Z":1 "X":2}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct trailing comma allowing both", in: `{"X":1,}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct name not a string allowing both", in: `{X:1}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct cut allowing both", in: `{"Z":1`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct cut in a name allowing both", in: `{"Z`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct name of an invalid escape allowing both", in: `{"\x":1}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct white space before the colons allowing both", in: `{"X" :1,"Z" :2}`, out: outOf(udPoint{}), opts: duplicatesAndInvalidUTF8},
 		{name: "struct cut", in: `{"X":1`, out: outOf(udPoint{})},
 		{name: "struct case ignore", in: `{"ignore-me":"a","NAME":"b"}`, out: outOf(udCased{})},
 		{name: "struct case ignore insensitive", in: `{"ignore-me":"a","NAME":"b","STRICT":"c"}`, out: outOf(udCased{}), opts: insensitive},
@@ -377,6 +412,22 @@ func unmarshalDiffStructCases() []unmarshalDiffCase {
 		{name: "struct long name of another case with dashes insensitive", in: `{"long-name":1,"LongName":2}`, out: outOf(udFoldNoDashes{}), opts: insensitive},
 		{name: "struct long string after white space which a read cuts", in: `{"A":1,` + strings.Repeat(" ", 600) + `"B": "` + strings.Repeat("a", 600) + `"}`, out: outOf(udInner{})},
 		{name: "struct long string of invalid UTF-8 after white space which a read cuts", in: `{"A":1,` + strings.Repeat(" ", 600) + `"B": "` + strings.Repeat("a", 600) + "\xff\"}", out: outOf(udInner{})},
+		{name: "struct syntax error deep after a long member", in: `{"A":{"A":1,"B":"` + strings.Repeat("a", 1200) + `"},"L":[{"A":1},{"A":2,"B":x}]}`, out: outOf(udLong{})},
+		{name: "struct syntax error deep after a long member allowing both", in: `{"A":{"A":1,"B":"` + strings.Repeat("a", 1200) + `"},"L":[{"A":1},{"A":2,"B":x}]}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct syntax error at the end of a long member", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":2,"B":x}]}`, out: outOf(udLong{})},
+		{name: "struct syntax error at the end of a long member allowing both", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":2,"B":x}]}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct type error at the end of a long member", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":"2"}]}`, out: outOf(udLong{})},
+		{name: "struct type error at the end of a long member allowing both", in: `{"L":[` + strings.Repeat(`{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `{"A":"2"}]}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct type error in a map of a long member allowing both", in: `{"M":{` + strings.Repeat(`"k":{"A":1,"B":"bbbbbbbbbbbbbbbb"},`, 100) + `"last":{"B":2}}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct colon after a value of a member", in: `{"A":{"A":1:}}`, out: outOf(udLong{})},
+		{name: "struct colon after an element of a member", in: `{"L":[{"A":1}:]}`, out: outOf(udLong{})},
+		{name: "struct colon after a value of a member allowing both", in: `{"A":{"A":1:}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct colon in a value read whole of an int", in: `{"A":[1:]}`, out: outOf(udIntField{})},
+		{name: "struct colon in a value read whole of an int allowing both", in: `{"A":[1:]}`, out: outOf(udIntField{}), opts: duplicatesAndInvalidUTF8},
+		{name: "struct colon in a value read whole of a string", in: `{"A":[1:]}`, out: outOf(udStringField{})},
+		{name: "struct colon in a raw value", in: `{"A":[1:]}`, out: outOf(udRawField{})},
+		{name: "struct colon in a value of a map read whole", in: `{"A":{"a":[1:]}}`, out: outOf(udMapField{})},
+		{name: "struct type error after a name cut by a read allowing both", in: `{"A":{"B":"` + strings.Repeat("a", 500) + `"},"L":[{"A":1}],"A":{"A":1,"B":"` + strings.Repeat("a", 490) + `"},"A":{"A":"x"}}`, out: outOf(udLong{}), opts: duplicatesAndInvalidUTF8},
 		{name: "struct name of invalid UTF-8 of the replacement character", in: "{\"\xff\":1}", out: outOf(udReplacement{})},
 		{name: "struct name of invalid UTF-8 of the replacement character insensitive", in: "{\"\xff\":1}", out: outOf(udReplacement{}), opts: insensitive},
 		{name: "struct name of invalid UTF-8 of the replacement character allowed insensitive", in: "{\"\xff\":1,\"K\":2}", out: outOf(udReplacement{}), opts: unmarshalDiffOptions{allowInvalidUTF8: true, matchCaseInsensitiveNames: true}},

@@ -66,6 +66,10 @@ type Stream struct {
 	// a read of a token which fails leaves the stream where it was ( see Token ).
 	keeps    bool
 	keepFrom int64
+	// src is the jsontext.Decoder whose buffer the stream reads in place, for a decoding of v2 ( see BorrowV2 ):
+	// a read reads more into that buffer, which is buf, and own is the buffer of the stream then.
+	src unsafe.Pointer
+	own []byte
 	// elements is where the objects and the arrays of the value which is decoded element by element end, which the
 	// lookups extend ( see indexAt ), made for the first such value and kept for the next ones, which allocate its
 	// entries no more, and the buffer which is reused ( see bracketIndex.buf ). It is nil until a value is decoded so.
@@ -111,6 +115,9 @@ func (s *Stream) read() bool {
 	if s.readErr != nil {
 		return false
 	}
+	if s.src != nil {
+		return s.readSource()
+	}
 	if int64(len(s.buf))-s.length <= bufPadding {
 		s.grow()
 	}
@@ -127,11 +134,11 @@ func (s *Stream) read() bool {
 // a new one, as the old buffer is left to the strings which refer to it, or the same one, if nothing refers to it
 // ( see bracketIndex.buf ) and it has room for the bytes.
 func (s *Stream) grow() {
-	// the bytes from the cursor are moved, or from the one which is kept before it
-	from := s.cursor
-	if keep := s.keepFrom - s.offset; s.keeps && keep >= 0 && keep < from {
-		from = keep
+	if call := s.ctx.v2; call != nil && len(call.pathNames) != 0 {
+		// the names of the path which the levels have by their places in the buffer, which the bytes are moved from
+		s.copyNames()
 	}
+	from := s.keepStart()
 	remain := s.length - from
 	size := int64(len(s.buf)) - bufPadding
 	if remain >= size {
@@ -158,6 +165,20 @@ func (s *Stream) grow() {
 	s.buf = buf
 	s.length = remain
 	s.cursor -= from
+}
+
+// keepStart returns the position of the first byte of the buffer which a read keeps: the cursor, or the first byte
+// which is kept before it, or the end of the token before the value which a skip of v2 reads, where an error is found
+// again from ( see skipLongV2 ).
+func (s *Stream) keepStart() int64 {
+	from := s.cursor
+	if keep := s.keepFrom - s.offset; s.keeps && keep >= 0 && keep < from {
+		from = keep
+	}
+	if call := s.ctx.v2; call != nil && call.skip.active {
+		from = min(from, s.skipKeepFrom())
+	}
+	return from
 }
 
 // fill makes sure that the buffer holds the byte at the cursor.

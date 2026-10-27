@@ -86,6 +86,15 @@ func TestUnmarshalDecodeMatchesStd(t *testing.T) {
 					if got, want := describeUnmarshalError(after), describeUnmarshalError(stdAfter); got != want {
 						t.Fatalf("after the value:\n got %s\nwant %s", got, want)
 					}
+					var se *jsontext.SyntacticError
+					if v := strings.TrimLeft(in, " \t\r\n"); errors.As(err, &se) && v != "" && (v[0] == '{' || v[0] == '[') {
+						// every read fails after a syntax error in an object or an array, so that a loop over the
+						// values which goes on after the errors of its values ends: the state of encoding/json/v2
+						// there, which it doesn't tell, is not compared
+						if _, rerr := dec.ReadToken(); rerr == nil {
+							t.Fatalf("a read after the syntax error %v succeeded", err)
+						}
+					}
 					if err == nil && !c.errorOnly && !reflect.DeepEqual(ours, theirs) {
 						t.Fatalf("value:\n got %#v\nwant %#v", reflect.ValueOf(ours).Elem(), reflect.ValueOf(theirs).Elem())
 					}

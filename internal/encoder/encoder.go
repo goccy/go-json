@@ -285,8 +285,18 @@ func ErrUnsupportedFloat(ctx *RuntimeContext, code *Opcode, v float64) error {
 	if ctx.Option.Flag&V2Option != 0 {
 		return &errors.SemanticError{GoType: runtime.TypeOfPtr(code.Type), Err: fmt.Errorf("unsupported value: %v", v)}
 	}
+	// the value is of the type of the float, which pointers may lead to, as encoding/json gives it
+	value := reflect.ValueOf(v)
+	typ := runtime.TypeOfPtr(code.Type)
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	if typ.Kind() == reflect.Float32 || typ.Kind() == reflect.Float64 {
+		value = reflect.New(typ).Elem()
+		value.SetFloat(v)
+	}
 	return &errors.UnsupportedValueError{
-		Value: reflect.ValueOf(v),
+		Value: value,
 		Str:   strconv.FormatFloat(v, 'g', -1, 64),
 	}
 }

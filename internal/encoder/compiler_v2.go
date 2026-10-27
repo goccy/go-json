@@ -62,7 +62,7 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		return nil, false
 	case c.stringTag:
 		// the value of the option, whose code is the one of a field of the option
-		if code := c.stringTagCode(typ); code != nil {
+		if code := c.stringTagCode(typ, addressable); code != nil {
 			return code, true
 		}
 	}
@@ -71,7 +71,7 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		after = c.v2DefaultAfter
 		c.v2DefaultType = nil
 	default:
-		if code, ok := c.v2FuncsCode(typ); ok {
+		if code, ok := c.v2FuncsCode(typ, addressable); ok {
 			return code, true
 		}
 	}
@@ -125,7 +125,11 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 			}), true
 		}
 	case reflect.Ptr:
-		if kind := typ.Elem().Kind(); kind == reflect.Map || kind == reflect.Slice {
+		// with CallMethodsWithLegacySemantics, the opcodes of its type are the ones of a value given by itself,
+		// which is not addressable: a value which a method writes is written by the code of the value of the
+		// pointer, addressable, which is the code of the method.
+		if kind := typ.Elem().Kind(); (kind == reflect.Map || kind == reflect.Slice) &&
+			(c.legacy&modeCallMethodsLegacy == 0 || !c.v2HasMethod(typ.Elem())) {
 			// A nil map or slice is {} or [], and a nil pointer is null: the opcodes of a map or a slice which a
 			// pointer is followed to can't tell the one from the other, so the value is encoded by the opcodes
 			// of its type, as a value of interface{} is, after the pointer.
@@ -262,10 +266,10 @@ func (c *Compiler) v2HiddenNames(typ reflect.Type, path []int) []string {
 
 var errInvalidStringTag = errors.New("invalid use of `string` tag option")
 
-// v2FieldValueCode returns the code of the value of a field of the v2 semantics, and true, if the options of its
-// tag make it differ from the code of its type: a value which the `string` option doesn't apply to fails. The
-// options of the field are changed for its opcodes.
-func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
+// v2FieldValueCode returns the code of the value of a field of the v2 semantics, addressable if the struct is, and
+// true, if the options of its tag make it differ from the code of its type: a value which the `string` option doesn't
+// apply to fails. The options of the field are changed for its opcodes.
+func (c *Compiler) v2FieldValueCode(field *StructFieldCode, addressable bool) (Code, bool) {
 	tag := *field.tag
 	field.tag = &tag
 	// with OmitEmptyWithLegacySemantics, the value is omitted if it is false, 0, nil or of no length, as v1 omits it,
@@ -307,7 +311,7 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 	if !tag.IsString {
 		return nil, false
 	}
-	code := c.stringTagCode(field.typ)
+	code := c.stringTagCode(field.typ, addressable)
 	if code == nil {
 		return nil, false // a number, which is written in a string
 	}
@@ -315,14 +319,14 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 	return code, true
 }
 
-// stringTagCode returns the code of a value of typ of the `string` option, as encoding/json/v2 writes it: nil for a
-// number, after the pointers to it, whose nil is null, which is written in a string, and for a value which a method
-// or a function writes in the compile mode of the option, whose options they are given ( see appendStringTag ); the
-// error of the option for a value of another kind.
+// stringTagCode returns the code of a value of typ of the `string` option, addressable or not, as encoding/json/v2
+// writes it: nil for a number, after the pointers to it, whose nil is null, which is written in a string, and for a
+// value which a method or a function writes in the compile mode of the option, whose options they are given ( see
+// appendStringTag ); the error of the option for a value of another kind.
 //
 // With StringifyWithLegacySemantics, the option applies to a bool, whose JSON value is written in a string, and to a
 // string, whose JSON string is, through one pointer only: a pointer to a pointer is the error of the option.
-func (c *Compiler) stringTagCode(typ reflect.Type) Code {
+func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) Code {
 	elem := typ
 	ptrNum := 0
 	for elem.Kind() == reflect.Ptr && !c.v2HasMethod(elem) {
@@ -330,15 +334,17 @@ func (c *Compiler) stringTagCode(typ reflect.Type) Code {
 		ptrNum++
 	}
 	stringify := c.legacy&modeStringifyLegacy != 0
+	// the value which a pointer points to is addressable
+	addressable = addressable || ptrNum > 0
 	var code Code
 	switch {
 	case stringify && ptrNum > 1:
 		return c.appendFuncCode(typ, appendError(typ, errInvalidStringTag))
-	case c.v2HasMethod(elem) && elem != timeTimeType:
+	case c.v2HasMethodAt(elem, addressable) && elem != timeTimeType:
 		if c.stringTag {
 			return nil
 		}
-		code = c.appendFuncCode(elem, appendStringTag(elem))
+		code = c.appendFuncCode(elem, appendStringTag(elem, addressable))
 	case isNumberKind(elem.Kind()) && (elem != timeDurationType || c.legacy&modeDurationAsNano != 0) ||
 		elem == jsonNumberType:
 		return nil
@@ -384,13 +390,14 @@ func appendStringifiedString(typ reflect.Type) AppendFunc {
 	}
 }
 
-// appendStringTag returns the function which appends a value of typ, which a method or a function writes, in the
-// compile mode of the `string` option, whose options they are given, as the value written after them is.
-func appendStringTag(typ reflect.Type) AppendFunc {
+// appendStringTag returns the function which appends a value of typ, addressable or not, which a method or a function
+// writes, in the compile mode of the `string` option, whose options they are given, as the value written after them
+// is.
+func appendStringTag(typ reflect.Type, addressable bool) AppendFunc {
 	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 		flags := ctx.Option.Flag
 		ctx.Option.Flag |= StringTagOption | StringifyNumbersOption
-		out, err := appendDefault(ctx, b, typ, p, allMethods)
+		out, err := appendDefault(ctx, b, typ, p, allMethods, addressable)
 		ctx.Option.Flag = flags
 		return out, err
 	}

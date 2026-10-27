@@ -37,6 +37,26 @@
   encoding/json of those releases writes the string it leads to, and "" for a nil one (recorded
   2026-10-27). Writing the string needs an opcode of a pointer to a string whose nil is "", which
   the VM doesn't have. Such a pointer in a key of an interface type is written as the string.
+- v2: the error of a key of an interface type which holds a value which can't be a name, as a nil pointer
+  ( `map[encoding.TextMarshaler]int{(*T)(nil): 1}` ), is a `SemanticError` of the type of the held value; the one of
+  encoding/json/v2 is of the type of the key, the interface type (recorded 2026-10-28, found in the review of
+  `CallMethodsWithLegacySemantics`). The text and the place are the same otherwise.
+- v2 with `CallMethodsWithLegacySemantics`: a nil pointer held by an interface value of a method of marshaling is
+  written by the method, called for the nil pointer, but not by a function of an interface type which the interface
+  type implements ( `MarshalFunc(func(encoding.TextMarshaler) ...)` with `[]encoding.TextMarshaler{(*T)(nil)}` or
+  such a key ): encoding/json/v2 wraps the nil pointer in a struct of the interface type, whose pointer such a
+  function takes, while a nil pointer is not a value which the function takes by the rule of the functions (its
+  pointer doesn't implement the interface). A method of the value which a nil pointer points to is not called, where
+  encoding/json/v2 panics: such a value is null, such a key the error of a nil pointer (recorded 2026-10-28, found in
+  the review of `CallMethodsWithLegacySemantics`).
+- v2: an empty slice or map one level past the max depth ( 10001 levels of `type R []R` whose innermost value is
+  `R{}`, of `[]any`, a nil slice field or an inline map ) fails as deeper than the max depth in a compact output;
+  encoding/json/v2 writes `[]` or `{}` without counting its level (recorded 2026-10-28, found in the review of
+  `CallMethodsWithLegacySemantics`, without the option too).
+- v2: the error of a value deeper than the max depth is at the start of the value whose opcodes go deeper, a level or
+  two above the token where encoding/json/v2 reports it ( `type C [1]struct{ V int; Next []C }` 3333 levels deep:
+  offset 53328 and a pointer one token shorter, 53329 in encoding/json/v2; recorded 2026-10-28, found in the review of
+  `CallMethodsWithLegacySemantics` ).
 - Recorded 2026-09-21 as needing a change of the VM:
   - an `omitempty` field whose type has `MarshalText` is written when it is the zero value;
   - a nil map whose type has a marshaler is written as `null` instead of calling the marshaler;

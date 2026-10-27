@@ -102,9 +102,8 @@ func PointeeOf(ctx *RuntimeContext, codeSet *OpcodeSet) *OpcodeSet {
 	pointee := codeSet.pointee.Load()
 	if pointee == nil {
 		pointee = noPointee
-		if codeSet.Type.Kind() == reflect.Pointer {
-			elem, err := CompileToGetCodeSet(ctx, uintptr(runtime.TypePtr(codeSet.Type.Elem())))
-			if err == nil && elem.IfaceIndir {
+		if t := codeSet.Type; t.Kind() == reflect.Pointer && runtime.IfaceIndir(t.Elem()) {
+			if elem, err := pointeeCodeSet(ctx, t.Elem()); err == nil {
 				pointee = elem
 			}
 		}

@@ -304,14 +304,44 @@ type Compiler struct {
 // encoded as a value of interface{} of typ would be, by the opcodes of typ, which are compiled when the first
 // value is encoded. They take the address of the value, or, for a pointer type compiled to the value it points to
 // ( see compilesToPointee ), the pointer: the code returned for such a type is a PtrCode, which loads it first.
-func (c *Compiler) recursiveValueCode(typ reflect.Type) (Code, bool) {
+func (c *Compiler) recursiveValueCode(typ reflect.Type, addressable bool) (Code, bool) {
 	if _, ok := c.valuesOnPath[uintptr(runtime.TypePtr(typ))]; !ok {
 		return nil, false
 	}
 	if c.compilesToPointee(typ) {
 		return &PtrCode{typ: typ, value: &InterfaceCode{typ: typ, static: true}, ptrNum: 1}, true
 	}
+	if addressable && c.legacy&modeCallMethodsLegacy != 0 && c.addressableMatters(typ) {
+		// with CallMethodsWithLegacySemantics, the opcodes of the type, which a static interface writes the value by,
+		// are the ones of a value given by itself, which is not addressable: an addressable value whose code differs
+		// is written by its default representation, addressable, as appendDefault compiles it.
+		return c.appendFuncCode(typ, appendAddressable(typ)), true
+	}
 	return &InterfaceCode{typ: typ, static: true}, true
+}
+
+// addressableMatters reports whether the code of a value of typ differs as the value is addressable or not, with
+// CallMethodsWithLegacySemantics: the method which writes the value, or a value in it which is addressable as it is
+// ( an element of an array, a field of a struct which is a member of its JSON object ), is not the same. The values in it are finite: a type can't hold
+// itself but through a pointer, a slice, a map or an interface, whose values are addressable or not whatever it is.
+func (c *Compiler) addressableMatters(typ reflect.Type) bool {
+	if m := c.v2MethodOfAt(typ, noMethod, true); m != c.v2MethodOfAt(typ, noMethod, false) {
+		return true
+	} else if m != noMethod {
+		// written by the method, whatever is in it
+		return false
+	}
+	switch typ.Kind() {
+	case reflect.Array:
+		return c.addressableMatters(typ.Elem())
+	case reflect.Struct:
+		for _, f := range v2FieldsOf(typ).List {
+			if c.addressableMatters(f.Type) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // compilesToPointee is whether the opcodes of typ are the ones of the value it points to: a pointer is the address
@@ -379,6 +409,23 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	if iface, ok := code.(*InterfaceCode); ok && iface.static && iface.typ == typ {
 		// a value of an unsupported type, which the code of a value in another encodes by this one.
 		return nil, &errors.UnsupportedTypeError{Type: typ}
+	}
+	return c.codeToOpcodeSet(typ, code)
+}
+
+// pointeeCodeSet returns the opcodes of the value of typ which a pointer at the top level points to, which is
+// addressable ( see PointeeOf ): with CallMethodsWithLegacySemantics, which calls the methods of pointers for
+// addressable values only, they are compiled as the value of a pointer, apart from the opcodes of typ, which are the
+// ones of a value given by itself. Without it, both are written alike, by the opcodes of typ.
+func pointeeCodeSet(ctx *RuntimeContext, typ reflect.Type) (*OpcodeSet, error) {
+	if ctx.Option.Flag&CallMethodsLegacyOption == 0 {
+		return CompileToGetCodeSet(ctx, uintptr(runtime.TypePtr(typ)))
+	}
+	c := newCompiler(ctx.compileMode())
+	c.funcs = ctx.Option.Funcs
+	code, err := c.pointeeCode(typ)
+	if err != nil {
+		return nil, err
 	}
 	return c.codeToOpcodeSet(typ, code)
 }
@@ -498,7 +545,7 @@ func isScalarOp(op OpType) bool {
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {
-	if code, ok := c.recursiveValueCode(typ); ok {
+	if code, ok := c.recursiveValueCode(typ, isPtr); ok {
 		return code, nil
 	}
 	if c.v2 {
@@ -726,12 +773,19 @@ func (c *Compiler) marshalTextCode(typ reflect.Type) (*MarshalTextCode, error) {
 }
 
 func (c *Compiler) ptrCode(typ reflect.Type) (*PtrCode, error) {
+	return c.pointerCode(typ, true)
+}
+
+// pointerCode returns the code of the pointer type typ, whose value is addressable if addressable is set: the value
+// of a pointer is, but the one of the pointer to a map by which the opcodes of a map in a value read the map, which is
+// addressable as the map is ( see mapValueCode ).
+func (c *Compiler) pointerCode(typ reflect.Type, addressable bool) (*PtrCode, error) {
 	if elem := typ.Elem(); elem.Kind() == reflect.Ptr && len(c.funcs.funcsOf(elem)) > 0 {
 		// a pointer which a function of marshaling takes is not followed with the pointer to it: it is a value of
 		// its own, encoded by its type after the pointer to it.
 		return &PtrCode{typ: typ, value: &InterfaceCode{typ: elem, static: true}, ptrNum: 1}, nil
 	}
-	code, err := c.typeToCodeWithPtr(typ.Elem(), true)
+	code, err := c.typeToCodeWithPtr(typ.Elem(), addressable)
 	if err != nil {
 		return nil, err
 	}
@@ -800,7 +854,7 @@ func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
 }
 
 func (c *Compiler) listElemCode(typ reflect.Type, addressable bool) (Code, error) {
-	if code, ok := c.recursiveValueCode(typ); ok {
+	if code, ok := c.recursiveValueCode(typ, addressable); ok {
 		return code, nil
 	}
 	switch {
@@ -816,8 +870,8 @@ func (c *Compiler) listElemCode(typ reflect.Type, addressable bool) (Code, error
 		return c.marshalJSONCode(typ)
 	case !c.v2 && !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType):
 		return &MarshalTextCode{typ: reflect.PointerTo(typ)}, nil
-	case typ.Kind() == reflect.Map && !(c.v2 && c.hasMarshaler(typ)):
-		return c.ptrCode(reflect.PointerTo(typ))
+	case typ.Kind() == reflect.Map && !(c.v2 && c.hasMarshaler(typ, addressable)):
+		return c.pointerCode(reflect.PointerTo(typ), addressable)
 	default:
 		// isPtr was originally used to indicate whether the type of top level is pointer.
 		// However, since the slice/array element is a specification that can get the pointer address, explicitly set isPtr to true.
@@ -947,13 +1001,13 @@ func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 }
 
 func (c *Compiler) mapValueCode(typ reflect.Type) (Code, error) {
-	if code, ok := c.recursiveValueCode(typ); ok {
+	if code, ok := c.recursiveValueCode(typ, false); ok {
 		return code, nil
 	}
 	switch {
-	case typ.Kind() == reflect.Map && !c.hasMarshaler(typ):
+	case typ.Kind() == reflect.Map && !c.hasMarshaler(typ, false):
 		// a map which has a marshaler is encoded by the marshaler, not as a map.
-		return c.ptrCode(reflect.PointerTo(typ))
+		return c.pointerCode(reflect.PointerTo(typ), false)
 	default:
 		code, err := c.typeToCodeWithPtr(typ, false)
 		if err != nil {
@@ -1196,7 +1250,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.tag = &inlined
 	}
 	if c.v2 && !fieldCode.isAnonymous {
-		if code, ok := c.v2FieldValueCode(fieldCode); ok {
+		if code, ok := c.v2FieldValueCode(fieldCode, isPtr); ok {
 			fieldCode.value = code
 			return fieldCode, nil
 		}
@@ -1499,11 +1553,11 @@ func (c *Compiler) implementsMarshalText(typ reflect.Type) bool {
 	return false
 }
 
-// hasMarshaler reports whether a value of the type is written by a marshaler: a method of its own, or of v1 the
-// method of the pointer to it.
-func (c *Compiler) hasMarshaler(typ reflect.Type) bool {
+// hasMarshaler reports whether a value of the type, addressable or not, is written by a marshaler: a method of its
+// own, or of v1 the method of the pointer to it.
+func (c *Compiler) hasMarshaler(typ reflect.Type, addressable bool) bool {
 	if c.v2 {
-		return c.v2HasMethod(typ)
+		return c.v2HasMethodAt(typ, addressable)
 	}
 	return c.implementsMarshalJSON(typ) || c.implementsMarshalText(typ)
 }

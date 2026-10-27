@@ -1,11 +1,14 @@
 package json_test
 
 import (
+	"encoding"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	gojson "github.com/goccy/go-json"
+	"github.com/goccy/go-json/jsontext"
 	json "github.com/goccy/go-json/v2"
 )
 
@@ -148,6 +151,39 @@ type legacyLitNode struct {
 	Next *legacyLitNode
 }
 
+// legacyLitPtrText is a struct whose MarshalText has a pointer receiver, which writes "nil" for a nil pointer.
+type legacyLitPtrText struct{ X int }
+
+func (p *legacyLitPtrText) MarshalText() ([]byte, error) {
+	if p == nil {
+		return []byte("nil"), nil
+	}
+	return []byte("text"), nil
+}
+
+// legacyLitValueText is a struct whose MarshalText has a value receiver, which can't be called for a nil pointer.
+type legacyLitValueText struct{ X int }
+
+func (legacyLitValueText) MarshalText() ([]byte, error) { return []byte("value"), nil }
+
+// legacyLitPtrMap is a map whose MarshalJSON has a pointer receiver.
+type legacyLitPtrMap map[string]int
+
+func (*legacyLitPtrMap) MarshalJSON() ([]byte, error) { return []byte(`"map"`), nil }
+
+// legacyLitRecSlice is a slice of itself, whose MarshalJSON has a pointer receiver: its elements are addressable.
+type legacyLitRecSlice []legacyLitRecSlice
+
+func (*legacyLitRecSlice) MarshalJSON() ([]byte, error) { return []byte(`"r"`), nil }
+
+// legacyLitDeclined is a struct whose MarshalJSONTo, of a pointer receiver, declines to write it, before its
+// MarshalJSON, of a pointer receiver too.
+type legacyLitDeclined struct{ X int }
+
+func (*legacyLitDeclined) MarshalJSONTo(*jsontext.Encoder) error { return errors.ErrUnsupported }
+
+func (*legacyLitDeclined) MarshalJSON() ([]byte, error) { return []byte(`"json"`), nil }
+
 // legacyLitText is a string whose MarshalText is not called for a key of a map with CallMethodsWithLegacySemantics.
 type legacyLitText string
 
@@ -155,6 +191,10 @@ func (legacyLitText) MarshalText() ([]byte, error) { return []byte("text"), nil 
 
 func TestMarshalCallMethodsWithLegacySemantics(t *testing.T) {
 	legacy := []json.Options{gojson.CallMethodsWithLegacySemantics(true), json.Deterministic(true)}
+	// a function of another type, which makes the functions of marshaling be looked up
+	withFuncs := append(legacy, json.WithMarshalers(json.MarshalFunc(func(time.Month) ([]byte, error) {
+		return []byte(`"m"`), nil
+	})))
 	runLegacyMarshalCases(t, []legacyMarshalCase{
 		{"value", legacyLitPtrJSON{}, legacy, `{"X":0}`},
 		{"value by default", legacyLitPtrJSON{}, nil, `"called"`},
@@ -169,6 +209,26 @@ func TestMarshalCallMethodsWithLegacySemantics(t *testing.T) {
 		{"nil key", map[*legacyLitText]int{nil: 1}, legacy, `{"":1}`},
 		{"interface of a nil pointer", struct{ M gojson.Marshaler }{(*legacyLitPtrJSON)(nil)}, legacy, `{"M":"nil"}`},
 		{"interface of a nil pointer by default", struct{ M gojson.Marshaler }{(*legacyLitPtrJSON)(nil)}, nil, `{"M":null}`},
+		{"pointer with functions", &legacyLitPtrJSON{}, withFuncs, `"called"`},
+		{"pointer of an array with functions", &[1]legacyLitPtrJSON{}, withFuncs, `["called"]`},
+		{"value with functions", legacyLitPtrJSON{}, withFuncs, `{"X":0}`},
+		{"declined pointer", &legacyLitDeclined{}, legacy, `"json"`},
+		{"declined value", legacyLitDeclined{}, legacy, `{"X":0}`},
+		{"declined elements", []legacyLitDeclined{{}}, legacy, `["json"]`},
+		{"key of an interface of a nil pointer", map[encoding.TextMarshaler]int{(*legacyLitPtrText)(nil): 1}, legacy, `{"nil":1}`},
+		{"key of an interface of a nil pointer of a method of the value", map[encoding.TextMarshaler]int{(*legacyLitValueText)(nil): 1},
+			legacy, ""},
+		{"interface of a nil pointer of a method of the value", []encoding.TextMarshaler{(*legacyLitValueText)(nil)}, legacy, `[null]`},
+		{"map", legacyLitPtrMap{"k": 1}, legacy, `{"k":1}`},
+		{"map of a pointer", &legacyLitPtrMap{"k": 1}, legacy, `"map"`},
+		{"map of a value of a map", map[string]legacyLitPtrMap{"a": {"k": 1}}, legacy, `{"a":{"k":1}}`},
+		{"map of an interface", []any{legacyLitPtrMap{"k": 1}}, legacy, `[{"k":1}]`},
+		{"map of an array", struct{ A [1]legacyLitPtrMap }{[1]legacyLitPtrMap{{"k": 1}}}, legacy, `{"A":[{"k":1}]}`},
+		{"map of an element", []legacyLitPtrMap{{"k": 1}}, legacy, `["map"]`},
+		{"map of a pointer field", struct{ F *legacyLitPtrMap }{&legacyLitPtrMap{"k": 1}}, legacy, `{"F":"map"}`},
+		{"map of pointer elements", []*legacyLitPtrMap{{"k": 1}}, legacy, `["map"]`},
+		{"recursive slice", legacyLitRecSlice{legacyLitRecSlice{}, nil}, legacy, `["r","r"]`},
+		{"recursive slice by default", legacyLitRecSlice{legacyLitRecSlice{}, nil}, nil, `"r"`},
 	})
 }
 

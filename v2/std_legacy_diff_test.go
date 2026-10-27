@@ -3,6 +3,7 @@
 package json_test
 
 import (
+	"encoding"
 	stdjsonv1 "encoding/json"
 	stdjsontext "encoding/json/jsontext"
 	stdjson "encoding/json/v2"
@@ -333,6 +334,188 @@ func (k *legacyKeyJSON) UnmarshalJSON([]byte) error {
 	return nil
 }
 
+// legacyPtrAppend is a struct whose AppendText has a pointer receiver, which writes "nil" for a nil pointer.
+type legacyPtrAppend struct{ X int }
+
+func (p *legacyPtrAppend) AppendText(b []byte) ([]byte, error) {
+	if p == nil {
+		return append(b, "nil"...), nil
+	}
+	return append(b, "append"...), nil
+}
+
+// legacyStringCall has fields of the `string` option of legacyPtrMarshaler, whose method is called if the struct is
+// addressable or through the pointer.
+type legacyStringCall struct {
+	V legacyPtrMarshaler  `json:",string"`
+	P *legacyPtrMarshaler `json:",string"`
+}
+
+// legacyPtrMap is a map whose MarshalJSON has a pointer receiver: a map is stored directly in an interface value, and
+// its opcodes read it by a pointer to it where it is not addressable.
+type legacyPtrMap map[string]int
+
+func (*legacyPtrMap) MarshalJSON() ([]byte, error) { return []byte(`"map"`), nil }
+
+// legacyPtrTextMap is a map whose MarshalText has a pointer receiver.
+type legacyPtrTextMap map[string]int
+
+func (*legacyPtrTextMap) MarshalText() ([]byte, error) { return []byte("text"), nil }
+
+// legacyPtrOnePtr is a struct of one pointer, which is stored directly in an interface value, whose MarshalJSON has a
+// pointer receiver.
+type legacyPtrOnePtr struct{ P *int }
+
+func (*legacyPtrOnePtr) MarshalJSON() ([]byte, error) { return []byte(`"one"`), nil }
+
+// legacyPtrOneArray is an array of one pointer, which is stored directly in an interface value, whose MarshalJSON has
+// a pointer receiver.
+type legacyPtrOneArray [1]*int
+
+func (*legacyPtrOneArray) MarshalJSON() ([]byte, error) { return []byte(`"array"`), nil }
+
+// legacyPtrSlice is a slice whose MarshalJSON has a pointer receiver.
+type legacyPtrSlice []int
+
+func (*legacyPtrSlice) MarshalJSON() ([]byte, error) { return []byte(`"slice"`), nil }
+
+// legacyRecSlice is a slice of itself, whose MarshalJSON has a pointer receiver: its elements are addressable.
+type legacyRecSlice []legacyRecSlice
+
+func (*legacyRecSlice) MarshalJSON() ([]byte, error) { return []byte(`"r"`), nil }
+
+// legacyRecArray is an array of a pointer to itself, whose MarshalJSON has a pointer receiver.
+type legacyRecArray [1]*legacyRecArray
+
+func (*legacyRecArray) MarshalJSON() ([]byte, error) { return []byte(`"a"`), nil }
+
+// legacyRecMap is a map of slices of itself, whose MarshalJSON has a pointer receiver.
+type legacyRecMap map[string][]legacyRecMap
+
+func (*legacyRecMap) MarshalJSON() ([]byte, error) { return []byte(`"m"`), nil }
+
+// legacyRecText is a slice of itself, whose MarshalText has a pointer receiver.
+type legacyRecText []legacyRecText
+
+func (*legacyRecText) MarshalText() ([]byte, error) { return []byte("t"), nil }
+
+// legacyRecPlain is a slice of itself of no method, whose cycle is the error of its type.
+type legacyRecPlain []legacyRecPlain
+
+// legacyRecPair is an array of a struct of legacyPtrMarshaler and of a slice of the array: the struct in an element of
+// the slice is addressable.
+type legacyRecPair [1]legacyRecPairElem
+
+type legacyRecPairElem struct {
+	V    legacyPtrMarshaler
+	Next []legacyRecPair
+}
+
+// legacyStringCallPtr has a field of the `string` option of a pointer to legacyPtrMarshaler, whose method is called
+// for the value it points to, which is addressable.
+type legacyStringCallPtr struct {
+	P *legacyPtrMarshaler `json:",string"`
+}
+
+// legacyEmbeddedCall embeds legacyPtrMarshaler, whose method of a pointer is the one of a pointer of the struct.
+type legacyEmbeddedCall struct{ legacyPtrMarshaler }
+
+// legacyDeclined is a struct whose MarshalJSONTo, of a pointer receiver, declines to write it, before its
+// MarshalJSON, of a pointer receiver too.
+type legacyDeclined struct{ X int }
+
+func (*legacyDeclined) MarshalJSONTo(*jsontext.Encoder) error { return errors.ErrUnsupported }
+
+func (*legacyDeclined) MarshalJSON() ([]byte, error) { return []byte(`"json"`), nil }
+
+// legacyStdDeclined is legacyDeclined for encoding/json/v2.
+type legacyStdDeclined struct{ X int }
+
+func (*legacyStdDeclined) MarshalJSONTo(*stdjsontext.Encoder) error { return errors.ErrUnsupported }
+
+func (*legacyStdDeclined) MarshalJSON() ([]byte, error) { return []byte(`"json"`), nil }
+
+// With CallMethodsWithLegacySemantics, as encoding/json/v2 writes them, through Marshal, MarshalWrite and
+// MarshalEncode: with functions of marshaling, the value which a pointer at the top level points to is addressable;
+// the value after a method or a function which declines it is addressable as the value is; a key of an interface type
+// of MarshalText or AppendText which holds a nil pointer is named by the method, called for the nil pointer.
+func TestCallMethodsWithLegacySemanticsMatchesStd(t *testing.T) {
+	legacy, stdLegacy := gojson.CallMethodsWithLegacySemantics(true), stdjsonv1.CallMethodsWithLegacySemantics(true)
+	// a function of another type, which makes the functions of marshaling be looked up
+	other := json.WithMarshalers(json.MarshalFunc(func(time.Month) ([]byte, error) { return []byte(`"m"`), nil }))
+	stdOther := stdjson.WithMarshalers(stdjson.MarshalFunc(func(time.Month) ([]byte, error) { return []byte(`"m"`), nil }))
+	// a function which declines every value of legacyPtrMarshaler
+	declines := json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, legacyPtrMarshaler) error {
+		return errors.ErrUnsupported
+	}))
+	stdDeclines := stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, legacyPtrMarshaler) error {
+		return errors.ErrUnsupported
+	}))
+	for _, c := range []struct {
+		name         string
+		ours, theirs any
+		opts         []json.Options
+		stdOpts      []stdjson.Options
+	}{
+		{"pointer", &legacyPtrMarshaler{}, &legacyPtrMarshaler{}, []json.Options{legacy, other}, []stdjson.Options{stdLegacy, stdOther}},
+		{"value", legacyPtrMarshaler{}, legacyPtrMarshaler{}, []json.Options{legacy, other}, []stdjson.Options{stdLegacy, stdOther}},
+		{"pointer of an array", &[1]legacyPtrMarshaler{}, &[1]legacyPtrMarshaler{}, []json.Options{legacy, other},
+			[]stdjson.Options{stdLegacy, stdOther}},
+		{"pointer of a struct", &legacyStringCall{}, &legacyStringCall{}, []json.Options{legacy, other},
+			[]stdjson.Options{stdLegacy, stdOther}},
+		{"pointer of an embedding struct", &legacyEmbeddedCall{}, &legacyEmbeddedCall{}, []json.Options{legacy, other},
+			[]stdjson.Options{stdLegacy, stdOther}},
+		{"recursive", &legacyNode{Next: &legacyNode{}}, &legacyNode{Next: &legacyNode{}}, []json.Options{legacy, other},
+			[]stdjson.Options{stdLegacy, stdOther}},
+		{"declined pointer", &legacyDeclined{}, &legacyStdDeclined{}, []json.Options{legacy}, []stdjson.Options{stdLegacy}},
+		{"declined value", legacyDeclined{}, legacyStdDeclined{}, []json.Options{legacy}, []stdjson.Options{stdLegacy}},
+		{"declined elements", []legacyDeclined{{}}, []legacyStdDeclined{{}}, []json.Options{legacy}, []stdjson.Options{stdLegacy}},
+		{"declined values of a map", map[string]legacyDeclined{"a": {}}, map[string]legacyStdDeclined{"a": {}},
+			[]json.Options{legacy}, []stdjson.Options{stdLegacy}},
+		{"declined by a function, pointer", &legacyPtrMarshaler{}, &legacyPtrMarshaler{}, []json.Options{legacy, declines},
+			[]stdjson.Options{stdLegacy, stdDeclines}},
+		{"declined by a function, value", legacyPtrMarshaler{}, legacyPtrMarshaler{}, []json.Options{legacy, declines},
+			[]stdjson.Options{stdLegacy, stdDeclines}},
+		{"declined by a function, elements", []legacyPtrMarshaler{{}}, []legacyPtrMarshaler{{}},
+			[]json.Options{legacy, declines}, []stdjson.Options{stdLegacy, stdDeclines}},
+		{"declined by a function, string option", &legacyStringCall{}, &legacyStringCall{}, []json.Options{legacy, declines},
+			[]stdjson.Options{stdLegacy, stdDeclines}},
+		{"declined by a function, string option of a pointer", legacyStringCallPtr{P: &legacyPtrMarshaler{}},
+			legacyStringCallPtr{P: &legacyPtrMarshaler{}}, []json.Options{legacy, declines}, []stdjson.Options{stdLegacy, stdDeclines}},
+		{"recursive with a function of pointers to pointers", legacyRecSlice{legacyRecSlice{}, nil}, legacyRecSlice{legacyRecSlice{}, nil},
+			[]json.Options{legacy, json.WithMarshalers(json.MarshalFunc(func(**legacyRecSlice) ([]byte, error) { return []byte(`"pp"`), nil }))},
+			[]stdjson.Options{stdLegacy, stdjson.WithMarshalers(stdjson.MarshalFunc(func(**legacyRecSlice) ([]byte, error) { return []byte(`"pp"`), nil }))}},
+		{"recursive with a declining function of any", legacyRecSlice{legacyRecSlice{}, nil}, legacyRecSlice{legacyRecSlice{}, nil},
+			[]json.Options{legacy, json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, any) error { return errors.ErrUnsupported }))},
+			[]stdjson.Options{stdLegacy, stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, any) error { return errors.ErrUnsupported }))}},
+		{"key of a text interface of a nil pointer", map[encoding.TextMarshaler]int{(*legacyPtrText)(nil): 1},
+			map[encoding.TextMarshaler]int{(*legacyPtrText)(nil): 1}, []json.Options{legacy}, []stdjson.Options{stdLegacy}},
+		{"key of an appender interface of a nil pointer", map[encoding.TextAppender]int{(*legacyPtrAppend)(nil): 1},
+			map[encoding.TextAppender]int{(*legacyPtrAppend)(nil): 1}, []json.Options{legacy}, []stdjson.Options{stdLegacy}},
+		{"key of a JSON interface of a nil pointer", map[stdjsonv1.Marshaler]int{(*legacyNilJSON)(nil): 1},
+			map[stdjsonv1.Marshaler]int{(*legacyNilJSON)(nil): 1}, []json.Options{legacy}, []stdjson.Options{stdLegacy}},
+	} {
+		// the outputs of an error, which encoding/json/v2 returns, are not compared: only that both fail
+		want, wantErr := stdjson.Marshal(c.theirs, c.stdOpts...)
+		same := func(got string, err error) bool {
+			return (err == nil) == (wantErr == nil) && (err != nil || got == string(want))
+		}
+		got, err := json.Marshal(c.ours, c.opts...)
+		if !same(string(got), err) {
+			t.Errorf("%s: Marshal: got %s, %v, want %s, %v", c.name, got, err, want, wantErr)
+		}
+		var written strings.Builder
+		if err := json.MarshalWrite(&written, c.ours, c.opts...); !same(written.String(), err) {
+			t.Errorf("%s: MarshalWrite: got %s, %v, want %s, %v", c.name, written.String(), err, want, wantErr)
+		}
+		var encoded strings.Builder
+		enc := jsontext.NewEncoder(&encoded)
+		if err := json.MarshalEncode(enc, c.ours, c.opts...); !same(strings.TrimSuffix(encoded.String(), "\n"), err) {
+			t.Errorf("%s: MarshalEncode: got %s, %v, want %s, %v", c.name, encoded.String(), err, want, wantErr)
+		}
+	}
+}
+
 // legacyLargeCall is a struct of many fields, whose code is shared by its values ( see sharedStructFieldCount ),
 // addressable or not.
 type legacyLargeCall struct {
@@ -496,6 +679,11 @@ type legacyNamedBytes []legacyByte
 // diffValues ).
 func legacyDiffValues() []any {
 	d := time.Duration(-3)
+	n := 3
+	pm, ps := legacyPtrMap{"k": 1}, legacyPtrSlice{1}
+	ppm := &pm
+	cyclic := make(legacyRecPlain, 1)
+	cyclic[0] = cyclic
 	return []any{
 		time.Duration(1500), &d, []time.Duration{1, 2}, map[time.Duration]int{5: 1, -2: 2}, map[string]time.Duration{"a": 7},
 		legacyDiffDuration{}, legacyDiffDuration{D: 1, P: &d, S: 2, SP: &d, E: 3, Z: 4, Keys: map[time.Duration]string{9: "x"}, Any: d},
@@ -523,6 +711,20 @@ func legacyDiffValues() []any {
 			P: map[*legacyPtrText]int{{}: 1}, PV: map[*legacyValueText]int{{}: 1}, M: (*legacyNilJSON)(nil), T: (*net.IPNet)(nil)},
 		legacyCallKeys{P: map[*legacyPtrText]int{nil: 1}, M: &legacyNilJSON{}},
 		map[*legacyValueText]int{nil: 1}, []stdjsonv1.Marshaler{(*legacyNilJSON)(nil), nil, &legacyNilJSON{}, legacyIntJSON(1)},
+		map[encoding.TextMarshaler]int{&legacyPtrText{}: 1}, legacyStringCall{P: &legacyPtrMarshaler{}}, &legacyStringCall{},
+		legacyPtrMap{"k": 1}, &legacyPtrMap{"k": 1}, map[string]legacyPtrMap{"a": {"k": 1}}, []legacyPtrMap{{"k": 1}},
+		struct{ A [1]legacyPtrMap }{[1]legacyPtrMap{{"k": 1}}}, &struct{ A [1]legacyPtrMap }{[1]legacyPtrMap{{"k": 1}}},
+		[]any{legacyPtrMap{"k": 1}}, struct{ M legacyPtrMap }{legacyPtrMap{"k": 1}}, legacyPtrTextMap{"k": 1},
+		map[string]legacyPtrTextMap{"a": {"k": 1}}, []any{legacyPtrTextMap{"k": 1}}, legacyPtrOnePtr{&n},
+		map[string]legacyPtrOnePtr{"a": {&n}}, struct{ A [1]legacyPtrOnePtr }{[1]legacyPtrOnePtr{{&n}}},
+		[]any{legacyPtrOnePtr{&n}}, legacyPtrOneArray{&n}, map[string]legacyPtrOneArray{"a": {&n}}, []any{legacyPtrOneArray{&n}},
+		struct{ F *legacyPtrMap }{&pm}, []*legacyPtrMap{&pm}, map[string]*legacyPtrMap{"a": &pm}, &ppm,
+		struct{ F *legacyPtrSlice }{&ps}, []*legacyPtrSlice{&ps}, &ps, struct{ F *legacyPtrMap }{},
+		legacyRecSlice{legacyRecSlice{}, nil}, &legacyRecSlice{legacyRecSlice{}}, map[string]legacyRecSlice{"a": {nil}},
+		legacyRecArray{&legacyRecArray{}}, legacyRecMap{"a": {legacyRecMap{}}}, &legacyRecMap{"a": {nil}},
+		legacyRecText{legacyRecText{}, nil}, cyclic, legacyRecPair{{Next: []legacyRecPair{{{}}}}},
+		&legacyRecPair{{Next: []legacyRecPair{{{}}}}},
+		[]legacyStringCall{{}}, legacyEmbeddedCall{}, &legacyEmbeddedCall{},
 		legacyDiffStringify{}, legacyDiffStringify{B: true, S: "x", I: -5, U: 7, F: 1.5, PB: new(bool), PS: new(string), PI: new(int),
 			E: "e", EB: true},
 		legacyDiffStringifyPtr{}, legacyDiffStringifyPtr{PP: new(*int)},

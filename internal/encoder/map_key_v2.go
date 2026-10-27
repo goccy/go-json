@@ -208,11 +208,19 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		b = append(b, '"')
 		return append(appendFloatOfBits(b, f, bits), '"'), nil
 	case reflect.Pointer, reflect.Interface:
-		if v.Kind() == reflect.Pointer && v.IsNil() && ctx.Option.Flag&CallMethodsLegacyOption != 0 &&
-			(t.Implements(marshalTextType) || t.Implements(appendTextType)) {
-			// a nil pointer of MarshalText or AppendText, which encoding/json names "" with
-			// CallMethodsWithLegacySemantics
-			return append(b, `""`...), nil
+		if ctx.Option.Flag&CallMethodsLegacyOption != 0 {
+			switch {
+			case v.Kind() == reflect.Pointer && v.IsNil() && (t.Implements(marshalTextType) || t.Implements(appendTextType)):
+				// a nil pointer of MarshalText or AppendText, which encoding/json names "" with
+				// CallMethodsWithLegacySemantics
+				return append(b, `""`...), nil
+			case v.Kind() == reflect.Interface && !v.IsNil() && v.Elem().Kind() == reflect.Pointer && v.Elem().IsNil():
+				// a nil pointer held by an interface value of MarshalText or AppendText, which encoding/json names by
+				// the method of the interface type, called for the nil pointer, as it writes such a value
+				if out, ok, err := appendNilTextKey(ctx, b, v); ok {
+					return out, err
+				}
+			}
 		}
 		// the pointers and the interfaces are followed here, one by one, up to a value which is named otherwise: by
 		// its functions, its method or its kind.
@@ -254,6 +262,28 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		return b, &errors.SemanticError{GoType: t}
 	}
 	return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: t}
+}
+
+// appendNilTextKey appends the name of the interface value v, which holds a nil pointer, by the method of the
+// interface type of v, called for the nil pointer, and reports true, if it is MarshalText or AppendText ( see
+// v2MethodOfInterface ) of the pointer: a method of the value it points to can't be called for it.
+func appendNilTextKey(ctx *RuntimeContext, b []byte, v reflect.Value) ([]byte, bool, error) {
+	held, recv := v.Elem().Type(), v.Interface()
+	m := v2MethodOfInterface(v.Type())
+	if m != methodAppendText && m != methodMarshalText || held.Elem().Implements(marshalerTypeOf(m)) {
+		return b, false, nil
+	}
+	if m == methodAppendText {
+		out, err := appendMethodText(ctx, b, held, "AppendText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+			return recv.(textAppender).AppendText(dst)
+		})
+		return out, true, err
+	}
+	out, err := appendMethodText(ctx, b, held, "MarshalText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+		text, err := recv.(encoding.TextMarshaler).MarshalText()
+		return append(dst, text...), err
+	})
+	return out, true, err
 }
 
 // appendName appends the name as a JSON string, which must be valid UTF-8 unless it is allowed.

@@ -433,7 +433,10 @@ func (c *MapCode) Filter(_ *FieldQuery) Code {
 }
 
 type StructCode struct {
-	typ                       reflect.Type
+	typ reflect.Type
+	// key is what the code is kept by while it is compiled and linked: its type, of an addressable struct marked with
+	// CallMethodsWithLegacySemantics ( see Compiler.structKey ), or 0 for its type.
+	key                       uintptr
 	fields                    []*StructFieldCode
 	isPtr                     bool
 	disableIndirectConversion bool
@@ -517,6 +520,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{})
 		recursive.Type = runtime.TypePtr(c.typ)
 		recursive.FieldQuery = c.fieldQuery
+		c.keyRecursive(ctx, recursive)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -579,8 +583,26 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	}
 	ctx.decIndent()
 	markFieldRuns(codes)
-	ctx.structTypeToCodes[uintptr(runtime.TypePtr(c.typ))] = codes
+	ctx.structTypeToCodes[c.linkKey()] = codes
 	return codes
+}
+
+// linkKey returns the key of the struct which a recursive code jumps to its code by ( see key ).
+func (c *StructCode) linkKey() uintptr {
+	if c.key&addressableStructMark != 0 {
+		return c.key
+	}
+	return uintptr(runtime.TypePtr(c.typ))
+}
+
+// keyRecursive records the key of the struct of the recursive code, if it is not its type ( see linkKey ).
+func (c *StructCode) keyRecursive(ctx *compileContext, recursive *Opcode) {
+	if c.key&addressableStructMark != 0 {
+		if ctx.recursiveKeys == nil {
+			ctx.recursiveKeys = map[*Opcode]uintptr{}
+		}
+		ctx.recursiveKeys[recursive] = c.key
+	}
 }
 
 // fieldRunOps are, for the opcode of a field, the opcodes of a run of two and of three such fields in a row.
@@ -627,6 +649,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 		}
 		recursive.Type = runtime.TypePtr(c.typ)
 		recursive.FieldQuery = c.fieldQuery
+		c.keyRecursive(ctx, recursive)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -743,6 +766,7 @@ func (c *StructCode) Filter(query *FieldQuery) Code {
 	}
 	return &StructCode{
 		typ:                       c.typ,
+		key:                       c.key,
 		fields:                    fields,
 		isPtr:                     c.isPtr,
 		disableIndirectConversion: c.disableIndirectConversion,

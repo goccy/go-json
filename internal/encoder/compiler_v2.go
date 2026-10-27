@@ -48,8 +48,9 @@ func appendTime(_ *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 
 // v2Code returns the code of a value of typ by the semantics of encoding/json/v2, and true, if they differ from
 // the ones of v1 for the type: false lets the type be compiled as v1 compiles it. A type with a method of a
-// marshaler is not given to it.
-func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
+// marshaler is not given to it. addressable is whether the value is addressable, which a method of a pointer
+// receiver is called for only with CallMethodsWithLegacySemantics ( see v2MethodOfAt ).
+func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 	// the type of a default representation, which the functions and the method c.v2DefaultAfter declined, is
 	// written by what is after them, once: a value of the type in it is written as any other ( see
 	// appendDefault ).
@@ -82,10 +83,14 @@ func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
 	case typ == timeTimeType:
 		return c.appendFuncCode(typ, appendTime), true
 	}
-	if code, ok := c.v2MethodCode(typ, after); ok {
+	if code, ok := c.v2MethodCode(typ, after, addressable); ok {
 		return code, true
 	}
 	switch typ.Kind() {
+	case reflect.Interface:
+		if m := v2MethodOfInterface(typ); m != noMethod && c.legacy&modeCallMethodsLegacy != 0 {
+			return c.appendFuncCode(typ, appendLegacyInterface(typ, m)), true
+		}
 	case reflect.Struct:
 		if fields := v2FieldsOf(typ); fields.Err != nil {
 			return c.appendFuncCode(typ, appendError(fields.Err.GoType, fields.Err.Err)), true

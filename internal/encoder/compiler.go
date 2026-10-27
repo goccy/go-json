@@ -386,7 +386,7 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 // pointeeCode returns the code for the value which a pointer points to.
 // It is addressable, as an element of a slice is.
 func (c *Compiler) pointeeCode(typ reflect.Type) (Code, error) {
-	code, err := c.listElemCode(typ)
+	code, err := c.listElemCode(typ, true)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +502,7 @@ func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error)
 		return code, nil
 	}
 	if c.v2 {
-		if code, ok := c.v2Code(typ); ok {
+		if code, ok := c.v2Code(typ, isPtr); ok {
 			return code, nil
 		}
 	} else {
@@ -527,7 +527,7 @@ func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error)
 		}
 		return c.sliceCode(typ)
 	case reflect.Array:
-		return c.arrayCode(typ)
+		return c.arrayCode(typ, isPtr)
 	case reflect.Map:
 		return c.mapCode(typ)
 	case reflect.Struct:
@@ -744,7 +744,7 @@ func (c *Compiler) ptrCode(typ reflect.Type) (*PtrCode, error) {
 
 func (c *Compiler) sliceCode(typ reflect.Type) (*SliceCode, error) {
 	elem := typ.Elem()
-	code, err := c.listElemCode(elem)
+	code, err := c.listElemCode(elem, true)
 	if err != nil {
 		return nil, err
 	}
@@ -755,9 +755,11 @@ func (c *Compiler) sliceCode(typ reflect.Type) (*SliceCode, error) {
 	return &SliceCode{typ: typ, value: code}, nil
 }
 
-func (c *Compiler) arrayCode(typ reflect.Type) (*ArrayCode, error) {
+// arrayCode returns the code of the array type typ, which is addressable if isPtr is set: its elements are addressable
+// as v1 takes them, but as encoding/json takes them with CallMethodsWithLegacySemantics, if the array is.
+func (c *Compiler) arrayCode(typ reflect.Type, isPtr bool) (*ArrayCode, error) {
 	elem := typ.Elem()
-	code, err := c.listElemCode(elem)
+	code, err := c.listElemCode(elem, isPtr || c.legacy&modeCallMethodsLegacy == 0)
 	if err != nil {
 		return nil, err
 	}
@@ -797,7 +799,7 @@ func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
 	return &MapCode{typ: typ, key: keyCode, value: valueCode, mayRepeatNames: c.v2 && marshaledKey}, nil
 }
 
-func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
+func (c *Compiler) listElemCode(typ reflect.Type, addressable bool) (Code, error) {
 	if code, ok := c.recursiveValueCode(typ); ok {
 		return code, nil
 	}
@@ -820,7 +822,9 @@ func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 		// isPtr was originally used to indicate whether the type of top level is pointer.
 		// However, since the slice/array element is a specification that can get the pointer address, explicitly set isPtr to true.
 		// See here for related issues: https://github.com/goccy/go-json/issues/370
-		code, err := c.typeToCodeWithPtr(typ, true)
+		// An element of an array is not addressable with CallMethodsWithLegacySemantics if the array is not ( see
+		// arrayCode ).
+		code, err := c.typeToCodeWithPtr(typ, addressable)
 		if err != nil {
 			return nil, err
 		}
@@ -977,13 +981,14 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 // which embeds it, which may hide some of them.
 func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare bool) (*StructCode, error) {
 	typeptr := uintptr(runtime.TypePtr(typ))
-	if count, compiled := c.structFieldCounts[typeptr]; mayShare && compiled && count > sharedStructFieldCount {
-		if _, onPath := c.structTypeToCode[typeptr]; !onPath {
+	key := c.structKey(typeptr, isPtr)
+	if count, compiled := c.structFieldCounts[key]; mayShare && compiled && count > sharedStructFieldCount {
+		if _, onPath := c.structTypeToCode[key]; !onPath {
 			// the code which is jumped to is compiled when the recursive codes are linked.
-			return &StructCode{typ: typ, isPtr: isPtr, isIndirect: runtime.IfaceIndir(typ), isRecursive: true}, nil
+			return &StructCode{typ: typ, key: key, isPtr: isPtr, isIndirect: runtime.IfaceIndir(typ), isRecursive: true}, nil
 		}
 	}
-	if code, exists := c.structTypeToCode[typeptr]; exists {
+	if code, exists := c.structTypeToCode[key]; exists {
 		derefCode := *code
 		derefCode.isRecursive = true
 		if slices.Contains(c.embeddingChain, typeptr) {
@@ -997,8 +1002,8 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 	c.embeddingChain = append(c.embeddingChain, typeptr)
 	defer func() { c.embeddingChain = c.embeddingChain[:len(c.embeddingChain)-1] }()
 	indirect := runtime.IfaceIndir(typ)
-	code := &StructCode{typ: typ, isPtr: isPtr, isIndirect: indirect}
-	c.structTypeToCode[typeptr] = code
+	code := &StructCode{typ: typ, key: key, isPtr: isPtr, isIndirect: indirect}
+	c.structTypeToCode[key] = code
 	firstField := c.fieldCount
 
 	fieldNum := typ.NumField()
@@ -1083,12 +1088,27 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 	if !code.disableIndirectConversion && !indirect && isPtr {
 		code.enableIndirect()
 	}
-	delete(c.structTypeToCode, typeptr)
+	delete(c.structTypeToCode, key)
 	c.fieldCount += len(code.fields)
 	if !embedded {
-		c.structFieldCounts[typeptr] = c.fieldCount - firstField
+		c.structFieldCounts[key] = c.fieldCount - firstField
 	}
 	return code, nil
+}
+
+// addressableStructMark marks the key of the code of an addressable struct with CallMethodsWithLegacySemantics in the
+// lowest bit of the address of its type, which is 0 ( see structKey ).
+const addressableStructMark = 1
+
+// structKey returns what the code of a struct of the type typeptr, addressable if isPtr is set, is kept by while it is
+// compiled ( structTypeToCode, structFieldCounts ) and linked ( compileContext.structTypeToCodes ): its type, and
+// with CallMethodsWithLegacySemantics whether it is addressable, as its fields are addressable if it is, which calls
+// the methods of their pointers then only ( see v2MethodOfAt ).
+func (c *Compiler) structKey(typeptr uintptr, isPtr bool) uintptr {
+	if isPtr && c.legacy&modeCallMethodsLegacy != 0 {
+		return typeptr | addressableStructMark
+	}
+	return typeptr
 }
 
 // orderFieldsForSpeed returns the fields in the order they are encoded fastest ( OptimizeFieldOrderOption ):
@@ -1563,7 +1583,12 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	// the recursive codes may increase while they are linked, so the length is evaluated every time.
 	for i := 0; i < len(*ctx.recursiveCodes); i++ {
 		recursive := (*ctx.recursiveCodes)[i]
-		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery,
+		// the struct jumped to by its key, which tells an addressable one apart ( see Compiler.structKey )
+		key := uintptr(recursive.Type)
+		if k, ok := ctx.recursiveKeys[recursive]; ok {
+			key = k
+		}
+		target := recursiveTarget{typeptr: key, embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery,
 			hidden: strings.Join(ctx.hiddenNames[recursive], "\x00")}
 		typeptr := target.typeptr
 		if recursiveCode, ok := recursiveCodes[target]; ok {
@@ -1578,7 +1603,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 			// - The opcodes of a struct filtered by a field query are filtered by the query of their place,
 			//   and the struct is filtered by the query of the code which jumps to it.
 			// In these cases the opcodes to jump to are compiled here.
-			structCode, err := c.compileStruct(runtime.TypeOfPtr(recursive.Type), false, target.embedded, false)
+			structCode, err := c.compileStruct(runtime.TypeOfPtr(recursive.Type), typeptr&addressableStructMark != 0, target.embedded, false)
 			if err != nil {
 				return err
 			}

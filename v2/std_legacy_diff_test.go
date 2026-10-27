@@ -7,6 +7,8 @@ import (
 	stdjsontext "encoding/json/jsontext"
 	stdjson "encoding/json/v2"
 	"errors"
+	"fmt"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -100,6 +102,8 @@ func legacyDiffOptions() [][]json.Options {
 		{json.MatchCaseInsensitiveNames(true), gojson.MatchCaseSensitiveDelimiter(true), json.Deterministic(true)},
 		{gojson.MatchCaseSensitiveDelimiter(true), json.Deterministic(true)},
 		{gojson.StringifyWithLegacySemantics(true)},
+		{gojson.CallMethodsWithLegacySemantics(true)},
+		{gojson.CallMethodsWithLegacySemantics(true), json.Deterministic(true)},
 		{gojson.StringifyWithLegacySemantics(true), json.StringifyNumbers(true), gojson.OmitEmptyWithLegacySemantics(true)},
 		{gojson.OmitEmptyWithLegacySemantics(true), json.StringifyNumbers(true), json.OmitZeroStructFields(true),
 			json.Deterministic(true)},
@@ -239,6 +243,142 @@ func TestStringifyInvalidUTF8MatchesStd(t *testing.T) {
 	}
 }
 
+// legacyPtrMarshaler is a struct whose MarshalJSON has a pointer receiver, which CallMethodsWithLegacySemantics calls
+// for an addressable value only.
+type legacyPtrMarshaler struct{ X int }
+
+func (*legacyPtrMarshaler) MarshalJSON() ([]byte, error) { return []byte(`"called"`), nil }
+
+// legacyPtrText is a struct whose MarshalText has a pointer receiver.
+type legacyPtrText struct{ X int }
+
+func (*legacyPtrText) MarshalText() ([]byte, error) { return []byte("text"), nil }
+
+// legacyNode is a recursive struct of a value of legacyPtrMarshaler, which is addressable through the pointer.
+type legacyNode struct {
+	V    legacyPtrMarshaler
+	Next *legacyNode
+}
+
+// legacyCallHolder has values of legacyPtrMarshaler in every kind of place.
+type legacyCallHolder struct {
+	V legacyPtrMarshaler
+	P *legacyPtrMarshaler
+	A [1]legacyPtrMarshaler
+	S []legacyPtrMarshaler
+	M map[string]legacyPtrMarshaler
+	I any
+	T legacyPtrText
+	N legacyNode
+}
+
+// legacyValueText is a struct whose MarshalText has a value receiver.
+type legacyValueText struct{ X int }
+
+func (legacyValueText) MarshalText() ([]byte, error) { return []byte("value"), nil }
+
+// legacyStringText is a string whose MarshalText, of a value receiver, is not called for a key with
+// CallMethodsWithLegacySemantics, as the key is of a string kind.
+type legacyStringText string
+
+func (legacyStringText) MarshalText() ([]byte, error) { return []byte("text"), nil }
+
+// legacyIntJSON is an int whose MarshalJSON writes a string, which is not called for a key with
+// CallMethodsWithLegacySemantics.
+type legacyIntJSON int
+
+func (legacyIntJSON) MarshalJSON() ([]byte, error) { return []byte(`"json"`), nil }
+
+// legacyNilJSON is a struct whose MarshalJSON, of a pointer receiver, writes its nil pointer too.
+type legacyNilJSON struct{ X int }
+
+func (p *legacyNilJSON) MarshalJSON() ([]byte, error) {
+	if p == nil {
+		return []byte(`"nil"`), nil
+	}
+	return []byte(`"value"`), nil
+}
+
+// legacyCallKeys has maps of the keys whose methods CallMethodsWithLegacySemantics calls or not, and interface
+// values of the methods of marshaling holding nil pointers.
+type legacyCallKeys struct {
+	V  map[legacyValueText]int
+	S  map[legacyStringText]int
+	J  map[legacyIntJSON]int
+	P  map[*legacyPtrText]int
+	PV map[*legacyValueText]int
+	M  stdjsonv1.Marshaler
+	T  fmt.Stringer
+}
+
+// legacyKeyText is a string whose UnmarshalJSON and UnmarshalText tell which decodes it, of which
+// CallMethodsWithLegacySemantics calls UnmarshalText only for a key.
+type legacyKeyText string
+
+func (k *legacyKeyText) UnmarshalJSON([]byte) error {
+	*k = "json"
+	return nil
+}
+
+func (k *legacyKeyText) UnmarshalText([]byte) error {
+	*k = "text"
+	return nil
+}
+
+// legacyKeyJSON is a string of UnmarshalJSON only, which CallMethodsWithLegacySemantics doesn't call for a key.
+type legacyKeyJSON string
+
+func (k *legacyKeyJSON) UnmarshalJSON([]byte) error {
+	*k = "json"
+	return nil
+}
+
+// legacyLargeCall is a struct of many fields, whose code is shared by its values ( see sharedStructFieldCount ),
+// addressable or not.
+type legacyLargeCall struct {
+	F00 int
+	F01 int
+	F02 int
+	F03 int
+	F04 int
+	F05 int
+	F06 int
+	F07 int
+	F08 int
+	F09 int
+	F10 int
+	F11 int
+	F12 int
+	F13 int
+	F14 int
+	F15 int
+	F16 int
+	F17 int
+	F18 int
+	F19 int
+	F20 int
+	F21 int
+	F22 int
+	F23 int
+	F24 int
+	F25 int
+	F26 int
+	F27 int
+	F28 int
+	F29 int
+	F30 int
+	F31 int
+	F32 int
+	F33 int
+	F34 int
+	F35 int
+	F36 int
+	F37 int
+	F38 int
+	F39 int
+	V   legacyPtrMarshaler
+}
+
 // legacyEmptyText is a struct whose method writes an empty JSON string: never empty by its Go value.
 type legacyEmptyText struct{ X int }
 
@@ -371,6 +511,18 @@ func legacyDiffValues() []any {
 		legacyDiffOmitEmpty{B: true, I: -1, U: 1, F: 0.5, S: "x", Sl: []int{1}, Any: 0, Raw: legacyRaw(`1`), Z: 1,
 			N: map[string]any{"a": nil}, E: legacyEmbeddedOmit{X: []int{}}},
 		legacyDiffOmitEmptyString{}, legacyDiffOmitEmptyString{I: 3},
+		legacyPtrMarshaler{}, &legacyPtrMarshaler{}, [1]legacyPtrMarshaler{}, &[1]legacyPtrMarshaler{}, []legacyPtrMarshaler{{}},
+		legacyNode{Next: &legacyNode{Next: &legacyNode{}}}, &legacyNode{Next: &legacyNode{}}, []legacyNode{{Next: &legacyNode{}}},
+		map[string]legacyNode{"a": {Next: &legacyNode{}}},
+		legacyCallHolder{P: &legacyPtrMarshaler{}, S: []legacyPtrMarshaler{{}}, M: map[string]legacyPtrMarshaler{"a": {}},
+			I: legacyPtrMarshaler{}, N: legacyNode{Next: &legacyNode{}}},
+		&legacyCallHolder{P: &legacyPtrMarshaler{}, S: []legacyPtrMarshaler{{}}, M: map[string]legacyPtrMarshaler{"a": {}},
+			I: &legacyPtrMarshaler{}, N: legacyNode{Next: &legacyNode{}}},
+		[]any{legacyLargeCall{}, &legacyLargeCall{}, []legacyLargeCall{{}}, map[string]legacyLargeCall{"a": {}}},
+		legacyCallKeys{V: map[legacyValueText]int{{}: 1}, S: map[legacyStringText]int{"s": 1}, J: map[legacyIntJSON]int{3: 1},
+			P: map[*legacyPtrText]int{{}: 1}, PV: map[*legacyValueText]int{{}: 1}, M: (*legacyNilJSON)(nil), T: (*net.IPNet)(nil)},
+		legacyCallKeys{P: map[*legacyPtrText]int{nil: 1}, M: &legacyNilJSON{}},
+		map[*legacyValueText]int{nil: 1}, []stdjsonv1.Marshaler{(*legacyNilJSON)(nil), nil, &legacyNilJSON{}, legacyIntJSON(1)},
 		legacyDiffStringify{}, legacyDiffStringify{B: true, S: "x", I: -5, U: 7, F: 1.5, PB: new(bool), PS: new(string), PI: new(int),
 			E: "e", EB: true},
 		legacyDiffStringifyPtr{}, legacyDiffStringifyPtr{PP: new(*int)},
@@ -396,6 +548,7 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	legacyBytes := unmarshalDiffOptions{legacy: bytesLegacy}
 	bothBytes := unmarshalDiffOptions{legacy: byteArrayAsArray | bytesLegacy}
 	bytesStruct := `{"B":[1],"NB":"AQ==","TB":["b"],"A":"AQI=","NA":[1,2],"TA":"AQI=","E":[],"P":[1,2],"Any":"AQ=="}`
+	callMethods := unmarshalDiffOptions{legacy: callMethodsLegacy}
 	merge := unmarshalDiffOptions{legacy: mergeLegacy}
 	mergeNulls := `{"B":null,"I":null,"U":null,"F":null,"S":null,"A":null,"AP":null,"St":null,"Sl":null,"M":null,"MA":null,` +
 		`"P":null,"T":null,"Tx":null,"BA":null,"Bs":null,"Any":null}`
@@ -410,6 +563,14 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	newDelimiter := func() any { return new(legacyDiffDelimiter) }
 	newDelimiterTwo := func() any { return new(legacyDiffDelimiterTwo) }
 	return []unmarshalDiffCase{
+		// CallMethodsWithLegacySemantics
+		{name: "call methods of keys", in: `{"a":1}`, out: func() any { return new(map[legacyKeyText]int) }, opts: callMethods},
+		{name: "call methods of keys by default", in: `{"a":1}`, out: func() any { return new(map[legacyKeyText]int) }},
+		{name: "call methods of keys of JSON only", in: `{"a":1}`, out: func() any { return new(map[legacyKeyJSON]int) }, opts: callMethods},
+		{name: "call methods of keys of JSON only by default", in: `{"a":1}`, out: func() any { return new(map[legacyKeyJSON]int) }},
+		{name: "call methods of pointer keys", in: `{"a":1}`, out: func() any { return new(map[*legacyKeyText]int) }, opts: callMethods,
+			errorOnly: true},
+		{name: "call methods of values", in: `{"a":"x"}`, out: func() any { return new(map[string]legacyKeyText) }, opts: callMethods},
 		// MergeWithLegacySemantics
 		{name: "merge nulls", in: mergeNulls, out: newLegacyDiffMerge, opts: merge},
 		{name: "merge nulls by default", in: mergeNulls, out: newLegacyDiffMerge},

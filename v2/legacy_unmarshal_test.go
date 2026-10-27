@@ -106,6 +106,28 @@ func TestUnmarshalMergeWithLegacySemantics(t *testing.T) {
 	})
 }
 
+// legacyLitKey is a string whose UnmarshalJSON and UnmarshalText tell which decodes it.
+type legacyLitKey string
+
+func (k *legacyLitKey) UnmarshalJSON([]byte) error {
+	*k = "json"
+	return nil
+}
+
+func (k *legacyLitKey) UnmarshalText([]byte) error {
+	*k = "text"
+	return nil
+}
+
+func TestUnmarshalCallMethodsWithLegacySemantics(t *testing.T) {
+	legacy := []json.Options{gojson.CallMethodsWithLegacySemantics(true)}
+	newMap := func() any { return new(map[legacyLitKey]legacyLitKey) }
+	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{
+		{"key", `{"a":"b"}`, legacy, newMap, map[legacyLitKey]legacyLitKey{"text": "json"}},
+		{"key by default", `{"a":"b"}`, nil, newMap, map[legacyLitKey]legacyLitKey{"json": "json"}},
+	})
+}
+
 func TestUnmarshalArrayFromAnyLength(t *testing.T) {
 	anyLength := []json.Options{gojson.UnmarshalArrayFromAnyLength(true)}
 	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{

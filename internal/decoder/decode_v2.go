@@ -184,11 +184,17 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 	if dec, exists := c.decoders[uintptr(runtime.TypePtr(typ))]; exists {
 		return dec, nil
 	}
+	// the first method which decodes a value: with CallMethodsWithLegacySemantics, a key of a map is decoded by
+	// UnmarshalText or its kind, as encoding/json doesn't call UnmarshalJSONFrom and UnmarshalJSON for a key
+	first := methodUnmarshalJSONFrom
+	if c.keyNames && c.legacy&V2CallMethodsLegacy != 0 {
+		first = methodUnmarshalText
+	}
 	if funcs := c.funcs.funcsOf(typ); len(funcs) > 0 {
 		d := &v2FuncDecoder{typ: typ, funcs: funcs}
-		return d, c.compileNextV2(d, &d.next, typ, methodUnmarshalJSONFrom, structName, fieldName)
+		return d, c.compileNextV2(d, &d.next, typ, first, structName, fieldName)
 	}
-	return c.compileDefaultV2(typ, methodUnmarshalJSONFrom, structName, fieldName)
+	return c.compileDefaultV2(typ, first, structName, fieldName)
 }
 
 // compileNextV2 compiles into next the decoder of typ which dec leaves a value to, by the methods of typ from first

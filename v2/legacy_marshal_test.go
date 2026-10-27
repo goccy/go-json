@@ -132,6 +132,46 @@ func TestMarshalStringifyWithLegacySemantics(t *testing.T) {
 	})
 }
 
+// legacyLitPtrJSON is a struct whose MarshalJSON has a pointer receiver, which writes "nil" for a nil pointer.
+type legacyLitPtrJSON struct{ X int }
+
+func (p *legacyLitPtrJSON) MarshalJSON() ([]byte, error) {
+	if p == nil {
+		return []byte(`"nil"`), nil
+	}
+	return []byte(`"called"`), nil
+}
+
+// legacyLitNode is a recursive struct of a value of legacyLitPtrJSON.
+type legacyLitNode struct {
+	V    legacyLitPtrJSON
+	Next *legacyLitNode
+}
+
+// legacyLitText is a string whose MarshalText is not called for a key of a map with CallMethodsWithLegacySemantics.
+type legacyLitText string
+
+func (legacyLitText) MarshalText() ([]byte, error) { return []byte("text"), nil }
+
+func TestMarshalCallMethodsWithLegacySemantics(t *testing.T) {
+	legacy := []json.Options{gojson.CallMethodsWithLegacySemantics(true), json.Deterministic(true)}
+	runLegacyMarshalCases(t, []legacyMarshalCase{
+		{"value", legacyLitPtrJSON{}, legacy, `{"X":0}`},
+		{"value by default", legacyLitPtrJSON{}, nil, `"called"`},
+		{"pointer", &legacyLitPtrJSON{}, legacy, `"called"`},
+		{"array", [1]legacyLitPtrJSON{}, legacy, `[{"X":0}]`},
+		{"array of a pointer", &[1]legacyLitPtrJSON{}, legacy, `["called"]`},
+		{"slice", []legacyLitPtrJSON{{}}, legacy, `["called"]`},
+		{"map", map[string]legacyLitPtrJSON{"a": {}}, legacy, `{"a":{"X":0}}`},
+		{"recursive", legacyLitNode{Next: &legacyLitNode{}}, legacy, `{"V":{"X":0},"Next":{"V":"called","Next":null}}`},
+		{"key of a string kind", map[legacyLitText]int{"k": 1}, legacy, `{"k":1}`},
+		{"key of a string kind by default", map[legacyLitText]int{"k": 1}, nil, `{"text":1}`},
+		{"nil key", map[*legacyLitText]int{nil: 1}, legacy, `{"":1}`},
+		{"interface of a nil pointer", struct{ M gojson.Marshaler }{(*legacyLitPtrJSON)(nil)}, legacy, `{"M":"nil"}`},
+		{"interface of a nil pointer by default", struct{ M gojson.Marshaler }{(*legacyLitPtrJSON)(nil)}, nil, `{"M":null}`},
+	})
+}
+
 func TestMarshalFormatDurationAsNano(t *testing.T) {
 	nano := []json.Options{gojson.FormatDurationAsNano(true)}
 	d := time.Duration(-3)

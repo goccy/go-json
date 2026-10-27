@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"encoding"
 	"encoding/json"
 	stderrors "errors"
 	"reflect"
@@ -76,6 +77,73 @@ func v2MethodOf(typ reflect.Type, after int) int {
 	return noMethod
 }
 
+// v2MethodOfAt is v2MethodOf of a value which is addressable or not: with CallMethodsWithLegacySemantics, a method of
+// a pointer receiver is not called for a value which is not addressable, as encoding/json doesn't call it, and the
+// method after it or the kind writes the value.
+func (c *Compiler) v2MethodOfAt(typ reflect.Type, after int, addressable bool) int {
+	m := v2MethodOf(typ, after)
+	for !addressable && m != noMethod && c.legacy&modeCallMethodsLegacy != 0 && !typ.Implements(marshalerTypeOf(m)) {
+		m = v2MethodOf(typ, m)
+	}
+	return m
+}
+
+// marshalerTypeOf returns the interface type of the method of marshaling m.
+func marshalerTypeOf(m int) reflect.Type {
+	switch m {
+	case methodMarshalJSONTo:
+		return V2Hooks.MarshalerToType
+	case methodMarshalJSON:
+		return marshalJSONType
+	case methodAppendText:
+		return appendTextType
+	}
+	return marshalTextType
+}
+
+// v2MethodOfInterface returns the first method of marshaling which the interface type typ has, or noMethod.
+func v2MethodOfInterface(typ reflect.Type) int {
+	for m := methodMarshalJSONTo; m <= methodMarshalText; m++ {
+		if iface := marshalerTypeOf(m); iface != nil && typ.Implements(iface) {
+			return m
+		}
+	}
+	return noMethod
+}
+
+// appendLegacyInterface returns the function which appends the value of the interface type typ at p, of the method
+// of marshaling m, with CallMethodsWithLegacySemantics: a nil pointer which it holds is written by the method, called
+// for the nil pointer, as encoding/json calls it; any other value as the one of an interface{}.
+func appendLegacyInterface(typ reflect.Type, m int) AppendFunc {
+	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		v := reflect.NewAt(typ, p).Elem()
+		if v.IsNil() {
+			return append(b, "null"...), nil
+		}
+		held := v.Elem()
+		if held.Kind() != reflect.Pointer || !held.IsNil() {
+			value := held.Interface()
+			return appendValueOf(ctx, b, emptyInterfaceType, unsafe.Pointer(&value))
+		}
+		recv := v.Interface()
+		switch m {
+		case methodMarshalJSONTo:
+			return V2Hooks.MarshalTo(ctx, b, held.Type(), recv)
+		case methodMarshalJSON:
+			raw, err := recv.(json.Marshaler).MarshalJSON()
+			return appendV2Raw(ctx, held.Type(), b, raw, err)
+		case methodAppendText:
+			return appendMethodText(ctx, b, held.Type(), "AppendText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+				return recv.(textAppender).AppendText(dst)
+			})
+		}
+		return appendMethodText(ctx, b, held.Type(), "MarshalText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+			text, err := recv.(encoding.TextMarshaler).MarshalText()
+			return append(dst, text...), err
+		})
+	}
+}
+
 // v2HasMethod reports whether a value of the type is written by a function or a method of marshaling: of the
 // type of a default representation, after the ones which declined it ( see v2Code ).
 func (c *Compiler) v2HasMethod(typ reflect.Type) bool {
@@ -85,10 +153,10 @@ func (c *Compiler) v2HasMethod(typ reflect.Type) bool {
 	return len(c.funcs.funcsOf(typ)) > 0 || v2MethodOf(typ, noMethod) != noMethod
 }
 
-// v2MethodCode returns the code of a value of typ written by its method of marshaling after the method after,
-// and true, if it has one.
-func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
-	switch v2MethodOf(typ, after) {
+// v2MethodCode returns the code of a value of typ, addressable or not, written by its method of marshaling after the
+// method after, and true, if it has one.
+func (c *Compiler) v2MethodCode(typ reflect.Type, after int, addressable bool) (Code, bool) {
+	switch c.v2MethodOfAt(typ, after, addressable) {
 	case methodMarshalJSONTo:
 		return c.appendFuncCode(typ, V2Hooks.MarshalToOf(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 			return appendDefault(ctx, b, typ, p, methodMarshalJSONTo)

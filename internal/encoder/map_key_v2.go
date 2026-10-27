@@ -68,9 +68,10 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	if len(funcs) > 0 {
 		out, err = appendByFuncs(ctx, b, p, typ, funcs)
 	}
-	written := err != ErrUseDefault || v2MethodOf(typ, noMethod) != noMethod // by a function or a method
+	written := err != ErrUseDefault || keyMethodOf(ctx, typ, noMethod, false) != noMethod // by a function or a method
 	if err == ErrUseDefault {
-		out, err = appendKeyName(ctx, b, reflect.NewAt(typ, p).Elem())
+		// a key, which is not addressable
+		out, err = appendKeyName(ctx, b, reflect.NewAt(typ, p).Elem(), false)
 	}
 	ctx.KeyName = false
 	if err == nil && out[start] != '"' {
@@ -116,21 +117,38 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	return out, nil
 }
 
-// appendKeyName appends the name of the value v, which is addressable, as a JSON string.
-func appendKeyName(ctx *RuntimeContext, b []byte, v reflect.Value) ([]byte, error) {
-	return appendKeyNameAfter(ctx, b, v, noMethod)
+// appendKeyName appends the name of the value v, which reflect can take the address of, as a JSON string: it is
+// addressable if it is the value which a pointer key points to ( see keyMethodOf ).
+func appendKeyName(ctx *RuntimeContext, b []byte, v reflect.Value, addressable bool) ([]byte, error) {
+	return appendKeyNameAfter(ctx, b, v, noMethod, addressable)
 }
 
-// appendKeyNameAfter appends the name of the value v, which is addressable, by its method after the method
-// after or by its kind.
-func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after int) ([]byte, error) {
+// keyMethodOf returns the method of marshaling which names a key of the type t, addressable or not, after the method
+// after, as v2MethodOf does: with CallMethodsWithLegacySemantics, a key is named by MarshalText or AppendText only, of
+// a value receiver unless the key is addressable, and of a type of another kind than a string, as encoding/json names
+// it.
+func keyMethodOf(ctx *RuntimeContext, t reflect.Type, after int, addressable bool) int {
+	m := v2MethodOf(t, after)
+	if ctx.Option.Flag&CallMethodsLegacyOption == 0 {
+		return m
+	}
+	for m != noMethod && (m != methodAppendText && m != methodMarshalText || t.Kind() == reflect.String ||
+		!addressable && !t.Implements(marshalerTypeOf(m))) {
+		m = v2MethodOf(t, m)
+	}
+	return m
+}
+
+// appendKeyNameAfter appends the name of the value v, addressable or not ( see appendKeyName ), by its method after
+// the method after or by its kind.
+func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after int, addressable bool) ([]byte, error) {
 	t := v.Type()
-	switch v2MethodOf(t, after) {
+	switch keyMethodOf(ctx, t, after, addressable) {
 	case methodMarshalJSONTo:
 		// the encoder, at the place of a name, takes a string only.
 		out, err := V2Hooks.MarshalTo(ctx, b, t, v.Addr().Interface())
 		if err == ErrUseDefault {
-			return appendKeyNameAfter(ctx, b, v, methodMarshalJSONTo)
+			return appendKeyNameAfter(ctx, b, v, methodMarshalJSONTo, addressable)
 		}
 		return out, err
 	case methodMarshalJSON:
@@ -190,6 +208,12 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		b = append(b, '"')
 		return append(appendFloatOfBits(b, f, bits), '"'), nil
 	case reflect.Pointer, reflect.Interface:
+		if v.Kind() == reflect.Pointer && v.IsNil() && ctx.Option.Flag&CallMethodsLegacyOption != 0 &&
+			(t.Implements(marshalTextType) || t.Implements(appendTextType)) {
+			// a nil pointer of MarshalText or AppendText, which encoding/json names "" with
+			// CallMethodsWithLegacySemantics
+			return append(b, `""`...), nil
+		}
 		// the pointers and the interfaces are followed here, one by one, up to a value which is named otherwise: by
 		// its functions, its method or its kind.
 		var cycle keyCycle
@@ -211,7 +235,8 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 				}
 			}
 			if k := elem.Kind(); k != reflect.Pointer && k != reflect.Interface || v2MethodOf(elem.Type(), noMethod) != noMethod {
-				return appendKeyName(ctx, b, elem)
+				// the value which a pointer points to is addressable, not the copy of the one an interface holds
+				return appendKeyName(ctx, b, elem, v.Kind() == reflect.Pointer)
 			}
 			if cycle.reached(elem) {
 				return b, &errors.SemanticError{GoType: t, Err: errors.ErrCycle}

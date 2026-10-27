@@ -68,7 +68,7 @@ func init() {
 		return failed
 	}
 	textcoder.ReadError = func(err error) error { return &ioError{err: err} }
-	textcoder.IsReadError = func(err error) bool {
+	textcoder.IsIOError = func(err error) bool {
 		var e *ioError
 		return errors.As(err, &e)
 	}

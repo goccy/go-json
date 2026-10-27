@@ -101,7 +101,7 @@ func streamError(s *decoder.Stream, err error, cfg *options.Config) error {
 		// the error of a decoder attached at a value, at its place
 		return err
 	}
-	if textcoder.IsReadError(err) {
+	if textcoder.IsIOError(err) {
 		return err
 	}
 	call := s.Context().V2Call()

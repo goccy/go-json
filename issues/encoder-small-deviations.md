@@ -57,6 +57,14 @@
   two above the token where encoding/json/v2 reports it ( `type C [1]struct{ V int; Next []C }` 3333 levels deep:
   offset 53328 and a pointer one token shorter, 53329 in encoding/json/v2; recorded 2026-10-28, found in the review of
   `CallMethodsWithLegacySemantics` ).
+- v2 `MarshalWrite`: the error of the writer is returned as it is; encoding/json/v2 wraps it as the error of the writer
+  of its encoder ( `jsontext: write error: ...`, which `errors.Is` sees through; recorded 2026-10-28, found in the work
+  on `ReportErrorsWithLegacySemantics`, with which both return it as it is).
+- v2 with `ReportErrorsWithLegacySemantics`: an error of a name of a key of a map which a method or a function wrote,
+  a name which is not a string or a name which another key has, is an `UnsupportedValueError` or a `SyntaxError`, as
+  the ones of the other names; encoding/json wraps it in a `MarshalerError` of the method, as it writes the name in its
+  call. The kind of a function, `MarshalFunc` or `MarshalToFunc`, is not known where the names are checked (recorded
+  2026-10-28).
 - Recorded 2026-09-21 as needing a change of the VM:
   - an `omitempty` field whose type has `MarshalText` is written when it is the zero value;
   - a nil map whose type has a marshaler is written as `null` instead of calling the marshaler;

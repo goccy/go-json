@@ -136,11 +136,11 @@ func appendLegacyInterface(typ reflect.Type, m int) AppendFunc {
 			raw, err := recv.(json.Marshaler).MarshalJSON()
 			return appendV2Raw(ctx, held.Type(), b, raw, err)
 		case methodAppendText:
-			return appendMethodText(ctx, b, held.Type(), "AppendText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+			return appendMethodText(ctx, b, held.Type(), errors.MethodAppendText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
 				return recv.(textAppender).AppendText(dst)
 			})
 		}
-		return appendMethodText(ctx, b, held.Type(), "MarshalText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+		return appendMethodText(ctx, b, held.Type(), errors.MethodMarshalText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
 			text, err := recv.(encoding.TextMarshaler).MarshalText()
 			return append(dst, text...), err
 		})
@@ -181,7 +181,7 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int, addressable bool) (
 				}
 				out, err := AppendRaw(ctx, b, raw)
 				if err != nil {
-					return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
+					return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodMarshalJSON}
 				}
 				return out, nil
 			}), true
@@ -209,12 +209,12 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int, addressable bool) (
 	case methodAppendText:
 		appendText := addrMethod[func(unsafe.Pointer, []byte) ([]byte, error)](typ, appendTextInterface)
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			return appendMethodText(ctx, b, typ, "AppendText method", p, appendText)
+			return appendMethodText(ctx, b, typ, errors.MethodAppendText, p, appendText)
 		}), true
 	case methodMarshalText:
 		marshalText := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalTextInterface)
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			return appendMethodText(ctx, b, typ, "MarshalText method", p, func(p unsafe.Pointer, dst []byte) ([]byte, error) {
+			return appendMethodText(ctx, b, typ, errors.MethodMarshalText, p, func(p unsafe.Pointer, dst []byte) ([]byte, error) {
 				text, err := marshalText(p)
 				return append(dst, text...), err
 			})
@@ -240,11 +240,11 @@ func appendV2Raw(ctx *RuntimeContext, typ reflect.Type, b, raw []byte, err error
 		return append(b, raw...), nil
 	}
 	if err != nil {
-		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, "MarshalJSON method"), Kind: errors.MethodJSON}
+		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, errors.MethodMarshalJSON), Kind: errors.MethodMarshalJSON}
 	}
 	out, err := AppendRaw(ctx, b, raw)
 	if err != nil {
-		return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
+		return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodMarshalJSON}
 	}
 	return out, nil
 }
@@ -393,27 +393,27 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	return out[:len(out)-1], nil // without the comma after the value, which the caller writes
 }
 
-// appendMethodText appends the text which appendText appends for the value at p, as a JSON string.
-func appendMethodText(ctx *RuntimeContext, b []byte, typ reflect.Type, what string, p unsafe.Pointer, appendText func(unsafe.Pointer, []byte) ([]byte, error)) ([]byte, error) {
+// appendMethodText appends the text which appendText, the method kind, appends for the value at p, as a JSON string.
+func appendMethodText(ctx *RuntimeContext, b []byte, typ reflect.Type, kind errors.MethodKind, p unsafe.Pointer, appendText func(unsafe.Pointer, []byte) ([]byte, error)) ([]byte, error) {
 	start := len(b)
 	text, err := appendText(p, ctx.MarshalBuf[:0])
 	if err != nil {
-		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, what), Kind: errors.MethodText}
+		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, kind), Kind: kind}
 	}
 	ctx.MarshalBuf = text[:0]
 	out, err := appendName(ctx, b, *(*string)(unsafe.Pointer(&text)))
 	if err != nil {
 		// invalid UTF-8, of the string at the place of the value.
-		return b[:start], &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodText}
+		return b[:start], &errors.MethodError{GoType: typ, Err: err, Kind: kind}
 	}
 	return out, nil
 }
 
-// unsupportedError returns the error of a method or a function, which must not report errors.ErrUnsupported:
-// only MarshalJSONTo and the functions of MarshalToFunc may.
-func unsupportedError(err error, what string) error {
+// unsupportedError returns the error of the method kind, which must not report errors.ErrUnsupported: only
+// MarshalJSONTo and the functions of MarshalToFunc may.
+func unsupportedError(err error, kind errors.MethodKind) error {
 	if stderrors.Is(err, stderrors.ErrUnsupported) {
-		return stderrors.New(what + " may not return errors.ErrUnsupported")
+		return stderrors.New(kind.String() + " method may not return errors.ErrUnsupported")
 	}
 	return err
 }

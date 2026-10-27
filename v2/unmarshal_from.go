@@ -184,7 +184,7 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 		}
 		err = errUnsupportedMutation
 	}
-	if _, ok := err.(*jsontext.SyntacticError); ok || textcoder.IsReadError(err) {
+	if _, ok := err.(*jsontext.SyntacticError); ok || textcoder.IsIOError(err) {
 		// a syntax error and an error of the reader, which are not wrapped, as encoding/json/v2 doesn't wrap them
 		return 0, err
 	}

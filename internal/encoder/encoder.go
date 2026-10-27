@@ -279,9 +279,10 @@ func errCycle(ctx *RuntimeContext, typ reflect.Type, p unsafe.Pointer) error {
 	}
 }
 
-// ErrUnsupportedFloat returns the error of a float which is not finite, the value of the opcode.
+// ErrUnsupportedFloat returns the error of a float which is not finite, the value of the opcode: of encoding/json, with
+// the float, for v1 and for ReportErrorsWithLegacySemantics.
 func ErrUnsupportedFloat(ctx *RuntimeContext, code *Opcode, v float64) error {
-	if ctx.Option.Flag&V2Option != 0 {
+	if ctx.Option.Flag&(V2Option|ReportErrorsLegacyOption) == V2Option {
 		return &errors.SemanticError{GoType: runtime.TypeOfPtr(code.Type), Err: fmt.Errorf("unsupported value: %v", v)}
 	}
 	// the value is of the type of the float, which pointers may lead to, as encoding/json gives it

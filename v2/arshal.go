@@ -278,6 +278,10 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 	restore := textcoder.Configure(out, cfg)
 	if err = out.WriteValue(buf); err != nil {
 		textcoder.Fail(out, err)
+		if st.cfg.Has(options.ReportErrorsWithLegacySemantics) && textcoder.IsIOError(err) {
+			// the error of the writer as it is, as encoding/json reports it
+			err = errors.Unwrap(err)
+		}
 	}
 	restore()
 	releaseCallState(st)

@@ -92,19 +92,33 @@ type MethodError struct {
 	Where int8
 }
 
-// MethodKind is the kind of the method or function which returned a MethodError.
+// MethodKind is the method or the function which returned a MethodError, which encoding/json names in a
+// MarshalerError by its String. The place of a SemanticError which it returns, for encoding/json/v2, is within the
+// value it returns, after the place of the call, for MarshalJSON and a function of MarshalFunc; the error is reported
+// as it is for MarshalText and AppendText; and it is given the place of the output where it stopped, if it has none,
+// for MarshalJSONTo and a function of MarshalToFunc, which write to the encoder.
 type MethodKind uint8
 
 const (
-	// MethodJSON is MarshalJSON or a function of MarshalFunc: the place of a SemanticError it returns is within
-	// the value it returns, after the place of the call.
-	MethodJSON MethodKind = iota
-	// MethodText is MarshalText or AppendText: a SemanticError it returns is reported as it is.
-	MethodText
-	// MethodJSONTo is MarshalJSONTo or a function of MarshalToFunc, which writes to the encoder: a SemanticError
-	// it returns is given the place of the output where it stopped, if it has none.
-	MethodJSONTo
+	MethodMarshalJSON MethodKind = iota
+	MethodMarshalFunc
+	MethodMarshalText
+	MethodAppendText
+	MethodMarshalJSONTo
+	MethodMarshalToFunc
 )
+
+// methodNames are the names of the kinds of MethodKind, as encoding/json names them in a MarshalerError.
+var methodNames = [...]string{
+	MethodMarshalJSON:   "MarshalJSON",
+	MethodMarshalFunc:   "MarshalFunc",
+	MethodMarshalText:   "MarshalText",
+	MethodAppendText:    "AppendText",
+	MethodMarshalJSONTo: "MarshalJSONTo",
+	MethodMarshalToFunc: "MarshalToFunc",
+}
+
+func (k MethodKind) String() string { return methodNames[k] }
 
 func (e *MethodError) Error() string {
 	return (&SemanticError{GoType: e.GoType, Err: e.Err}).Error()

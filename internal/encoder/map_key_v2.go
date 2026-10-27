@@ -154,11 +154,11 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 	case methodMarshalJSON:
 		raw, err := v.Addr().Interface().(json.Marshaler).MarshalJSON()
 		if err != nil {
-			return b, &errors.MethodError{GoType: t, Err: unsupportedError(err, "MarshalJSON method"), Kind: errors.MethodJSON}
+			return b, &errors.MethodError{GoType: t, Err: unsupportedError(err, errors.MethodMarshalJSON), Kind: errors.MethodMarshalJSON}
 		}
 		out, err := AppendRaw(ctx, b, raw)
 		if err != nil {
-			return b, &errors.MethodError{GoType: t, Err: err, Kind: errors.MethodJSON}
+			return b, &errors.MethodError{GoType: t, Err: err, Kind: errors.MethodMarshalJSON}
 		}
 		if out[len(b)] != '"' {
 			return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: t}
@@ -166,12 +166,12 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		return out, nil
 	case methodAppendText:
 		m := v.Addr().Interface().(textAppender)
-		return appendMethodText(ctx, b, t, "AppendText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+		return appendMethodText(ctx, b, t, errors.MethodAppendText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
 			return m.AppendText(dst)
 		})
 	case methodMarshalText:
 		m := v.Addr().Interface().(encoding.TextMarshaler)
-		return appendMethodText(ctx, b, t, "MarshalText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+		return appendMethodText(ctx, b, t, errors.MethodMarshalText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
 			text, err := m.MarshalText()
 			return append(dst, text...), err
 		})
@@ -199,6 +199,10 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 	case reflect.Float32, reflect.Float64:
 		f := v.Float()
 		if math.IsNaN(f) || math.IsInf(f, 0) {
+			if ctx.Option.Flag&ReportErrorsLegacyOption != 0 {
+				// the error of encoding/json, with the float
+				return b, &errors.UnsupportedValueError{Value: v, Str: strconv.FormatFloat(f, 'g', -1, 64)}
+			}
 			return b, &errors.SemanticError{GoType: t, Err: errUnsupportedValue(f)}
 		}
 		bits := 64
@@ -274,12 +278,12 @@ func appendNilTextKey(ctx *RuntimeContext, b []byte, v reflect.Value) ([]byte, b
 		return b, false, nil
 	}
 	if m == methodAppendText {
-		out, err := appendMethodText(ctx, b, held, "AppendText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+		out, err := appendMethodText(ctx, b, held, errors.MethodAppendText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
 			return recv.(textAppender).AppendText(dst)
 		})
 		return out, true, err
 	}
-	out, err := appendMethodText(ctx, b, held, "MarshalText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+	out, err := appendMethodText(ctx, b, held, errors.MethodMarshalText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
 		text, err := recv.(encoding.TextMarshaler).MarshalText()
 		return append(dst, text...), err
 	})

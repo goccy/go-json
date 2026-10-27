@@ -9,7 +9,9 @@ import (
 	stdjson "encoding/json/v2"
 	"errors"
 	"fmt"
+	"math"
 	"net"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1024,6 +1026,239 @@ func TestStringOptionOfNoRepresentationMatchesStd(t *testing.T) {
 					t.Errorf("Unmarshal %s into %T stringify %v: %s | std %s", in, newOut(), stringify, g, w)
 				}
 			}
+		}
+	}
+}
+
+// describeLegacyError describes err, an error of encoding/json of the root package or of the standard library, by
+// its type and its fields, to compare the errors of the two: the cause of a MarshalerError is described too. A text of
+// encoding/json/v2, which words its SemanticError by a modal verb it chooses at random once per process, is described
+// by one of them.
+func describeLegacyError(err error) string {
+	switch e := err.(type) {
+	case nil:
+		return "<nil>"
+	case *gojson.UnsupportedTypeError:
+		return "UnsupportedTypeError " + e.Type.String()
+	case *stdjsonv1.UnsupportedTypeError:
+		return "UnsupportedTypeError " + e.Type.String()
+	case *gojson.UnsupportedValueError:
+		return "UnsupportedValueError " + e.Str + " " + describeLegacyValue(e.Value)
+	case *stdjsonv1.UnsupportedValueError:
+		return "UnsupportedValueError " + e.Str + " " + describeLegacyValue(e.Value)
+	case *gojson.MarshalerError:
+		return "MarshalerError " + e.Type.String() + " " + legacyText(e.Error()) + " of " + describeLegacyError(e.Err)
+	case *stdjsonv1.MarshalerError:
+		return "MarshalerError " + e.Type.String() + " " + legacyText(e.Error()) + " of " + describeLegacyError(e.Err)
+	case *gojson.SyntaxError:
+		return fmt.Sprintf("SyntaxError %d %s", e.Offset, e.Error())
+	case *stdjsonv1.SyntaxError:
+		return fmt.Sprintf("SyntaxError %d %s", e.Offset, e.Error())
+	case *json.SemanticError, *stdjson.SemanticError:
+		return "SemanticError " + legacyText(err.Error())
+	}
+	return fmt.Sprintf("%T %v", err, err)
+}
+
+// legacyText is the text of an error, with the modal verb which encoding/json/v2 chooses at random as "cannot".
+func legacyText(s string) string {
+	return strings.ReplaceAll(s, "unable to", "cannot")
+}
+
+// describeLegacyValue describes the Value of an UnsupportedValueError.
+func describeLegacyValue(v reflect.Value) string {
+	if !v.IsValid() {
+		return "no value"
+	}
+	return fmt.Sprintf("%v %v", v.Type(), v.Interface())
+}
+
+// reportErrJSON, reportErrText and reportErrAppend are types whose methods of marshaling fail, of value receivers.
+type reportErrJSON struct{ X int }
+
+func (reportErrJSON) MarshalJSON() ([]byte, error) { return nil, errors.New("json failed") }
+
+type reportErrText struct{ X int }
+
+func (reportErrText) MarshalText() ([]byte, error) { return nil, errors.New("text failed") }
+
+type reportErrAppend struct{ X int }
+
+func (reportErrAppend) AppendText([]byte) ([]byte, error) { return nil, errors.New("append failed") }
+
+// reportBadJSON is a type whose MarshalJSON writes no valid JSON.
+type reportBadJSON struct{ X int }
+
+func (reportBadJSON) MarshalJSON() ([]byte, error) { return []byte(`{x`), nil }
+
+// reportWrapJSON is a type whose MarshalJSON fails by marshaling a reportPtrErrJSON: its error is a MarshalerError,
+// which encoding/json wraps in another one.
+type reportWrapJSON struct{ X int }
+
+func (reportWrapJSON) MarshalJSON() ([]byte, error) { return gojson.Marshal(&reportPtrErrJSON{}) }
+
+// reportStdWrapJSON is reportWrapJSON for encoding/json.
+type reportStdWrapJSON struct{ X int }
+
+func (reportStdWrapJSON) MarshalJSON() ([]byte, error) { return stdjsonv1.Marshal(&reportPtrErrJSON{}) }
+
+// reportPtrErrJSON is a type whose MarshalJSON fails, of a pointer receiver.
+type reportPtrErrJSON struct{ X int }
+
+func (*reportPtrErrJSON) MarshalJSON() ([]byte, error) { return nil, errors.New("pointer json failed") }
+
+// reportConstKey is a type whose MarshalText names every key of a map alike.
+type reportConstKey int
+
+func (reportConstKey) MarshalText() ([]byte, error) { return []byte("k"), nil }
+
+// reportErrTo is a type whose MarshalJSONTo fails, and reportStdErrTo the one for encoding/json.
+type reportErrTo struct{ X int }
+
+func (reportErrTo) MarshalJSONTo(*jsontext.Encoder) error { return errors.New("to failed") }
+
+type reportStdErrTo struct{ X int }
+
+func (reportStdErrTo) MarshalJSONTo(*stdjsontext.Encoder) error { return errors.New("to failed") }
+
+// reportNestedTo is a type whose MarshalJSONTo marshals a channel by MarshalEncode, and reportStdNestedTo the one for
+// encoding/json: the error of the inner call, of encoding/json, is wrapped by the one of the method.
+type reportNestedTo struct{ X int }
+
+func (reportNestedTo) MarshalJSONTo(enc *jsontext.Encoder) error { return json.MarshalEncode(enc, make(chan int)) }
+
+type reportStdNestedTo struct{ X int }
+
+func (reportStdNestedTo) MarshalJSONTo(enc *stdjsontext.Encoder) error {
+	return stdjson.MarshalEncode(enc, make(chan int))
+}
+
+// reportNode is a struct of a pointer to itself, whose cycle is an error.
+type reportNode struct{ Next *reportNode }
+
+// reportFloat is a named float.
+type reportFloat float64
+
+// reportStringTags has fields of the `string` option of types which it doesn't apply to.
+type reportStringTags struct {
+	B  bool           `json:",string"`
+	S  string         `json:",string"`
+	Y  []byte         `json:",string"`
+	M  map[string]int `json:",string"`
+	L  []int          `json:",string"`
+	A  [1]int         `json:",string"`
+	I  any            `json:",string"`
+	J  any            `json:",string"`
+	PP **int          `json:",string"`
+	PB *bool          `json:",string"`
+	T  time.Time      `json:",string"`
+	St struct{ X int } `json:",string"`
+}
+
+// reportStructErrors are structs whose definitions are errors of encoding/json/v2, which encoding/json ignores.
+type (
+	reportConflict struct {
+		A int `json:"x"`
+		B int `json:"x"`
+		C int
+	}
+	reportMalformed struct {
+		A int `json:"a,omitempty,"`
+		B int
+	}
+	reportUnexportedTag struct {
+		a int `json:"a"` //nolint:unused // a field of a tag, which encoding/json/v2 rejects
+		B int
+	}
+)
+
+// legacyReportValues are the values of the errors of marshaling with ReportErrorsWithLegacySemantics.
+func legacyReportValues() []any {
+	n := &reportNode{}
+	n.Next = n
+	m := map[string]any{}
+	m["a"] = m
+	sl := []any{nil}
+	sl[0] = sl
+	pp := new(*int)
+	return []any{
+		struct{ C chan int }{}, []any{make(chan int)}, complex(1, 2), map[string]func(){"a": nil},
+		math.NaN(), math.Inf(1), struct{ F float32 }{float32(math.Inf(-1))}, reportFloat(math.NaN()),
+		map[float64]int{math.Inf(1): 1}, map[any]int{math.Inf(-1): 1}, n, m, sl, time.Duration(5), struct{ D time.Duration }{3},
+		reportConflict{}, reportMalformed{A: 1, B: 2}, reportUnexportedTag{B: 1},
+		reportStringTags{I: 1, J: true, PP: pp, PB: new(bool)},
+		reportErrJSON{}, &reportErrJSON{}, reportErrText{}, reportErrAppend{}, reportBadJSON{}, reportPtrErrJSON{},
+		&reportPtrErrJSON{}, []reportPtrErrJSON{{}}, map[reportErrText]int{{}: 1}, map[string]reportErrText{"a": {}},
+		time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC),
+		"\xff", map[string]int{"\xff": 1}, map[[2]int]int{{1, 2}: 1}, map[struct{ A int }]int{{1}: 1},
+	}
+}
+
+// With ReportErrorsWithLegacySemantics, Marshal, MarshalWrite and MarshalEncode report the errors of encoding/json, as
+// encoding/json/v2 reports them with the option of encoding/json, and write what it writes.
+func TestMarshalReportErrorsMatchesStd(t *testing.T) {
+	type pair struct {
+		name         string
+		ours, theirs any
+	}
+	var pairs []pair
+	for i, v := range legacyReportValues() {
+		pairs = append(pairs, pair{fmt.Sprintf("%d:%T", i, v), v, v})
+	}
+	pairs = append(pairs, pair{"wrapped", reportWrapJSON{}, reportStdWrapJSON{}}, pair{"to", reportErrTo{}, reportStdErrTo{}},
+		pair{"nested", reportNestedTo{}, reportStdNestedTo{}}, pair{"nested in a slice", []reportNestedTo{{}}, []reportStdNestedTo{{}}})
+	for _, set := range []legacySet{reportErrorsLegacy, reportErrorsLegacy | stringifyLegacy, reportErrorsLegacy | callMethodsLegacy, allLegacy} {
+		for _, p := range pairs {
+			// the types of encoding/json of a pair are named as the ones of the root package
+			describeStd := func(err error) string {
+				return strings.ReplaceAll(describeLegacyError(err), "reportStd", "report")
+			}
+			want, wantErr := stdjson.Marshal(p.theirs, set.std()...)
+			got, err := json.Marshal(p.ours, set.ours()...)
+			if g, w := describeLegacyError(err), describeStd(wantErr); g != w || err == nil && string(got) != string(want) {
+				t.Errorf("%s, options %b: Marshal:\n got %s %s\nwant %s %s", p.name, set, got, g, want, w)
+				continue
+			}
+			var written strings.Builder
+			if err := json.MarshalWrite(&written, p.ours, set.ours()...); describeLegacyError(err) != describeStd(wantErr) {
+				t.Errorf("%s, options %b: MarshalWrite: got %s, want %s", p.name, set, describeLegacyError(err), describeStd(wantErr))
+			}
+			enc := jsontext.NewEncoder(new(strings.Builder))
+			stdEnc := stdjsontext.NewEncoder(new(strings.Builder))
+			err = json.MarshalEncode(enc, p.ours, set.ours()...)
+			stdErr := stdjson.MarshalEncode(stdEnc, p.theirs, set.std()...)
+			if describeLegacyError(err) != describeStd(stdErr) {
+				t.Errorf("%s, options %b: MarshalEncode: got %s, want %s", p.name, set, describeLegacyError(err), describeStd(stdErr))
+			}
+		}
+	}
+}
+
+// With ReportErrorsWithLegacySemantics, the errors of the functions of marshaling are MarshalerErrors of the pointers to
+// the values, of the names of the functions.
+func TestMarshalReportErrorsOfFuncsMatchesStd(t *testing.T) {
+	legacy, stdLegacy := gojson.ReportErrorsWithLegacySemantics(true), stdjsonv1.ReportErrorsWithLegacySemantics(true)
+	for _, c := range []struct {
+		name    string
+		v       any
+		opts    json.Options
+		stdOpts stdjson.Options
+	}{
+		{"func", reportErrJSON{X: 1}, json.WithMarshalers(json.MarshalFunc(func(reportErrJSON) ([]byte, error) { return nil, errors.New("f") })),
+			stdjson.WithMarshalers(stdjson.MarshalFunc(func(reportErrJSON) ([]byte, error) { return nil, errors.New("f") }))},
+		{"func of bad JSON", 1, json.WithMarshalers(json.MarshalFunc(func(int) ([]byte, error) { return []byte(`[`), nil })),
+			stdjson.WithMarshalers(stdjson.MarshalFunc(func(int) ([]byte, error) { return []byte(`[`), nil }))},
+		{"func of an interface", []any{reportErrJSON{}}, json.WithMarshalers(json.MarshalFunc(func(stdjsonv1.Marshaler) ([]byte, error) { return nil, errors.New("i") })),
+			stdjson.WithMarshalers(stdjson.MarshalFunc(func(stdjsonv1.Marshaler) ([]byte, error) { return nil, errors.New("i") }))},
+		{"to func", 1, json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, int) error { return errors.New("t") })),
+			stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, int) error { return errors.New("t") }))},
+		{"to func of an interface", []any{reportErrJSON{}}, json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, stdjsonv1.Marshaler) error { return errors.New("ti") })),
+			stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, stdjsonv1.Marshaler) error { return errors.New("ti") }))},
+	} {
+		_, err := json.Marshal(c.v, legacy, c.opts)
+		_, stdErr := stdjson.Marshal(c.v, stdLegacy, c.stdOpts)
+		if g, w := describeLegacyError(err), describeLegacyError(stdErr); g != w {
+			t.Errorf("%s:\n got %s\nwant %s", c.name, g, w)
 		}
 	}
 }

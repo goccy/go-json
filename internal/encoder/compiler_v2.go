@@ -33,13 +33,15 @@ var (
 
 // appendTime appends the time.Time at p in RFC 3339 with nanosecond precision, which can't represent a year
 // before 0 or after 9999, nor a time zone of 24 hours or more.
+// Its error is the one of MarshalJSON, as encoding/json reports it with ReportErrorsWithLegacySemantics, which the v2
+// json package reports as the SemanticError of the time at its place otherwise.
 func appendTime(_ *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 	t := (*time.Time)(p)
 	if year := t.Year(); year < 0 || year > 9999 {
-		return b, &ierrors.SemanticError{GoType: timeTimeType, Err: errYearRange}
+		return b, &ierrors.MethodError{GoType: timeTimeType, Err: errYearRange, Kind: ierrors.MethodMarshalJSON}
 	}
 	if _, offset := t.Zone(); offset <= -24*60*60 || offset >= 24*60*60 {
-		return b, &ierrors.SemanticError{GoType: timeTimeType, Err: errTimezoneRange}
+		return b, &ierrors.MethodError{GoType: timeTimeType, Err: errTimezoneRange, Kind: ierrors.MethodMarshalJSON}
 	}
 	b = append(b, '"')
 	b = t.AppendFormat(b, time.RFC3339Nano)
@@ -62,7 +64,7 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		return nil, false
 	case c.stringTag:
 		// the value of the option, whose code is the one of a field of the option
-		if code := c.stringTagCode(typ, addressable); code != nil {
+		if code, _ := c.stringTagCode(typ, addressable); code != nil {
 			return code, true
 		}
 	}
@@ -92,7 +94,9 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 			return c.appendFuncCode(typ, appendLegacyInterface(typ, m)), true
 		}
 	case reflect.Struct:
-		if fields := v2FieldsOf(typ); fields.Err != nil {
+		if fields := v2FieldsOf(typ); fields.Err != nil && c.legacy&modeReportErrorsLegacy == 0 {
+			// with ReportErrorsWithLegacySemantics, the members which jsonfields found are written, as encoding/json
+			// writes them
 			return c.appendFuncCode(typ, appendError(fields.Err.GoType, fields.Err.Err)), true
 		} else if fields.FormatErr != nil {
 			return c.appendFuncCode(typ, appendError(fields.FormatErr.GoType, fields.FormatErr.Err)), true
@@ -321,7 +325,12 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode, addressable bool) (C
 	if !tag.IsString {
 		return nil, false
 	}
-	code := c.stringTagCode(field.typ, addressable)
+	code, applies := c.stringTagCode(field.typ, addressable)
+	if !applies {
+		// the option is dropped, as encoding/json drops it with ReportErrorsWithLegacySemantics
+		tag.IsString = false
+		return nil, false
+	}
 	if code == nil {
 		return nil, false // a number, which is written in a string
 	}
@@ -332,32 +341,38 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode, addressable bool) (C
 // stringTagCode returns the code of a value of typ of the `string` option, addressable or not, as encoding/json/v2
 // writes it: nil for a number, after the pointers to it, whose nil is null, which is written in a string, and for a
 // value which a method or a function writes in the compile mode of the option, whose options they are given ( see
-// appendStringTag ); the error of the option for a value of another kind.
+// appendStringTag ); the error of the option for a value of another kind. It reports false if the option doesn't
+// apply, which the value is written without.
 //
 // With StringifyWithLegacySemantics, the option applies to a bool, whose JSON value is written in a string, and to a
 // string, whose JSON string is, through one pointer only: a pointer to a pointer is the error of the option.
-func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) Code {
+//
+// With ReportErrorsWithLegacySemantics, a value of another kind is not an error: the option doesn't apply to it, as
+// encoding/json writes it, but to the value which an interface value holds, without StringifyWithLegacySemantics.
+func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) (Code, bool) {
 	elem := typ
 	ptrNum := 0
 	for elem.Kind() == reflect.Ptr && !c.v2HasMethod(elem) {
 		elem = elem.Elem()
 		ptrNum++
 	}
-	stringify := c.legacy&modeStringifyLegacy != 0
+	stringify, reportErrors := c.legacy&modeStringifyLegacy != 0, c.legacy&modeReportErrorsLegacy != 0
 	// the value which a pointer points to is addressable
 	addressable = addressable || ptrNum > 0
 	var code Code
 	switch {
+	case stringify && ptrNum > 1 && reportErrors:
+		return nil, false
 	case stringify && ptrNum > 1:
-		return c.appendFuncCode(typ, appendError(typ, errInvalidStringTag))
+		return c.appendFuncCode(typ, appendError(typ, errInvalidStringTag)), true
 	case c.v2HasMethodAt(elem, addressable) && elem != timeTimeType:
 		if c.stringTag {
-			return nil
+			return nil, true
 		}
 		code = c.appendFuncCode(elem, appendStringTag(elem, addressable))
 	case isNumberKind(elem.Kind()) && (elem != timeDurationType || c.legacy&modeDurationAsNano != 0) ||
 		elem == jsonNumberType:
-		return nil
+		return nil, true
 	case elem == timeDurationType:
 		code = c.appendFuncCode(elem, appendError(elem, errNoDuration))
 	case stringify && elem.Kind() == reflect.Bool:
@@ -367,13 +382,22 @@ func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) Code {
 	case hasNoRepresentation(elem.Kind()):
 		// the error of the type, which has no representation whatever its options are
 		code = c.appendFuncCode(elem, appendError(elem, nil))
+	case reportErrors && elem.Kind() == reflect.Interface && !stringify:
+		// the option of the value it holds, as the one of a value which a method writes: the code of the interface
+		// in the compile mode of the option writes it
+		if c.stringTag {
+			return nil, true
+		}
+		code = c.appendFuncCode(elem, appendStringTag(elem, addressable))
+	case reportErrors:
+		return nil, false
 	default:
 		code = c.appendFuncCode(elem, appendError(elem, errInvalidStringTag))
 	}
 	if ptrNum > 0 {
 		code = &PtrCode{typ: typ, value: code, ptrNum: uint8(ptrNum)}
 	}
-	return code
+	return code, true
 }
 
 // appendStringifiedBool appends the bool at p in a JSON string, as the `string` option writes it with

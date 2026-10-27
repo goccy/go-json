@@ -375,7 +375,11 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 	st.calling = false
 	textcoder.Detach(unsafe.Pointer(&st.enc), pl)
 	if err != nil || pl.Depth != depth || pl.Count != count+1 || pl.Failed != nil {
-		return methodFailed(st, b, typ, err, depth, count, skip, hidden)
+		kind := ierrors.MethodMarshalToFunc
+		if m != nil {
+			kind = ierrors.MethodMarshalJSONTo
+		}
+		return methodFailed(st, b, typ, kind, err, depth, count, skip, hidden)
 	}
 	written := pl.Out
 	if skip > 0 && len(written) >= skip {
@@ -390,7 +394,7 @@ func marshalTo(ctx *encoder.RuntimeContext, b []byte, typ reflect.Type, m Marsha
 // fails with if the method returned none: a method can't hide the failure of a value it writes. b is the output
 // before the method, which ends with hidden bytes the method didn't see ( see marshalTo ). It is a function, not a
 // method: a method of callState changes its method table, which moved data the encodings read and made them slower.
-func methodFailed(st *callState, b []byte, typ reflect.Type, err error, depth int, count int64, skip, hidden int) ([]byte, error) {
+func methodFailed(st *callState, b []byte, typ reflect.Type, kind ierrors.MethodKind, err error, depth int, count int64, skip, hidden int) ([]byte, error) {
 	pl := &st.place
 	written, newDepth, newCount := pl.Out, pl.Depth, pl.Count
 	if skip > 0 && len(written) >= skip {
@@ -416,7 +420,7 @@ func methodFailed(st *callState, b []byte, typ reflect.Type, err error, depth in
 		first := len(b) - hidden
 		written = written[:first+copy(written[first:], written[len(b):])]
 	}
-	return b, &ierrors.MethodError{GoType: typ, Err: err, Kind: ierrors.MethodJSONTo, Out: written,
+	return b, &ierrors.MethodError{GoType: typ, Err: err, Kind: kind, Out: written,
 		Where: whereOf(depth, count, newDepth, newCount)}
 }
 

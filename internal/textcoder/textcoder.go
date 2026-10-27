@@ -223,11 +223,11 @@ var UnmarshalPlaceAt func(p *DecoderAttachment, stop int64, read Read) (string, 
 // the top-level value, as jsontext reports it.
 var AfterTopLevelError func(in []byte, base int64, opts *options.Config) error
 
-// ReadError returns err, the error of a reader of the input, as jsontext reports it, and IsReadError reports
-// whether err is such an error, which a method passes on as it is.
+// ReadError returns err, the error of a reader of the input, as jsontext reports it, and IsIOError reports whether
+// err is the error of a reader or of a writer, which a method passes on as it is.
 var (
-	ReadError   func(err error) error
-	IsReadError func(err error) bool
+	ReadError func(err error) error
+	IsIOError func(err error) bool
 )
 
 // A skipper is a scanner of jsontext which reads the values that a call of the v2 json package skips, by the options

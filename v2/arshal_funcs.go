@@ -65,11 +65,11 @@ func MarshalFunc[T any](fn func(T) ([]byte, error)) *Marshalers {
 			raw, err := fn(castTo[T](p, from))
 			if err != nil {
 				err = wrapErrUnsupported(err, "marshal function of type func(T) ([]byte, error)")
-				return b, &ierrors.MethodError{GoType: t, Err: err, Kind: ierrors.MethodJSON}
+				return b, &ierrors.MethodError{GoType: funcErrorType(ctx, t, from), Err: err, Kind: ierrors.MethodMarshalFunc}
 			}
 			out, err := encoder.AppendRaw(ctx, b, raw)
 			if err != nil {
-				return b, &ierrors.MethodError{GoType: t, Err: err, Kind: ierrors.MethodJSON}
+				return b, &ierrors.MethodError{GoType: funcErrorType(ctx, t, from), Err: err, Kind: ierrors.MethodMarshalFunc}
 			}
 			return out, nil
 		},
@@ -89,11 +89,21 @@ func MarshalToFunc[T any](fn func(*jsontext.Encoder, T) error) *Marshalers {
 	return marshalersOf(encoder.MarshalFunc{
 		Type: t,
 		Append: func(ctx *encoder.RuntimeContext, b []byte, p unsafe.Pointer, from reflect.Type) ([]byte, error) {
-			return marshalTo(ctx, b, t, nil, func(enc *jsontext.Encoder) error {
+			return marshalTo(ctx, b, funcErrorType(ctx, t, from), nil, func(enc *jsontext.Encoder) error {
 				return fn(enc, castTo[T](p, from))
 			})
 		},
 	})
+}
+
+// funcErrorType returns the type of the error of a function of marshaling of the type t, which is given a value of the
+// type from: t, as encoding/json/v2 reports it, or from, of which encoding/json reports the pointer with
+// ReportErrorsWithLegacySemantics ( see legacyMarshalError ).
+func funcErrorType(ctx *encoder.RuntimeContext, t, from reflect.Type) reflect.Type {
+	if ctx.Option.Flag&encoder.ReportErrorsLegacyOption != 0 {
+		return from
+	}
+	return t
 }
 
 func marshalersOf(f encoder.MarshalFunc) *Marshalers {

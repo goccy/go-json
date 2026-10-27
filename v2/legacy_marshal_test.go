@@ -3,6 +3,7 @@ package json_test
 import (
 	"encoding"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -229,6 +230,89 @@ func TestMarshalCallMethodsWithLegacySemantics(t *testing.T) {
 		{"map of pointer elements", []*legacyLitPtrMap{{"k": 1}}, legacy, `["map"]`},
 		{"recursive slice", legacyLitRecSlice{legacyLitRecSlice{}, nil}, legacy, `["r","r"]`},
 		{"recursive slice by default", legacyLitRecSlice{legacyLitRecSlice{}, nil}, nil, `"r"`},
+	})
+}
+
+// legacyLitFailingText is a struct whose MarshalText fails, of a value receiver.
+type legacyLitFailingText struct{ X int }
+
+func (legacyLitFailingText) MarshalText() ([]byte, error) { return nil, errors.New("text failed") }
+
+// legacyLitConstKey is an int whose MarshalText names every key of a map alike.
+type legacyLitConstKey int
+
+func (legacyLitConstKey) MarshalText() ([]byte, error) { return []byte("k"), nil }
+
+// legacyLitFailingWriter is a writer which fails.
+type legacyLitFailingWriter struct{}
+
+var errLegacyLitWrite = errors.New("write failed")
+
+func (legacyLitFailingWriter) Write([]byte) (int, error) { return 0, errLegacyLitWrite }
+
+// With ReportErrorsWithLegacySemantics, the errors of marshaling are the ones of encoding/json, and the errors of the
+// definitions of structs and the `string` option of the values it doesn't apply to are not errors.
+func TestMarshalReportErrorsWithLegacySemantics(t *testing.T) {
+	legacy := gojson.ReportErrorsWithLegacySemantics(true)
+	marshal := func(v any) error {
+		_, err := json.Marshal(v, legacy)
+		return err
+	}
+	var typeErr *gojson.UnsupportedTypeError
+	if err := marshal(struct{ C chan int }{}); !errors.As(err, &typeErr) || typeErr.Type.String() != "chan int" {
+		t.Errorf("chan: got %v, want an UnsupportedTypeError of chan int", err)
+	}
+	var valueErr *gojson.UnsupportedValueError
+	if err := marshal(math.NaN()); !errors.As(err, &valueErr) || valueErr.Str != "NaN" || !math.IsNaN(valueErr.Value.Float()) {
+		t.Errorf("NaN: got %v, want an UnsupportedValueError of NaN", err)
+	}
+	for _, v := range []any{map[float64]int{math.Inf(-1): 1}, map[any]int{math.Inf(-1): 1}} {
+		if err := marshal(v); !errors.As(err, &valueErr) || valueErr.Str != "-Inf" || !math.IsInf(valueErr.Value.Float(), -1) {
+			t.Errorf("key of -Inf of %T: got %v, want an UnsupportedValueError of -Inf", v, err)
+		}
+	}
+	var marshalerErr *gojson.MarshalerError
+	if err := marshal([]any{legacyLitFailingText{}}); !errors.As(err, &marshalerErr) ||
+		marshalerErr.Type.String() != "*json_test.legacyLitFailingText" ||
+		!strings.Contains(err.Error(), "error calling MarshalText for type") {
+		t.Errorf("MarshalText: got %v, want a MarshalerError of MarshalText of the pointer", err)
+	}
+	var syntaxErr *gojson.SyntaxError
+	if err := marshal("\xff"); !errors.As(err, &syntaxErr) || syntaxErr.Offset != 1 {
+		t.Errorf("invalid UTF-8: got %v, want a SyntaxError after the string", err)
+	}
+	if err := marshal(map[legacyLitConstKey]int{1: 1, 2: 2}); !errors.As(err, &syntaxErr) {
+		t.Errorf("duplicate names of a method: got %v, want a SyntaxError", err)
+	}
+	if err := json.MarshalEncode(jsontext.NewEncoder(legacyLitFailingWriter{}), make([]int, 10000), legacy); err != errLegacyLitWrite {
+		t.Errorf("MarshalEncode to a failing writer: got %v, want its error", err)
+	}
+	if err := json.MarshalWrite(legacyLitFailingWriter{}, 1, legacy); err != errLegacyLitWrite {
+		t.Errorf("MarshalWrite to a failing writer: got %v, want its error", err)
+	}
+	runLegacyMarshalCases(t, []legacyMarshalCase{
+		{"conflicting names", struct {
+			A int `json:"x"`
+			B int `json:"x"`
+			C int
+		}{}, []json.Options{legacy}, `{"C":0}`},
+		{"conflicting names by default", struct {
+			A int `json:"x"`
+			B int `json:"x"`
+			C int
+		}{}, nil, ""},
+		{"string option of a bool", struct {
+			B bool `json:",string"`
+		}{}, []json.Options{legacy}, `{"B":false}`},
+		{"string option of an interface", struct {
+			I any `json:",string"`
+		}{1}, []json.Options{legacy}, `{"I":"1"}`},
+		{"string option of an interface with StringifyWithLegacySemantics", struct {
+			I any `json:",string"`
+		}{1}, []json.Options{legacy, gojson.StringifyWithLegacySemantics(true)}, `{"I":1}`},
+		{"string option of a bool by default", struct {
+			B bool `json:",string"`
+		}{}, nil, ""},
 	})
 }
 

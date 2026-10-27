@@ -17,7 +17,7 @@ type legacyUnmarshalCase struct {
 	in       string
 	opts     []json.Options
 	newValue func() any
-	// want is the value which the pointer newValue makes points to after the decoding, or nil for an error
+	// want is the value which the pointer made by newValue points to after the decoding, or nil for an error
 	want any
 }
 

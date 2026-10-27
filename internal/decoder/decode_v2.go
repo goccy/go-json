@@ -757,7 +757,9 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 				}
 				cursor = c
 			} else {
-				c, err := d.skipPast(ctx, cursor, depth)
+				// an element past the length is a value of the input, checked as the options of the call say, as
+				// the array fails at its end without UnmarshalArrayFromAnyLength
+				c, err := ctx.skipValueV2(cursor, depth)
 				if err != nil {
 					return 0, err
 				}
@@ -788,16 +790,6 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, Err: lengthErr}
 	}
 	return cursor + 1, nil
-}
-
-// skipPast skips the element at cursor past the length of the array. With UnmarshalArrayFromAnyLength, it is a
-// value of the input, which is checked as the options of the call say; without it, the array fails at its end,
-// whose error is placed by a read of the input token by token, which finds an error in the element first.
-func (d *v2ArrayDecoder) skipPast(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
-	if ctx.Option.V2&V2ArrayAnyLength != 0 {
-		return ctx.skipValueV2(cursor, depth)
-	}
-	return skipValue(ctx.Buf, cursor, depth)
 }
 
 func (d *v2ArrayDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

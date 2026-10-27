@@ -5,6 +5,7 @@ package json_test
 import (
 	stdjsonv1 "encoding/json"
 	stdjson "encoding/json/v2"
+	"strings"
 	"time"
 
 	gojson "github.com/goccy/go-json"
@@ -140,6 +141,24 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 		{name: "array empty", in: `[]`, out: outOf([2]int{7, 7}), opts: anyLength},
 		{name: "array longer with invalid UTF-8 past the length", in: "[1,2,\"\xff\"]", out: outOf([2]int{}), opts: anyLength},
 		{name: "array longer with a name twice past the length", in: `[1,2,{"a":1,"a":2}]`, out: outOf([2]int{}), opts: anyLength},
+		{name: "array longer with a name twice past the length without the option", in: `[1,2,{"a":1,"a":2}]`,
+			out: outOf([2]int{})},
+		{name: "array longer with a syntax error past the length without the option", in: `[1,2,{"a"}]`, out: outOf([2]int{})},
+		{name: "array longer with invalid UTF-8 in a long string past the length without the option",
+			in: `[1,2,"` + strings.Repeat("x", 600) + "\xff\"]", out: outOf([2]int{})},
+		{name: "array longer with a name twice past the length without the option of the text", in: `[1,2,{"a":1,"a":2}]`,
+			out: outOf([2]int{}), opts: unmarshalDiffOptions{allowInvalidUTF8: true}},
+		{name: "array longer with invalid UTF-8 past the length without the option of the text", in: "[1,2,\"\xff\"]",
+			out: outOf([2]int{}), opts: unmarshalDiffOptions{allowDuplicateNames: true}},
+		{name: "array longer with invalid UTF-8 past the length allowed", in: "[1,2,\"\xff\"]", out: outOf([2]int{}),
+			opts: unmarshalDiffOptions{legacy: arrayAnyLength, allowInvalidUTF8: true}},
+		{name: "array longer with a name twice past the length allowed", in: `[1,2,{"a":1,"a":2}]`, out: outOf([2]int{}),
+			opts: unmarshalDiffOptions{legacy: arrayAnyLength, allowDuplicateNames: true}},
+		{name: "array longer with a long string past the length", in: `[1,2,"` + strings.Repeat("x", 600) + `"]`, out: outOf([2]int{}), opts: anyLength},
+		{name: "array longer with invalid UTF-8 in a long string past the length", in: `[1,2,"` + strings.Repeat("x", 600) + "\xff\"]",
+			out: outOf([2]int{}), opts: anyLength},
+		{name: "array longer with invalid UTF-8 in a long string past the length allowed", in: `[1,2,"` + strings.Repeat("x", 600) + "\xff\"]",
+			out: outOf([2]int{}), opts: unmarshalDiffOptions{legacy: arrayAnyLength, allowInvalidUTF8: true}},
 		{name: "array longer with a syntax error past the length", in: `[1,2,{"a"}]`, out: outOf([2]int{}), opts: anyLength},
 		{name: "array longer of an error in the array", in: `[1,"x",3]`, out: outOf([2]int{}), opts: anyLength},
 		{name: "array of arrays longer", in: `[[1,2,3],[4]]`, out: outOf([2][2]int{}), opts: anyLength},

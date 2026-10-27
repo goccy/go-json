@@ -939,11 +939,13 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 	cursor = skipWhiteSpace(buf, cursor+1)
 	idx := 0
 	var lengthErr error
+	// an element is decoded into its zero value, but into the element with MergeWithLegacySemantics
+	zeroElems := ctx.Option.V2&V2MergeLegacy == 0
 	if buf[cursor] != ']' {
 		for {
 			if idx < d.alen {
 				ep := unsafe.Add(p, uintptr(idx)*d.elem.size)
-				if ctx.Option.V2&V2MergeLegacy == 0 {
+				if zeroElems {
 					d.elem.zero(ep)
 				}
 				c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
@@ -1133,7 +1135,7 @@ func (c *compiler) newV2InterfaceDecoder(typ reflect.Type) *v2InterfaceDecoder {
 func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
-	if ctx.Option.V2&V2MergeLegacy != 0 && (*[2]unsafe.Pointer)(p)[0] != nil {
+	if (*[2]unsafe.Pointer)(p)[0] != nil && ctx.Option.V2&V2MergeLegacy != 0 {
 		if !d.holdsPointer(p) {
 			*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
 		} else if buf[cursor] == 'n' && runtime.TypeOfPtr(heldType(p, d.empty)).Elem().Kind() == reflect.Pointer {

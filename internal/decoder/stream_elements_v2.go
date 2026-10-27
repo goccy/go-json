@@ -1498,6 +1498,8 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 		return err
 	}
 	var lengthErr error
+	// an element is decoded into its zero value, but into the element with MergeWithLegacySemantics
+	zeroElems := s.Option.V2&V2MergeLegacy == 0
 	for idx := 0; ; idx++ {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil {
@@ -1519,7 +1521,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 		}
 		if idx < d.alen {
 			ep := unsafe.Add(p, uintptr(idx)*d.elem.size)
-			if s.Option.V2&V2MergeLegacy == 0 {
+			if zeroElems {
 				d.elem.zero(ep)
 			}
 			err = s.decodeNestedV2(d.valueDecoder, ep, depth, step)
@@ -1541,7 +1543,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 // having read nothing, for a value which is read whole.
 func (s *Stream) decodeInterfaceElementsV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth, from int64) (bool, error) {
 	ctx := s.ctx
-	if s.Option.V2&V2MergeLegacy != 0 && (*[2]unsafe.Pointer)(p)[0] != nil && !d.holdsPointer(p) {
+	if (*[2]unsafe.Pointer)(p)[0] != nil && s.Option.V2&V2MergeLegacy != 0 && !d.holdsPointer(p) {
 		// MergeWithLegacySemantics decodes into a pointer which the interface value holds only
 		*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
 	}

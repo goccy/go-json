@@ -20,6 +20,11 @@
   encoding/json/v2 reports the type of the key ( `map[*[2]int]int`: `[2]int` for `*[2]int`;
   `map[any]int{[2]int{1, 2}: 1}`: `[2]int` for `interface {}`; recorded 2026-10-28, found in the
   review of `FormatByteArrayAsArray`, which makes `[N]byte` such a key too ).
+- v2 `Marshal` of a field of `omitempty` of a `[0]T`, whose value a function of `WithMarshalers` writes as a
+  value which is not empty: the field is always omitted, where encoding/json/v2 writes what the function writes
+  ( ``struct{ A [0]int `json:",omitempty"` }`` with a function which writes `1`: `{}` against `{"A":1}`;
+  recorded 2026-10-28, found in the review of `OmitEmptyWithLegacySemantics`, under which the field is omitted
+  as encoding/json omits it ).
 - v2 `MarshalOf` drops its output on an error, so the error loses its place compared with
   `Marshal` (recorded 2026-10-08).
 - v2 `MarshalEncode` of a value which is not a string, where the encoder is at the name of a

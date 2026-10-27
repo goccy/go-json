@@ -15,6 +15,11 @@
   encoding/json/v2 sorts and writes them decoded (recorded 2026-10-11).
 - `Colorize` with a color format that contains `"` or `\` breaks the order of sorted map keys
   (recorded 2026-10-11).
+- v2 `Marshal` of a map whose key is not a name, behind a pointer or held by an interface:
+  the `GoType` of the `SemanticError` is the type of the value the key points to or holds, where
+  encoding/json/v2 reports the type of the key ( `map[*[2]int]int`: `[2]int` for `*[2]int`;
+  `map[any]int{[2]int{1, 2}: 1}`: `[2]int` for `interface {}`; recorded 2026-10-28, found in the
+  review of `FormatByteArrayAsArray`, which makes `[N]byte` such a key too ).
 - v2 `MarshalOf` drops its output on an error, so the error loses its place compared with
   `Marshal` (recorded 2026-10-08).
 - v2 `MarshalEncode` of a value which is not a string, where the encoder is at the name of a

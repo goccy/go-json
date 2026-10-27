@@ -56,3 +56,7 @@
   - a pointer which is set is set to nil where the decoding of the value it points to fails
     ( `1.5` into a `**int` whose `*int` is set, `{"P":1.5}` into `struct{ P *int }` whose `P` is
     set: go-json nil, encoding/json/v2 keeps the pointer ).
+  - a nil pointer to a type which has no representation is left nil where encoding/json/v2
+    allocates the value before it fails ( `{"P":1}` into `struct{ P *time.Duration }`: go-json
+    nil, encoding/json/v2 `&0`; recorded 2026-10-28, found in the review of
+    `FormatDurationAsNano` ).

@@ -198,8 +198,11 @@ func (d v2TimeDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	if err := t.UnmarshalText(text); err != nil {
 		return 0, &errors.UnmarshalError{GoType: timeType, Start: start, Err: err, Method: errors.UnmarshalTextMethod}
 	}
-	if err := strictRFC3339Error(text); err != nil {
-		return 0, &errors.UnmarshalError{GoType: timeType, Start: start, Err: err, Method: errors.UnmarshalTextMethod}
+	if ctx.Option.V2&V2LooseRFC3339 == 0 {
+		// what RFC 3339 doesn't allow, unless ParseTimeWithLooseRFC3339
+		if err := strictRFC3339Error(text); err != nil {
+			return 0, &errors.UnmarshalError{GoType: timeType, Start: start, Err: err, Method: errors.UnmarshalTextMethod}
+		}
 	}
 	*(*time.Time)(p) = t
 	return end, nil

@@ -39,26 +39,28 @@ type unmarshalDiffCase struct {
 type unmarshalDiffOptions struct {
 	stringifyNumbers, allowInvalidUTF8, allowDuplicateNames bool
 	matchCaseInsensitiveNames, rejectUnknownMembers         bool
+	// legacy are the options of encoding/json which are set ( see legacySet )
+	legacy legacySet
 }
 
 func (o unmarshalDiffOptions) ours() []json.Options {
-	return []json.Options{
+	return append([]json.Options{
 		json.StringifyNumbers(o.stringifyNumbers),
 		jsontext.AllowInvalidUTF8(o.allowInvalidUTF8),
 		jsontext.AllowDuplicateNames(o.allowDuplicateNames),
 		json.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
 		json.RejectUnknownMembers(o.rejectUnknownMembers),
-	}
+	}, o.legacy.ours()...)
 }
 
 func (o unmarshalDiffOptions) std() []stdjson.Options {
-	return []stdjson.Options{
+	return append([]stdjson.Options{
 		stdjson.StringifyNumbers(o.stringifyNumbers),
 		stdjsontext.AllowInvalidUTF8(o.allowInvalidUTF8),
 		stdjsontext.AllowDuplicateNames(o.allowDuplicateNames),
 		stdjson.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
 		stdjson.RejectUnknownMembers(o.rejectUnknownMembers),
-	}
+	}, o.legacy.std()...)
 }
 
 // outOf returns the function which makes a pointer to a new value of T set to v. v must refer to no memory, which
@@ -83,7 +85,7 @@ var (
 )
 
 func unmarshalDiffCases() []unmarshalDiffCase {
-	return []unmarshalDiffCase{
+	return append([]unmarshalDiffCase{
 		{name: "bool", in: `true`, out: outOf(false)},
 		{name: "bool null", in: `null`, out: outOf(true)},
 		{name: "bool string", in: `"true"`, out: outOf(true)},
@@ -317,7 +319,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "any duplicate before a nested syntax error allowed", in: `{"a":1,"a":[[1,]]}`, out: outOf[any](nil), opts: duplicates},
 		{name: "any duplicate overflow without the option", in: `{"a":"s","a":1e400}`, out: outOf[any](nil)},
 		{name: "any duplicates before an overflow", in: `{"a":1,"a":2,"b":1e400}`, out: outOf[any](nil)},
-	}
+	}, unmarshalDiffLegacyCases()...)
 }
 
 type unmarshalDiffStringer string

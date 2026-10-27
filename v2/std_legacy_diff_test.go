@@ -1,0 +1,114 @@
+//go:build go1.27 && goexperiment.jsonv2
+
+package json_test
+
+import (
+	stdjsonv1 "encoding/json"
+	stdjson "encoding/json/v2"
+	"time"
+
+	gojson "github.com/goccy/go-json"
+	json "github.com/goccy/go-json/v2"
+)
+
+// The options of encoding/json, of the root package and of encoding/json, given to the functions of both v2
+// packages in the differential tests.
+
+// legacySet is a set of the options of encoding/json, a bit of each in the order of legacyOptionPairs.
+type legacySet uint16
+
+const (
+	looseBase64 legacySet = 1 << iota
+	looseRFC3339
+	arrayAnyLength
+	caseSensitiveDelimiter
+	mergeLegacy
+	callMethodsLegacy
+	byteArrayAsArray
+	bytesLegacy
+	durationAsNano
+	reportErrorsLegacy
+	stringifyLegacy
+	omitEmptyLegacy
+
+	// allLegacy is every option, as DefaultOptionsV1 sets them.
+	allLegacy = omitEmptyLegacy<<1 - 1
+)
+
+// legacyOptionPairs are the options of the root package and of encoding/json, by the bits of legacySet.
+var legacyOptionPairs = [...]struct {
+	ours func(bool) json.Options
+	std  func(bool) stdjson.Options
+}{
+	{gojson.ParseBytesWithLooseRFC4648, stdjsonv1.ParseBytesWithLooseRFC4648},
+	{gojson.ParseTimeWithLooseRFC3339, stdjsonv1.ParseTimeWithLooseRFC3339},
+	{gojson.UnmarshalArrayFromAnyLength, stdjsonv1.UnmarshalArrayFromAnyLength},
+	{gojson.MatchCaseSensitiveDelimiter, stdjsonv1.MatchCaseSensitiveDelimiter},
+	{gojson.MergeWithLegacySemantics, stdjsonv1.MergeWithLegacySemantics},
+	{gojson.CallMethodsWithLegacySemantics, stdjsonv1.CallMethodsWithLegacySemantics},
+	{gojson.FormatByteArrayAsArray, stdjsonv1.FormatByteArrayAsArray},
+	{gojson.FormatBytesWithLegacySemantics, stdjsonv1.FormatBytesWithLegacySemantics},
+	{gojson.FormatDurationAsNano, stdjsonv1.FormatDurationAsNano},
+	{gojson.ReportErrorsWithLegacySemantics, stdjsonv1.ReportErrorsWithLegacySemantics},
+	{gojson.StringifyWithLegacySemantics, stdjsonv1.StringifyWithLegacySemantics},
+	{gojson.OmitEmptyWithLegacySemantics, stdjsonv1.OmitEmptyWithLegacySemantics},
+}
+
+// the bits of legacySet are the pairs
+const (
+	_ = uint(int(allLegacy+1) - 1<<len(legacyOptionPairs))
+	_ = uint(1<<len(legacyOptionPairs) - int(allLegacy+1))
+)
+
+func (l legacySet) ours() []json.Options {
+	var opts []json.Options
+	for i, p := range legacyOptionPairs {
+		if l&(1<<i) != 0 {
+			opts = append(opts, p.ours(true))
+		}
+	}
+	return opts
+}
+
+func (l legacySet) std() []stdjson.Options {
+	var opts []stdjson.Options
+	for i, p := range legacyOptionPairs {
+		if l&(1<<i) != 0 {
+			opts = append(opts, p.std(true))
+		}
+	}
+	return opts
+}
+
+// unmarshalDiffLegacyCases are the cases of the options of encoding/json.
+func unmarshalDiffLegacyCases() []unmarshalDiffCase {
+	anyLength := unmarshalDiffOptions{legacy: arrayAnyLength}
+	loose := unmarshalDiffOptions{legacy: looseBase64}
+	rfc := unmarshalDiffOptions{legacy: looseRFC3339}
+	return []unmarshalDiffCase{
+		// UnmarshalArrayFromAnyLength
+		{name: "array longer than the Go array", in: `[1,2,3]`, out: outOf([2]int{}), opts: anyLength},
+		{name: "array shorter than the Go array", in: `[1]`, out: outOf([3]int{7, 7, 7}), opts: anyLength},
+		{name: "array empty", in: `[]`, out: outOf([2]int{7, 7}), opts: anyLength},
+		{name: "array longer with invalid UTF-8 past the length", in: "[1,2,\"\xff\"]", out: outOf([2]int{}), opts: anyLength},
+		{name: "array longer with a name twice past the length", in: `[1,2,{"a":1,"a":2}]`, out: outOf([2]int{}), opts: anyLength},
+		{name: "array longer with a syntax error past the length", in: `[1,2,{"a"}]`, out: outOf([2]int{}), opts: anyLength},
+		{name: "array longer of an error in the array", in: `[1,"x",3]`, out: outOf([2]int{}), opts: anyLength},
+		{name: "array of arrays longer", in: `[[1,2,3],[4]]`, out: outOf([2][2]int{}), opts: anyLength},
+		{name: "bytes array longer than the Go array", in: `"AQID"`, out: outOf([2]byte{}), opts: anyLength},
+		{name: "bytes array shorter than the Go array", in: `"AQID"`, out: outOf([4]byte{7, 7, 7, 7}), opts: anyLength},
+		{name: "array in a struct longer", in: `{"A":[1,2,3]}`, out: func() any { return new(struct{ A [2]int }) }, opts: anyLength},
+		// ParseBytesWithLooseRFC4648
+		{name: "bytes of base64 with a line feed", in: `"AQ\r\nID"`, out: outOf([]byte(nil)), opts: loose},
+		{name: "bytes of base64 with a line feed strict", in: `"AQ\r\nID"`, out: outOf([]byte(nil))},
+		{name: "bytes array of base64 with a line feed", in: `"AQ\r\nID"`, out: outOf([3]byte{}), opts: loose},
+		{name: "bytes of base64 of a wrong character loose", in: `"AQ*ID"`, out: outOf([]byte(nil)), opts: loose},
+		// ParseTimeWithLooseRFC3339
+		{name: "time of an hour of one digit", in: `"2006-01-02T1:04:05Z"`, out: outOf(time.Time{}), opts: rfc},
+		{name: "time of an hour of one digit strict", in: `"2006-01-02T1:04:05Z"`, out: outOf(time.Time{})},
+		{name: "time of a comma before the fraction", in: `"2006-01-02T15:04:05,5Z"`, out: outOf(time.Time{}), opts: rfc},
+		{name: "time of a zone out of range", in: `"2006-01-02T15:04:05+24:00"`, out: outOf(time.Time{}), opts: rfc},
+		{name: "time key of an hour of one digit", in: `{"2006-01-02T1:04:05Z":1}`, out: func() any { return new(map[time.Time]int) }, opts: rfc},
+		{name: "time of a wrong text loose", in: `"2006-01-02"`, out: outOf(time.Time{}), opts: rfc},
+	}
+}

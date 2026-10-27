@@ -717,12 +717,14 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 				}
 				cursor = c
 			} else {
-				c, err := skipValue(buf, cursor, depth)
+				c, err := d.skipPast(ctx, cursor, depth)
 				if err != nil {
 					return 0, err
 				}
 				cursor = c
-				lengthErr = errArrayOverflow
+				if ctx.Option.V2&V2ArrayAnyLength == 0 {
+					lengthErr = errArrayOverflow
+				}
 			}
 			idx++
 			cursor = skipWhiteSpace(buf, cursor)
@@ -737,13 +739,25 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 	}
 	for ; idx < d.alen; idx++ {
 		d.elem.zero(unsafe.Add(p, uintptr(idx)*d.elem.size))
-		lengthErr = errArrayUnderflow
+		if ctx.Option.V2&V2ArrayAnyLength == 0 {
+			lengthErr = errArrayUnderflow
+		}
 	}
 	if lengthErr != nil {
 		// the error of the length is at the end of the array, which tells it
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, Err: lengthErr}
 	}
 	return cursor + 1, nil
+}
+
+// skipPast skips the element at cursor past the length of the array. With UnmarshalArrayFromAnyLength, it is a
+// value of the input, which is checked as the options of the call say; without it, the array fails at its end,
+// whose error is placed by a read of the input token by token, which finds an error in the element first.
+func (d *v2ArrayDecoder) skipPast(ctx *RuntimeContext, cursor, depth int64) (int64, error) {
+	if ctx.Option.V2&V2ArrayAnyLength != 0 {
+		return ctx.skipValueV2(cursor, depth)
+	}
+	return skipValue(ctx.Buf, cursor, depth)
 }
 
 func (d *v2ArrayDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
@@ -798,15 +812,16 @@ func (d *v2BytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		dst = unsafe.Slice((*byte)(p), d.alen)[:0]
 	}
 	b, err := base64.StdEncoding.AppendDecode(dst, text)
-	if err == nil && len(text) != base64.StdEncoding.EncodedLen(len(b)) {
-		// the decoding skips a line feed and a carriage return, which RFC 4648 doesn't allow
+	if err == nil && len(text) != base64.StdEncoding.EncodedLen(len(b)) && ctx.Option.V2&V2LooseBase64 == 0 {
+		// the decoding skips a line feed and a carriage return, which RFC 4648 doesn't allow, unless
+		// ParseBytesWithLooseRFC4648
 		i := bytes.IndexAny(text, "\r\n")
 		err = fmt.Errorf("illegal character %s at offset %d", strconv.QuoteRune(rune(text[i])), i)
 	}
 	if err == nil && d.alen >= 0 {
 		dst = dst[:d.alen]
 		clear(dst[copy(dst, b):])
-		if len(b) != d.alen {
+		if len(b) != d.alen && ctx.Option.V2&V2ArrayAnyLength == 0 {
 			err = fmt.Errorf("decoded length of %d mismatches array length of %d", len(b), d.alen)
 		}
 	}

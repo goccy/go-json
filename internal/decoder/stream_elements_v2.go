@@ -1484,7 +1484,9 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 		if !ok {
 			for ; idx < d.alen; idx++ {
 				d.elem.zero(unsafe.Add(p, uintptr(idx)*d.elem.size))
-				lengthErr = errArrayUnderflow
+				if s.Option.V2&V2ArrayAnyLength == 0 {
+					lengthErr = errArrayUnderflow
+				}
 			}
 			if lengthErr != nil {
 				// the error of the length is at the end of the array, which tells it
@@ -1499,7 +1501,9 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 			err = s.decodeNestedV2(d.valueDecoder, ep, depth, step)
 		} else {
 			err = s.skipValueV2(depth, step)
-			lengthErr = errArrayOverflow
+			if s.Option.V2&V2ArrayAnyLength == 0 {
+				lengthErr = errArrayOverflow
+			}
 		}
 		if err != nil {
 			return err

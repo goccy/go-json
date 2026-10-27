@@ -4,6 +4,7 @@ package json_test
 
 import (
 	stdjsonv1 "encoding/json"
+	stdjsontext "encoding/json/jsontext"
 	stdjson "encoding/json/v2"
 	"errors"
 	"strings"
@@ -218,17 +219,23 @@ func newLegacyDiffMerge() any {
 }
 
 // The error of a string of invalid UTF-8 of the `string` option with StringifyWithLegacySemantics is the one of
-// encoding/json/v2: a SemanticError of the type of the string, whose error is a SyntacticError.
+// encoding/json/v2: a SemanticError of the type of the string, whose error is a SyntacticError. The errors are
+// compared by their fields and the text of the SyntacticError, as encoding/json/v2 words its SemanticError by a
+// modal verb which it chooses at random once per process.
 func TestStringifyInvalidUTF8MatchesStd(t *testing.T) {
 	v := legacyDiffStringifyText{S: "x\xff"}
 	_, err := json.Marshal(v, gojson.StringifyWithLegacySemantics(true))
 	_, stdErr := stdjson.Marshal(v, stdjsonv1.StringifyWithLegacySemantics(true))
-	if err == nil || stdErr == nil || err.Error() != stdErr.Error() {
-		t.Fatalf("got %v, want %v", err, stdErr)
+	var serr *json.SemanticError
+	var stdSerr *stdjson.SemanticError
+	if !errors.As(err, &serr) || !errors.As(stdErr, &stdSerr) || serr.ByteOffset != stdSerr.ByteOffset ||
+		string(serr.JSONPointer) != string(stdSerr.JSONPointer) || serr.GoType != stdSerr.GoType {
+		t.Fatalf("got %#v, want %#v", err, stdErr)
 	}
-	var se *jsontext.SyntacticError
-	if !errors.As(err, &se) {
-		t.Fatalf("got %v, of no SyntacticError", err)
+	var syntaxErr *jsontext.SyntacticError
+	var stdSyntaxErr *stdjsontext.SyntacticError
+	if !errors.As(err, &syntaxErr) || !errors.As(stdErr, &stdSyntaxErr) || syntaxErr.Error() != stdSyntaxErr.Error() {
+		t.Fatalf("got %v, want %v", err, stdErr)
 	}
 }
 

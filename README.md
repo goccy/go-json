@@ -10,6 +10,7 @@ Fast JSON encoder/decoder compatible with encoding/json for Go
 # Features
 
 - Drop-in replacement of `encoding/json`. Values are decoded, and their errors are reported, as `encoding/json` of Go 1.27 (built on `encoding/json/v2`) does, on every Go version. Only the syntax errors of decoding and the reading of a stream token by token (`Token`, `More`, `InputOffset`, and `Decode` between calls of `Token`) follow the `encoding/json` the program is built with. Values are encoded as the `encoding/json` the program is built with encodes them, except for some behaviors of Go 1.27 that apply on every version, such as the limit of 10000 nested levels, map keys of pointer types, and the syntax errors of `MarshalJSON` output, `Compact` and `Indent`. The `MarshalJSONTo` and `UnmarshalJSONFrom` methods, which `encoding/json` of Go 1.27 calls, are not called yet.
+- Drop-in replacement of `encoding/json/v2` and `encoding/json/jsontext` by `github.com/goccy/go-json/v2` and `github.com/goccy/go-json/jsontext`, with the API and behavior of those packages of Go 1.27 on Go 1.23 and later, with no need of `GOEXPERIMENT=jsonv2`. Their types are their own, not aliases of the ones of the standard library: replace both imports together, and declare `MarshalJSONTo` and `UnmarshalJSONFrom` methods with the `Encoder` and `Decoder` of `github.com/goccy/go-json/jsontext`, since methods taking the ones of `encoding/json/jsontext` are not called.
 - Fast ( See [Benchmark section](https://github.com/goccy/go-json#benchmarks) )
 - `MarshalOf` and `UnmarshalOf`, which take the value by its type and save the allocations `Marshal` and `Unmarshal` need for an `interface{}` argument
 - Flexible customization with options
@@ -30,6 +31,15 @@ Replace import statement from `encoding/json` to `github.com/goccy/go-json`
 ```
 -import "encoding/json"
 +import "github.com/goccy/go-json"
+```
+
+Code which uses `encoding/json/v2` or `encoding/json/jsontext` replaces them likewise
+
+```
+-import "encoding/json/v2"
++import "github.com/goccy/go-json/v2"
+-import "encoding/json/jsontext"
++import "github.com/goccy/go-json/jsontext"
 ```
 
 # JSON library comparison

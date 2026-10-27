@@ -158,9 +158,10 @@ func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
 	return dec, nil
 }
 
-// SetV2Flags sets the options of v2 of ctx for a decoding, which every one of them is set by: the recent decoders are
-// emptied if they were compiled for other options of encoding/json which change the decoders, which their keys have
-// no room for ( see recentLegacy ), once for the call rather than in every DecoderOfV2. It is a function, as a method
+// SetV2Flags sets the options of v2 of ctx for a decoding, which every setting of them before a decoding is made by, as
+// the others clear them after one: the recent decoders are emptied if they were compiled for other options of
+// encoding/json which change the decoders, which their keys have no room for ( see recentLegacy ), once for the call
+// rather than in every DecoderOfV2. It is a function, as a method
 // of RuntimeContext moves the data after the type of the context, which moved unrelated benchmarks by 2%.
 func SetV2Flags(ctx *RuntimeContext, flags V2Flags) {
 	ctx.Option.V2 = flags

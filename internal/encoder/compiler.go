@@ -148,9 +148,10 @@ func (c *RuntimeContext) RememberCodeSet(typeptr uintptr, codeSet *OpcodeSet) {
 	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
 }
 
-// SetFlags sets the options of ctx for an encoding of v2, which every one of them is set by: the recent opcodes are
-// emptied if they were compiled for other options of encoding/json which change the opcodes, which their keys have
-// no room for ( see recentLegacy ). It is inlined into the callers. It is a function, as a method of RuntimeContext
+// SetFlags sets the options of ctx for an encoding of v2, which every setting of them which may change the options of
+// encoding/json is made by, the others adding or dropping other options only: the recent opcodes are emptied if they
+// were compiled for other options of encoding/json which change the opcodes, which their keys have no room for
+// ( see recentLegacy ). It is inlined into the callers. It is a function, as a method of RuntimeContext
 // moves the data after the type of the context, which moved unrelated benchmarks by 2%.
 func SetFlags(ctx *RuntimeContext, flags OptionFlag) {
 	ctx.Option.Flag = flags

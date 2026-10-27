@@ -49,6 +49,12 @@ var (
 
 var timeDurationType = reflect.TypeOf(time.Duration(0))
 
+// IsArrayLengthError reports whether err is the error of the length of a JSON array decoded into a Go array, which is
+// at the end of the JSON array.
+func IsArrayLengthError(err error) bool {
+	return err == errArrayOverflow || err == errArrayUnderflow
+}
+
 // cachedV2Decoders are the decoders of v2, without and with StringifyNumbers.
 var cachedV2Decoders [2]runtime.TypeCache[Decoder]
 

@@ -121,6 +121,36 @@ type legacyDiffBytes struct {
 	Any any
 }
 
+// legacyPtrJSONByte is a named byte type whose MarshalJSON has a pointer receiver.
+type legacyPtrJSONByte byte
+
+func (*legacyPtrJSONByte) MarshalJSON() ([]byte, error) { return []byte(`"j"`), nil }
+
+// legacyAppendByte is a named byte type of AppendText.
+type legacyAppendByte byte
+
+func (legacyAppendByte) AppendText(dst []byte) ([]byte, error) { return append(dst, 'a'), nil }
+
+// legacyTextInByte is a named byte type of UnmarshalText only: its slices and arrays are of bytes with
+// FormatBytesWithLegacySemantics when marshaling too.
+type legacyTextInByte byte
+
+func (b *legacyTextInByte) UnmarshalText(text []byte) error {
+	*b = legacyTextInByte(len(text))
+	return nil
+}
+
+// legacyJSONInByte is a named byte type of UnmarshalJSON only.
+type legacyJSONInByte byte
+
+func (b *legacyJSONInByte) UnmarshalJSON(data []byte) error {
+	*b = legacyJSONInByte(len(data))
+	return nil
+}
+
+// legacyNamedBytes is a named slice type of a named byte type.
+type legacyNamedBytes []legacyByte
+
 // legacyDiffValues are the values of the options of encoding/json in the marshal differential tests ( see
 // diffValues ).
 func legacyDiffValues() []any {
@@ -131,6 +161,9 @@ func legacyDiffValues() []any {
 		[]byte{1, 2, 3}, []byte(nil), [3]byte{1, 2, 3}, [0]byte{}, []legacyByte{1, 2, 3}, []legacyByte(nil), [3]legacyByte{1, 2, 3},
 		[]legacyTextByte{1, 2}, [2]legacyTextByte{1, 2},
 		map[[2]byte]int{{1, 2}: 1}, map[[2]legacyByte]int{{1, 2}: 1}, map[[2]legacyTextByte]int{{1, 2}: 1},
+		[]legacyPtrJSONByte{1}, [1]legacyPtrJSONByte{1}, []legacyAppendByte{1}, [1]legacyAppendByte{1},
+		[]legacyTextInByte{1, 2}, []legacyJSONInByte{1, 2}, legacyNamedBytes{1, 2}, legacyNamedBytes(nil),
+		[2][2]byte{{1, 2}, {3, 4}}, &[2]byte{1, 2}, &[]legacyByte{1},
 		legacyDiffBytes{}, legacyDiffBytes{B: []byte{1}, NB: []legacyByte{2}, TB: []legacyTextByte{3}, A: [2]byte{4, 5},
 			NA: [2]legacyByte{6, 7}, TA: [2]legacyTextByte{1, 2}, E: []legacyByte{}, P: &[2]byte{8, 9}, Any: []legacyByte{1, 2}},
 	}
@@ -174,6 +207,21 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 		{name: "legacy text bytes of base64", in: `"AQI="`, out: outOf([]legacyTextByte(nil)), opts: legacyBytes},
 		{name: "legacy text bytes of a JSON array", in: `["bb","b"]`, out: outOf([]legacyTextByte(nil)), opts: legacyBytes},
 		{name: "legacy text bytes of a JSON array by default", in: `["bb","b"]`, out: outOf([]legacyTextByte(nil))},
+		{name: "legacy byte array of a longer JSON array", in: `[1,2,3]`, out: outOf([2]byte{}), opts: legacyBytes},
+		{name: "legacy byte array of a shorter JSON array", in: `[1]`, out: outOf([2]byte{}), opts: legacyBytes},
+		{name: "legacy named byte array of a longer JSON array", in: `[1,2,3]`, out: outOf([2]legacyByte{}), opts: legacyBytes},
+		{name: "legacy byte array of a field of a longer JSON array", in: `{"A":[1,2,3]}`,
+			out: func() any { return new(legacyDiffBytes) }, opts: legacyBytes},
+		{name: "legacy byte arrays of JSON arrays of other lengths", in: `[[1,2,3],[4,5]]`, out: outOf([][2]byte(nil)),
+			opts: legacyBytes},
+		{name: "byte arrays as arrays of other lengths", in: `[[1,2,3],[4,5]]`, out: outOf([][2]byte(nil)), opts: arrayOfBytes},
+		{name: "legacy text-in bytes of base64", in: `"AQI="`, out: outOf([]legacyTextInByte(nil)), opts: legacyBytes},
+		{name: "legacy text-in bytes of a JSON array", in: `["x","yy"]`, out: outOf([]legacyTextInByte(nil)), opts: legacyBytes},
+		{name: "legacy JSON-in bytes of base64", in: `"AQI="`, out: outOf([]legacyJSONInByte(nil)), opts: legacyBytes},
+		{name: "legacy JSON-in bytes of a JSON array", in: `[1,"x"]`, out: outOf([]legacyJSONInByte(nil)), opts: legacyBytes},
+		{name: "legacy named slice of base64", in: `"AQI="`, out: outOf(legacyNamedBytes(nil)), opts: legacyBytes},
+		{name: "legacy pointer to named bytes", in: `"AQI="`, out: outOf((*[]legacyByte)(nil)), opts: legacyBytes},
+		{name: "pointer to a byte array as an array", in: `[1,2]`, out: outOf((*[2]byte)(nil)), opts: arrayOfBytes},
 		{name: "legacy named byte array key", in: `{"AQI=":1}`, out: func() any { return new(map[[2]legacyByte]int) }, opts: legacyBytes},
 		{name: "legacy bytes struct", in: bytesStruct, out: func() any { return new(legacyDiffBytes) }, opts: legacyBytes},
 		{name: "legacy bytes struct with arrays", in: bytesStruct, out: func() any { return new(legacyDiffBytes) }, opts: bothBytes},

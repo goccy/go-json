@@ -459,7 +459,9 @@ func unmarshalError(in *errorInput, err error, cfg *options.Config) error {
 	switch {
 	case e.NoKind:
 		read = textcoder.ReadNothing
-	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType, cfg):
+	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType, cfg) && !decoder.IsArrayLengthError(e.Err):
+		// but the length of a JSON array read into an array of bytes element by element ( see
+		// FormatBytesWithLegacySemantics ), at the end of the JSON array, a token
 		read = textcoder.ReadValue
 	}
 	ptr, serr := in.place(cfg, e.Start, read)

@@ -95,6 +95,8 @@ func legacyDiffOptions() [][]json.Options {
 		{json.MatchCaseInsensitiveNames(true), json.Deterministic(true)},
 		{json.MatchCaseInsensitiveNames(true), gojson.MatchCaseSensitiveDelimiter(true), json.Deterministic(true)},
 		{gojson.MatchCaseSensitiveDelimiter(true), json.Deterministic(true)},
+		{gojson.StringifyWithLegacySemantics(true)},
+		{gojson.StringifyWithLegacySemantics(true), json.StringifyNumbers(true), gojson.OmitEmptyWithLegacySemantics(true)},
 		{gojson.OmitEmptyWithLegacySemantics(true), json.StringifyNumbers(true), json.OmitZeroStructFields(true),
 			json.Deterministic(true)},
 	}
@@ -120,6 +122,31 @@ type legacyDiffDelimiterFallback struct {
 	FooBar int            `json:"foo_bar"`
 	Baz    int            `json:"BAZ,case:ignore"`
 	Rest   map[string]int `json:",embed"`
+}
+
+// legacyDiffStringify is a struct of the fields of the `string` option of StringifyWithLegacySemantics.
+type legacyDiffStringify struct {
+	B  bool    `json:",string"`
+	S  string  `json:",string"`
+	I  int     `json:",string"`
+	U  uint8   `json:",string"`
+	F  float64 `json:",string"`
+	PB *bool   `json:",string"`
+	PS *string `json:",string"`
+	PI *int    `json:",string"`
+	E  string  `json:",omitempty,string"`
+	EB bool    `json:",omitempty,string"`
+}
+
+// legacyDiffStringifyPtr is a struct of a pointer to a pointer of the `string` option, which the option doesn't
+// apply to with StringifyWithLegacySemantics.
+type legacyDiffStringifyPtr struct {
+	PP **int `json:",string"`
+}
+
+// legacyDiffStringifyText is a struct of a string of the `string` option, of the texts which a JSON string escapes.
+type legacyDiffStringifyText struct {
+	S string `json:",string"`
 }
 
 // legacyEmptyText is a struct whose method writes an empty JSON string: never empty by its Go value.
@@ -254,6 +281,11 @@ func legacyDiffValues() []any {
 		legacyDiffOmitEmpty{B: true, I: -1, U: 1, F: 0.5, S: "x", Sl: []int{1}, Any: 0, Raw: legacyRaw(`1`), Z: 1,
 			N: map[string]any{"a": nil}, E: legacyEmbeddedOmit{X: []int{}}},
 		legacyDiffOmitEmptyString{}, legacyDiffOmitEmptyString{I: 3},
+		legacyDiffStringify{}, legacyDiffStringify{B: true, S: "x", I: -5, U: 7, F: 1.5, PB: new(bool), PS: new(string), PI: new(int),
+			E: "e", EB: true},
+		legacyDiffStringifyPtr{}, legacyDiffStringifyPtr{PP: new(*int)},
+		legacyDiffStringifyText{S: "q" + string(rune(34)) + "b" + string(rune(92)) + "<&>" + string(rune(0x2028))},
+		legacyDiffStringifyText{S: "\xff"},
 		legacyDiffDelimiterFallback{FooBar: 1, Rest: map[string]int{"foobar": 2}},
 		legacyDiffDelimiterFallback{FooBar: 1, Rest: map[string]int{"FOO_BAR": 2}},
 		legacyDiffDelimiterFallback{Baz: 1, Rest: map[string]int{"baz": 2}},
@@ -274,12 +306,43 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	legacyBytes := unmarshalDiffOptions{legacy: bytesLegacy}
 	bothBytes := unmarshalDiffOptions{legacy: byteArrayAsArray | bytesLegacy}
 	bytesStruct := `{"B":[1],"NB":"AQ==","TB":["b"],"A":"AQI=","NA":[1,2],"TA":"AQI=","E":[],"P":[1,2],"Any":"AQ=="}`
+	stringify := unmarshalDiffOptions{legacy: stringifyLegacy}
+	stringifyNumbers := unmarshalDiffOptions{legacy: stringifyLegacy, stringifyNumbers: true}
+	newStringify := func() any { return new(legacyDiffStringify) }
 	delimiter := unmarshalDiffOptions{legacy: caseSensitiveDelimiter}
 	insensitive := unmarshalDiffOptions{matchCaseInsensitiveNames: true}
 	both := unmarshalDiffOptions{legacy: caseSensitiveDelimiter, matchCaseInsensitiveNames: true}
 	newDelimiter := func() any { return new(legacyDiffDelimiter) }
 	newDelimiterTwo := func() any { return new(legacyDiffDelimiterTwo) }
 	return []unmarshalDiffCase{
+		// StringifyWithLegacySemantics
+		{name: "stringify bool", in: `{"B":"true","EB":"false"}`, out: newStringify, opts: stringify},
+		{name: "stringify bool by default", in: `{"B":"true"}`, out: newStringify},
+		{name: "stringify bool unquoted", in: `{"B":true}`, out: newStringify, opts: stringify},
+		{name: "stringify bool of null", in: `{"B":"null"}`, out: func() any { return &legacyDiffStringify{B: true} }, opts: stringify},
+		{name: "stringify bool of another text", in: `{"B":"yes"}`, out: newStringify, opts: stringify},
+		{name: "stringify string", in: `{"S":"\"x\\\"y\""}`, out: newStringify, opts: stringify},
+		{name: "stringify string of null", in: `{"S":"null"}`, out: func() any { return &legacyDiffStringify{S: "x"} }, opts: stringify},
+		{name: "stringify string not of a JSON string", in: `{"S":"x"}`, out: newStringify, opts: stringify},
+		{name: "stringify string unquoted", in: `{"S":1}`, out: newStringify, opts: stringify},
+		{name: "stringify numbers of the syntax of Go", in: `{"I":"+5","U":"007","F":"1e1"}`, out: newStringify, opts: stringify},
+		{name: "stringify number of a hexadecimal", in: `{"I":"0x10"}`, out: newStringify, opts: stringify},
+		{name: "stringify float of an infinity", in: `{"F":"-Inf"}`, out: newStringify, opts: stringify},
+		{name: "stringify float of an underscore", in: `{"F":"1_0"}`, out: newStringify, opts: stringify},
+		{name: "stringify number too big", in: `{"U":"300"}`, out: newStringify, opts: stringify},
+		{name: "stringify numbers of null", in: `{"I":"null","F":"null"}`, out: func() any { return &legacyDiffStringify{I: 1, F: 2} }, opts: stringify},
+		{name: "stringify pointers", in: `{"PB":"true","PS":"\"s\"","PI":"3"}`, out: newStringify, opts: stringify},
+		{name: "stringify pointers of null", in: `{"PB":"null","PS":"null","PI":"null"}`, out: func() any {
+			return &legacyDiffStringify{PB: new(bool), PS: new(string), PI: new(int)}
+		}, opts: stringify},
+		{name: "stringify pointers of a JSON null", in: `{"PB":null,"PS":null,"PI":null}`, out: func() any {
+			return &legacyDiffStringify{PB: new(bool), PS: new(string), PI: new(int)}
+		}, opts: stringify},
+		{name: "stringify pointer to a pointer", in: `{"PP":"1"}`, out: func() any { return new(legacyDiffStringifyPtr) }, opts: stringify},
+		{name: "stringify pointer to a pointer of null", in: `{"PP":null}`, out: func() any { return new(legacyDiffStringifyPtr) }, opts: stringify},
+		{name: "stringify with StringifyNumbers", in: `["+5","null","1"]`, out: outOf([]int(nil)), opts: stringifyNumbers},
+		{name: "stringify map keys", in: `{"null":1,"+2":2}`, out: func() any { return new(map[int]int) }, opts: stringify},
+		{name: "stringify map keys by default", in: `{"+2":2}`, out: func() any { return new(map[int]int) }},
 		// MatchCaseSensitiveDelimiter
 		{name: "delimiter name of another case", in: `{"FOO_BAR":1}`, out: newDelimiter, opts: both},
 		{name: "delimiter name without the underscore", in: `{"foobar":1}`, out: newDelimiter, opts: both},

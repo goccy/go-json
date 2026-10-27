@@ -114,6 +114,24 @@ func TestMarshalOmitEmptyWithLegacySemantics(t *testing.T) {
 	})
 }
 
+func TestMarshalStringifyWithLegacySemantics(t *testing.T) {
+	stringify := []json.Options{gojson.StringifyWithLegacySemantics(true)}
+	type values struct {
+		B bool   `json:",string"`
+		S string `json:",string"`
+		I int    `json:",string"`
+	}
+	n := 1
+	pn := &n
+	runLegacyMarshalCases(t, []legacyMarshalCase{
+		{"values", values{B: true, S: "x", I: 3}, stringify, `{"B":"true","S":"\"x\"","I":"3"}`},
+		{"values by default", values{}, nil, ``},
+		{"pointer to a pointer", struct {
+			P **int `json:",string"`
+		}{&pn}, stringify, ``},
+	})
+}
+
 func TestMarshalFormatDurationAsNano(t *testing.T) {
 	nano := []json.Options{gojson.FormatDurationAsNano(true)}
 	d := time.Duration(-3)

@@ -59,6 +59,25 @@ func TestUnmarshalMatchCaseSensitiveDelimiter(t *testing.T) {
 	})
 }
 
+func TestUnmarshalStringifyWithLegacySemantics(t *testing.T) {
+	stringify := []json.Options{gojson.StringifyWithLegacySemantics(true)}
+	type values struct {
+		B bool    `json:",string"`
+		S string  `json:",string"`
+		I int     `json:",string"`
+		P *string `json:",string"`
+	}
+	s := "s"
+	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{
+		{"values", `{"B":"true","S":"\"x\"","I":"+3"}`, stringify, newOf(values{}), values{B: true, S: "x", I: 3}},
+		{"values by default", `{"B":"true"}`, nil, newOf(values{}), nil},
+		{"quoted nulls", `{"B":"null","S":"null","I":"null","P":"null"}`, stringify, newOf(values{B: true, S: "x", I: 1, P: &s}),
+			values{}},
+		// a quoted null of an escape is a quoted null too, unlike encoding/json/v2, which tells it by the raw value
+		{"quoted null of an escape", `{"P":"nul\u006c"}`, stringify, newOf(values{P: &s}), values{}},
+	})
+}
+
 func TestUnmarshalArrayFromAnyLength(t *testing.T) {
 	anyLength := []json.Options{gojson.UnmarshalArrayFromAnyLength(true)}
 	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{

@@ -11,6 +11,7 @@ import (
 
 	ierrors "github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/jsonfields"
+	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -313,6 +314,9 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 // number, after the pointers to it, whose nil is null, which is written in a string, and for a value which a method
 // or a function writes in the compile mode of the option, whose options they are given ( see appendStringTag ); the
 // error of the option for a value of another kind.
+//
+// With StringifyWithLegacySemantics, the option applies to a bool, whose JSON value is written in a string, and to a
+// string, whose JSON string is, through one pointer only: a pointer to a pointer is the error of the option.
 func (c *Compiler) stringTagCode(typ reflect.Type) Code {
 	elem := typ
 	ptrNum := 0
@@ -320,8 +324,11 @@ func (c *Compiler) stringTagCode(typ reflect.Type) Code {
 		elem = elem.Elem()
 		ptrNum++
 	}
+	stringify := c.legacy&modeStringifyLegacy != 0
 	var code Code
 	switch {
+	case stringify && ptrNum > 1:
+		return c.appendFuncCode(typ, appendError(typ, errInvalidStringTag))
 	case c.v2HasMethod(elem) && elem != timeTimeType:
 		if c.stringTag {
 			return nil
@@ -332,6 +339,10 @@ func (c *Compiler) stringTagCode(typ reflect.Type) Code {
 		return nil
 	case elem == timeDurationType:
 		code = c.appendFuncCode(elem, appendError(elem, errNoDuration))
+	case stringify && elem.Kind() == reflect.Bool:
+		code = c.appendFuncCode(elem, appendStringifiedBool)
+	case stringify && elem.Kind() == reflect.String:
+		code = c.appendFuncCode(elem, appendStringifiedString(elem))
 	default:
 		code = c.appendFuncCode(elem, appendError(elem, errInvalidStringTag))
 	}
@@ -339,6 +350,33 @@ func (c *Compiler) stringTagCode(typ reflect.Type) Code {
 		code = &PtrCode{typ: typ, value: code, ptrNum: uint8(ptrNum)}
 	}
 	return code
+}
+
+// appendStringifiedBool appends the bool at p in a JSON string, as the `string` option writes it with
+// StringifyWithLegacySemantics.
+func appendStringifiedBool(_ *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+	if *(*bool)(p) {
+		return append(b, `"true"`...), nil
+	}
+	return append(b, `"false"`...), nil
+}
+
+// appendStringifiedString returns the function which appends the string at p, of typ, as a JSON string in a JSON
+// string, as the `string` option writes it with StringifyWithLegacySemantics: the string is escaped by the options,
+// and its invalid UTF-8 is the error of a value of typ, unless allowed; the JSON string is quoted where JSON needs
+// it only.
+func appendStringifiedString(typ reflect.Type) AppendFunc {
+	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		quoted, ok := jsonstring.AppendQuoted(textEscaper(ctx), ctx.MarshalBuf[:0], *(*string)(p))
+		if !ok {
+			var err error
+			if quoted, err = InvalidUTF8(ctx, nil, quoted); err != nil {
+				return b, &ierrors.SemanticError{GoType: typ, Err: err}
+			}
+		}
+		out, _ := jsonstring.AppendQuoted(jsonstring.EscaperOf(uint(TextEscapeOption)), b, string(quoted))
+		return out, nil
+	}
 }
 
 // appendStringTag returns the function which appends a value of typ, which a method or a function writes, in the

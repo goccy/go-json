@@ -87,10 +87,12 @@ func TestUnmarshalDecodeMatchesStd(t *testing.T) {
 						t.Fatalf("after the value:\n got %s\nwant %s", got, want)
 					}
 					var se *jsontext.SyntacticError
-					if v := strings.TrimLeft(in, " \t\r\n"); errors.As(err, &se) && v != "" && (v[0] == '{' || v[0] == '[') {
+					var sem *json.SemanticError
+					if v := strings.TrimLeft(in, " \t\r\n"); errors.As(err, &se) && !errors.As(err, &sem) && v != "" && (v[0] == '{' || v[0] == '[') {
 						// every read fails after a syntax error in an object or an array, so that a loop over the
 						// values which goes on after the errors of its values ends: the state of encoding/json/v2
-						// there, which it doesn't tell, is not compared
+						// there, which it doesn't tell, is not compared. The syntax error of a value which a semantic
+						// error wraps, as of the JSON string in a string of the `string` option, is not one.
 						if _, rerr := dec.ReadToken(); rerr == nil {
 							t.Fatalf("a read after the syntax error %v succeeded", err)
 						}

@@ -42,6 +42,9 @@ var V2Hooks struct {
 	// Stream.decodeWholeV2 ): for a method or a function of the value which reads a jsontext.Decoder, attached at
 	// its place, or for its error.
 	Lend func(ctx *RuntimeContext)
+	// AppendUnquote is jsontext.AppendUnquote, which reads a JSON string in a JSON string of the `string` option with
+	// StringifyWithLegacySemantics, and whose error is the one of the value.
+	AppendUnquote func(dst, src []byte) ([]byte, error)
 }
 
 // v2MethodOf returns the first method of unmarshaling from first on which decodes a value of the type, or noMethod.

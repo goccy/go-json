@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-// Each lookup finds the method of its name, and nothing in a type without it.
+// Each lookup finds the method of its name, and nothing in a type without it. *time.Time has AppendText from
+// Go 1.24.
 func TestMethodLookups(t *testing.T) {
 	timePtr := reflect.TypeOf(&time.Time{})
 	for name, lookup := range map[string]MethodLookup{
@@ -15,7 +16,7 @@ func TestMethodLookups(t *testing.T) {
 	} {
 		want, wantOK := timePtr.MethodByName(name)
 		got, ok := lookup(timePtr)
-		if ok != wantOK || got.Name != want.Name || got.Func.Pointer() != want.Func.Pointer() {
+		if ok != wantOK || got.Name != want.Name || ok && got.Func.Pointer() != want.Func.Pointer() {
 			t.Errorf("%s of *time.Time: got %v %v, want %v %v", name, got.Name, ok, want.Name, wantOK)
 		}
 		if _, ok := lookup(reflect.TypeOf(0)); ok {

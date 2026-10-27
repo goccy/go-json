@@ -524,5 +524,7 @@ func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, level
 	st.nestedPath = s.RestorePath(savedPath)
 	call.Funcs, call.Config, call.Value, call.Place, call.From = savedFuncs, savedConfig, savedValue, savedPlace, savedFrom
 	*ctx.Option = savedOption
+	// the recent decoders of ctx, which are the ones of the options of encoding/json of the call around this again
+	decoder.SetV2Flags(ctx, savedOption.V2)
 	return err
 }

@@ -53,41 +53,47 @@ var timeDurationType = reflect.TypeOf(time.Duration(0))
 var cachedV2Decoders [2]runtime.TypeCache[Decoder]
 
 // v2LegacyDecoders are the options of encoding/json which change the decoders of a type: a decoding with one of them
-// takes its decoders from legacyDecoders, apart from the tables shared by every goroutine and from the recent
-// decoders of a context, as few programs use them.
+// takes its decoders from legacyDecoders, apart from the tables shared by every goroutine, which have no room for
+// them, as few programs use them, and from the recent decoders of its context, which are the ones of its options
+// ( see SetV2Flags ).
 const v2LegacyDecoders = V2CallMethodsLegacy | V2ByteArrayAsArray | V2BytesLegacy | V2DurationAsNano |
 	V2ReportErrorsLegacy | V2StringifyLegacy
 
-// legacyDecoderKey is what the decoders of the options of encoding/json are cached by: the type, and the options of
-// v2LegacyDecoders, with V2StringifyNumbers.
-type legacyDecoderKey struct {
+// flagsKey is what the decoders of a type for options are cached by in a sync.Map: the type, and the options of
+// v2LegacyDecoders, with V2StringifyNumbers. The decoders of the options of encoding/json ( see legacyDecoders ) and
+// the ones of the functions of unmarshaling ( see UnmarshalFuncs ) are.
+type flagsKey struct {
 	typeptr uintptr
 	flags   V2Flags
 }
 
 // legacyDecoders are the decoders of v2 of the options of encoding/json ( see v2LegacyDecoders ).
-var legacyDecoders sync.Map // map[legacyDecoderKey]Decoder
+var legacyDecoders sync.Map // map[flagsKey]Decoder
 
-// legacyDecoderOf returns the decoder of the type for the options flags, which have some of v2LegacyDecoders,
-// compiling it if the type is new.
-func legacyDecoderOf(typ unsafe.Pointer, flags V2Flags) (Decoder, error) {
-	key := legacyDecoderKey{typeptr: uintptr(typ), flags: flags & (v2LegacyDecoders | V2StringifyNumbers)}
-	if v, ok := legacyDecoders.Load(key); ok {
+// decoderIn returns the decoder of the pointer type typ for the options flags from m, compiling it for the functions
+// funcs, or none, if the type is new.
+func decoderIn(m *sync.Map, typ unsafe.Pointer, flags V2Flags, funcs *UnmarshalFuncs) (Decoder, error) {
+	key := flagsKey{typeptr: uintptr(typ), flags: flags & (v2LegacyDecoders | V2StringifyNumbers)}
+	if v, ok := m.Load(key); ok {
 		return v.(Decoder), nil
 	}
 	c := newCompiler(true)
-	c.stringifyNumbers, c.legacy = flags&V2StringifyNumbers != 0, flags&v2LegacyDecoders
+	c.stringifyNumbers, c.legacy, c.funcs = flags&V2StringifyNumbers != 0, flags&v2LegacyDecoders, funcs
 	dec, err := compileHead(runtime.TypeOfPtr(typ), c)
 	if err != nil {
 		return nil, err
 	}
-	v, _ := legacyDecoders.LoadOrStore(key, dec)
+	v, _ := m.LoadOrStore(key, dec)
 	return v.(Decoder), nil
 }
 
-// CompileToGetDecoderV2 returns the decoder of the type for the semantics of encoding/json/v2, with the numbers in
-// JSON strings if stringifyNumbers is set.
-func CompileToGetDecoderV2(typ unsafe.Pointer, stringifyNumbers bool) (Decoder, error) {
+// CompileToGetDecoderV2 returns the decoder of the type for the semantics of encoding/json/v2 and the options flags,
+// of which StringifyNumbers and the ones of v2LegacyDecoders change the decoders, compiling it if the type is new.
+func CompileToGetDecoderV2(typ unsafe.Pointer, flags V2Flags) (Decoder, error) {
+	if flags&v2LegacyDecoders != 0 {
+		return decoderIn(&legacyDecoders, typ, flags, nil)
+	}
+	stringifyNumbers := flags&V2StringifyNumbers != 0
 	cache := &cachedV2Decoders[0]
 	if stringifyNumbers {
 		cache = &cachedV2Decoders[1]
@@ -120,19 +126,15 @@ const (
 // decoder in neither entry of its set is the one of the shared table, which takes the first entry, and the one decoded
 // before it the second.
 func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
-	stringifyNumbers := ctx.Option.V2&V2StringifyNumbers != 0
 	if funcs := ctx.v2Funcs(); funcs != nil {
 		return funcs.decoderOf(typ, ctx.Option.V2)
 	}
-	if ctx.Option.V2&v2LegacyDecoders != 0 {
-		// the options of encoding/json, which the keys of the recent decoders of the context don't have
-		return legacyDecoderOf(typ, ctx.Option.V2)
-	}
+	flags := ctx.Option.V2
 	if ctx.recentDecoders == nil {
-		return CompileToGetDecoderV2(typ, stringifyNumbers)
+		return CompileToGetDecoderV2(typ, flags)
 	}
 	key := uintptr(typ) | v2DecoderMark
-	if stringifyNumbers {
+	if flags&V2StringifyNumbers != 0 {
 		key |= stringifyDecoderMark
 	}
 	set := &ctx.recentDecoders[(uint64(key)*runtime.TypeHashMultiplier)>>recentDecoderHashShift]
@@ -142,12 +144,32 @@ func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
 	if set[1].typeptr == key {
 		return set[1].dec, nil
 	}
-	dec, err := CompileToGetDecoderV2(typ, stringifyNumbers)
+	dec, err := CompileToGetDecoderV2(typ, flags)
 	if err != nil {
 		return nil, err
 	}
 	set.keep(key, dec)
 	return dec, nil
+}
+
+// SetV2Flags sets the options of v2 of ctx for a decoding, which every one of them is set by: the recent decoders are
+// emptied if they were compiled for other options of encoding/json which change the decoders, which their keys have
+// no room for ( see recentLegacy ), once for the call rather than in every DecoderOfV2. It is a function, as a method
+// of RuntimeContext moves the data after the type of the context, which moved unrelated benchmarks by 2%.
+func SetV2Flags(ctx *RuntimeContext, flags V2Flags) {
+	ctx.Option.V2 = flags
+	if legacy := flags & v2LegacyDecoders; legacy != ctx.recentLegacy {
+		emptyRecentDecoders(ctx, legacy)
+	}
+}
+
+// emptyRecentDecoders empties the recent decoders of ctx, if it has them, which are compiled for the options of
+// encoding/json legacy from now on.
+func emptyRecentDecoders(ctx *RuntimeContext, legacy V2Flags) {
+	if ctx.recentDecoders != nil {
+		*ctx.recentDecoders = [recentDecoderSets]recentDecoderSet{}
+	}
+	ctx.recentLegacy = legacy
 }
 
 // compileV2 returns the decoder of a value of typ by the semantics of v2.

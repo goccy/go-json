@@ -24,30 +24,14 @@ type MarshalFunc struct {
 // for them.
 type MarshalFuncs struct {
 	Funcs    []MarshalFunc
-	codeSets sync.Map // map[funcsKey]*OpcodeSet
+	codeSets sync.Map // map[modeKey]*OpcodeSet
 	castable sync.Map // map[reflect.Type][]*MarshalFunc
 	defaults sync.Map // map[defaultKey]*OpcodeSet: the default representations ( see appendDefault )
 }
 
-type funcsKey struct {
-	typeptr uintptr
-	mode    compileMode
-}
-
 // codeSet returns the opcodes of the type for the functions, compiling them if the type is new.
 func (f *MarshalFuncs) codeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
-	key := funcsKey{typeptr: typeptr, mode: mode}
-	if v, ok := f.codeSets.Load(key); ok {
-		return v.(*OpcodeSet), nil
-	}
-	c := newCompiler(mode)
-	c.funcs = f
-	codeSet, err := c.compile(typeptr)
-	if err != nil {
-		return nil, err
-	}
-	v, _ := f.codeSets.LoadOrStore(key, codeSet)
-	return v.(*OpcodeSet), nil
+	return codeSetIn(&f.codeSets, typeptr, mode, f)
 }
 
 // funcsOf returns the functions which take a value of the type, in their order.

@@ -219,7 +219,7 @@ func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 		}
 	}
 	ctx.Option.Flags = 0
-	ctx.Option.V2 = unmarshalFlags(cfg)
+	decoder.SetV2Flags(ctx, unmarshalFlags(cfg))
 	call.Config, call.Funcs = cfg, nil
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
 		call.Funcs = u.funcs
@@ -230,7 +230,7 @@ func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 // setCall sets ctx for a call by the options of cfg, which clearCall drops from ctx.
 func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 	ctx.Option.Flags = 0
-	ctx.Option.V2 = unmarshalFlags(cfg)
+	decoder.SetV2Flags(ctx, unmarshalFlags(cfg))
 	call := ctx.V2Call()
 	call.Config, call.Funcs = cfg, nil
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
@@ -241,7 +241,7 @@ func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 // setPlainCall is setCall of a call without options.
 func setPlainCall(ctx *decoder.RuntimeContext) {
 	ctx.Option.Flags = 0
-	ctx.Option.V2 = decoder.V2Semantics
+	decoder.SetV2Flags(ctx, decoder.V2Semantics)
 	call := ctx.V2Call()
 	call.Config, call.Funcs = &noOptions, nil
 }

@@ -36,24 +36,13 @@ var ErrUseDefault = errors.New("json: the value is decoded by the next represent
 // compiled for them.
 type UnmarshalFuncs struct {
 	Funcs    []UnmarshalFunc
-	decoders sync.Map // map[legacyDecoderKey]Decoder by the pointer type and the options which change the decoders
+	decoders sync.Map // map[flagsKey]Decoder by the pointer type and the options which change the decoders
 	castable sync.Map // map[reflect.Type][]*UnmarshalFunc
 }
 
 // decoderOf returns the decoder of the pointer type typ for the functions, compiling it if the type is new.
 func (f *UnmarshalFuncs) decoderOf(typ unsafe.Pointer, flags V2Flags) (Decoder, error) {
-	key := legacyDecoderKey{typeptr: uintptr(typ), flags: flags & (v2LegacyDecoders | V2StringifyNumbers)}
-	if v, ok := f.decoders.Load(key); ok {
-		return v.(Decoder), nil
-	}
-	c := newCompiler(true)
-	c.stringifyNumbers, c.legacy, c.funcs = flags&V2StringifyNumbers != 0, flags&v2LegacyDecoders, f
-	dec, err := compileHead(runtime.TypeOfPtr(typ), c)
-	if err != nil {
-		return nil, err
-	}
-	v, _ := f.decoders.LoadOrStore(key, dec)
-	return v.(Decoder), nil
+	return decoderIn(&f.decoders, typ, flags, f)
 }
 
 // funcsOf returns the functions which take a value of the type, in their order.

@@ -321,7 +321,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 	// the options of the engine: the default ones, which most calls have, without a call. ctx.RewriteFrom is not
 	// reset: the levels of the output are read from its start after the state is reset ( see tracker.sync ).
 	if st.cfg.Set == 0 {
-		ctx.Option.Flag = defaultFlags
+		encoder.SetFlags(ctx, defaultFlags)
 		ctx.RescanNames = false
 	} else if st.configure(ctx, in, nilPointer) {
 		// a nil pointer is null, which no function is called for.
@@ -372,7 +372,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 // prepareDefault sets ctx and the state for an encoding of the default options at the top level of an output of
 // its own, as marshal does: it is inlined into the functions of marshaling, which then encode without a call.
 func (st *callState) prepareDefault(ctx *encoder.RuntimeContext) {
-	ctx.Option.Flag = defaultFlags
+	encoder.SetFlags(ctx, defaultFlags)
 	ctx.RescanNames = false
 	st.base, st.attached = 0, false
 	st.tracked.stale = true
@@ -395,7 +395,7 @@ func (st *callState) defaultError(ctx *encoder.RuntimeContext, buf []byte, err e
 // functions of marshaling are not called for.
 func (st *callState) configure(ctx *encoder.RuntimeContext, in any, nilPointer bool) bool {
 	c := &st.cfg
-	ctx.Option.Flag = optionFlags(c)
+	encoder.SetFlags(ctx, optionFlags(c))
 	// two names may be the same after U+FFFD is written for their invalid bytes.
 	ctx.RescanNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
 	if m, _ := c.Marshalers.(*Marshalers); m != nil && m.funcs != nil {

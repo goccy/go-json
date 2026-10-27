@@ -24,14 +24,6 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	if ctx.Option.Flag&MarshalFuncsOption != 0 {
 		return ctx.Option.Funcs.codeSet(typeptr, ctx.compileMode())
 	}
-	if mode := ctx.compileMode(); mode&legacyModes != 0 {
-		// the options of encoding/json, which the keys of the recent opcodes of the context don't have
-		codeSet, err := legacyCodeSet(typeptr, mode)
-		if err != nil {
-			return nil, err
-		}
-		return getFilteredCodeSetIfNeeded(ctx, codeSet)
-	}
 	// a context which may filter the fields finds the type in its set here, as RecentCodeSet doesn't for it.
 	key := ctx.codeSetKey(typeptr)
 	set := &ctx.recentCodeSets[recentCodeSetIndex(key)]
@@ -72,7 +64,7 @@ const (
 
 // The modes of the options of encoding/json, with V2Option, above the ones of cachedOpcodeSets, in the order of their
 // options from CallMethodsLegacyOption: their opcodes are cached in legacyCodeSets, apart from the tables shared by
-// every goroutine and from the recent opcodes of a context, as few programs use them.
+// every goroutine, which have no room for them, as few programs use them.
 const (
 	modeCallMethodsLegacy compileMode = compileModes << iota
 	modeByteArrayAsArray
@@ -121,7 +113,7 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	key := c.codeSetKey(typeptr)
 	set := &c.recentCodeSets[recentCodeSetIndex(key)]
-	if c.Option.Flag&UncachedOption == 0 {
+	if c.Option.Flag&recentUncachedOption == 0 {
 		if set[0].typeptr == key {
 			return set[0].codeSet
 		}
@@ -156,6 +148,24 @@ func (c *RuntimeContext) RememberCodeSet(typeptr uintptr, codeSet *OpcodeSet) {
 	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
 }
 
+// SetFlags sets the options of ctx for an encoding of v2, which every one of them is set by: the recent opcodes are
+// emptied if they were compiled for other options of encoding/json which change the opcodes, which their keys have
+// no room for ( see recentLegacy ). It is inlined into the callers. It is a function, as a method of RuntimeContext
+// moves the data after the type of the context, which moved unrelated benchmarks by 2%.
+func SetFlags(ctx *RuntimeContext, flags OptionFlag) {
+	ctx.Option.Flag = flags
+	if legacy := flags & legacyOpcodeOptions; legacy != ctx.recentLegacy {
+		emptyRecentCodeSets(ctx, legacy)
+	}
+}
+
+// emptyRecentCodeSets empties the recent opcodes of ctx, which are compiled for the options of encoding/json legacy
+// from now on.
+func emptyRecentCodeSets(ctx *RuntimeContext, legacy OptionFlag) {
+	ctx.recentCodeSets = [recentCodeSetSets]recentCodeSetSet{}
+	ctx.recentLegacy = legacy
+}
+
 func recentCodeSetIndex(typeptr uintptr) uint64 {
 	return (uint64(typeptr) * runtime.TypeHashMultiplier) >> recentCodeSetHashShift
 }
@@ -164,7 +174,7 @@ func recentCodeSetIndex(typeptr uintptr) uint64 {
 // The opcodes of each compile mode are cached apart.
 func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
 	if mode&legacyModes != 0 {
-		return legacyCodeSet(typeptr, mode)
+		return codeSetIn(&legacyCodeSets, typeptr, mode, nil)
 	}
 	cache := &cachedOpcodeSets[mode]
 	if codeSet := cache.Load(typeptr); codeSet != nil {
@@ -177,27 +187,30 @@ func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSe
 	return cache.Store(typeptr, codeSet), nil
 }
 
-// legacyKey is what the opcodes of a type in a mode with options of encoding/json are cached by.
-type legacyKey struct {
+// modeKey is what the opcodes of a type in a compile mode are cached by in a sync.Map: the ones of the modes with
+// options of encoding/json ( see legacyCodeSets ), and the ones of the functions of marshaling ( see MarshalFuncs ).
+type modeKey struct {
 	typeptr uintptr
 	mode    compileMode
 }
 
 // legacyCodeSets are the opcodes of the modes with options of encoding/json ( see legacyModes ).
-var legacyCodeSets sync.Map // map[legacyKey]*OpcodeSet
+var legacyCodeSets sync.Map // map[modeKey]*OpcodeSet
 
-// legacyCodeSet returns the opcodes of the type in mode, which has options of encoding/json, compiling them if the
+// codeSetIn returns the opcodes of the type in mode from m, compiling them for the functions funcs, or none, if the
 // type is new.
-func legacyCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
-	key := legacyKey{typeptr: typeptr, mode: mode}
-	if v, ok := legacyCodeSets.Load(key); ok {
+func codeSetIn(m *sync.Map, typeptr uintptr, mode compileMode, funcs *MarshalFuncs) (*OpcodeSet, error) {
+	key := modeKey{typeptr: typeptr, mode: mode}
+	if v, ok := m.Load(key); ok {
 		return v.(*OpcodeSet), nil
 	}
-	codeSet, err := newCompiler(mode).compile(typeptr)
+	c := newCompiler(mode)
+	c.funcs = funcs
+	codeSet, err := c.compile(typeptr)
 	if err != nil {
 		return nil, err
 	}
-	v, _ := legacyCodeSets.LoadOrStore(key, codeSet)
+	v, _ := m.LoadOrStore(key, codeSet)
 	return v.(*OpcodeSet), nil
 }
 

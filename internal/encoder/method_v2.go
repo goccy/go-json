@@ -262,6 +262,8 @@ func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Poi
 func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointer) ([]byte, error) {
 	inner := TakeRuntimeContext()
 	*inner.Option = *ctx.Option
+	// the recent opcodes of inner, which are the ones of the options of encoding/json of ctx
+	SetFlags(inner, ctx.Option.Flag)
 	// the escaper of the options of ctx is the one of ctx, which records invalid UTF-8 for it: inner sets its own.
 	inner.Option.EscaperFlags = noEscaperFlags
 	inner.Init(p, codeSet.CodeLength)

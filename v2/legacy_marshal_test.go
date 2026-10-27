@@ -92,6 +92,28 @@ func TestUnmarshalFormatBytes(t *testing.T) {
 	})
 }
 
+func TestMarshalOmitEmptyWithLegacySemantics(t *testing.T) {
+	legacy := []json.Options{gojson.OmitEmptyWithLegacySemantics(true)}
+	type omit struct {
+		I  int            `json:",omitempty"`
+		B  bool           `json:",omitempty"`
+		P  *[]int         `json:",omitempty"`
+		S  struct{}       `json:",omitempty"`
+		M  map[string]int `json:",omitempty"`
+		SB bool           `json:",omitempty,string"`
+	}
+	runLegacyMarshalCases(t, []legacyMarshalCase{
+		{"zero", omit{}, legacy, `{"S":{}}`},
+		{"zero by default", struct {
+			I int      `json:",omitempty"`
+			S struct{} `json:",omitempty"`
+		}{}, nil, `{"I":0}`},
+		{"empty", omit{P: &[]int{}, M: map[string]int{}}, legacy, `{"P":[],"S":{}}`},
+		{"not empty", omit{I: 1, B: true, M: map[string]int{"a": 1}}, legacy, `{"I":1,"B":true,"S":{},"M":{"a":1}}`},
+		{"string option of a bool", omit{SB: true}, legacy, ``},
+	})
+}
+
 func TestMarshalFormatDurationAsNano(t *testing.T) {
 	nano := []json.Options{gojson.FormatDurationAsNano(true)}
 	d := time.Duration(-3)

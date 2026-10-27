@@ -91,7 +91,66 @@ func legacyDiffOptions() [][]json.Options {
 		{gojson.FormatBytesWithLegacySemantics(true)},
 		{gojson.FormatByteArrayAsArray(true), gojson.FormatBytesWithLegacySemantics(true), json.StringifyNumbers(true),
 			json.FormatNilSliceAsNull(true), json.Deterministic(true)},
+		{gojson.OmitEmptyWithLegacySemantics(true)},
+		{gojson.OmitEmptyWithLegacySemantics(true), json.StringifyNumbers(true), json.OmitZeroStructFields(true),
+			json.Deterministic(true)},
 	}
+}
+
+// legacyEmptyText is a struct whose method writes an empty JSON string: never empty by its Go value.
+type legacyEmptyText struct{ X int }
+
+func (legacyEmptyText) MarshalJSON() ([]byte, error) { return []byte(`""`), nil }
+
+// legacyRaw is a slice whose method writes an empty JSON string for no bytes: empty by its Go value if it has none.
+type legacyRaw []byte
+
+func (r legacyRaw) MarshalJSON() ([]byte, error) {
+	if len(r) == 0 {
+		return []byte(`""`), nil
+	}
+	return r, nil
+}
+
+// legacyDiffOmitEmpty is a struct of the fields of omitempty of OmitEmptyWithLegacySemantics.
+type legacyDiffOmitEmpty struct {
+	B   bool               `json:",omitempty"`
+	I   int                `json:",omitempty"`
+	U   uint8              `json:",omitempty"`
+	F   float64            `json:",omitempty"`
+	S   string             `json:",omitempty"`
+	P   *int               `json:",omitempty"`
+	PP  **int              `json:",omitempty"`
+	PS  *[]int             `json:",omitempty"`
+	PM  *map[string]int    `json:",omitempty"`
+	PT  *struct{}          `json:",omitempty"`
+	Sl  []int              `json:",omitempty"`
+	Bs  []byte             `json:",omitempty"`
+	M   map[string]int     `json:",omitempty"`
+	A0  [0]int             `json:",omitempty"`
+	A1  [1]int             `json:",omitempty"`
+	St  struct{}           `json:",omitempty"`
+	Any any                `json:",omitempty"`
+	Raw legacyRaw          `json:",omitempty"`
+	MJ  legacyEmptyText    `json:",omitempty"`
+	PMJ *legacyEmptyText   `json:",omitempty"`
+	Z   int                `json:",omitempty,omitzero"`
+	N   map[string]any     `json:",omitempty"`
+	E   legacyEmbeddedOmit `json:",omitempty"`
+}
+
+// legacyEmbeddedOmit is a struct of a field of omitempty, which is never empty itself.
+type legacyEmbeddedOmit struct {
+	X []int `json:",omitempty"`
+}
+
+// legacyDiffOmitEmptyString is a struct of the fields of omitempty with the string option, which a bool and a string
+// fail by when they are written, without StringifyWithLegacySemantics.
+type legacyDiffOmitEmptyString struct {
+	B bool    `json:",omitempty,string"`
+	S string  `json:",omitempty,string"`
+	I int     `json:",omitempty,string"`
+	P *string `json:",omitempty,string"`
 }
 
 // legacyDiffDuration is a struct of the time.Duration values of FormatDurationAsNano.
@@ -164,6 +223,12 @@ func legacyDiffValues() []any {
 		[]legacyPtrJSONByte{1}, [1]legacyPtrJSONByte{1}, []legacyAppendByte{1}, [1]legacyAppendByte{1},
 		[]legacyTextInByte{1, 2}, []legacyJSONInByte{1, 2}, legacyNamedBytes{1, 2}, legacyNamedBytes(nil),
 		[2][2]byte{{1, 2}, {3, 4}}, &[2]byte{1, 2}, &[]legacyByte{1},
+		legacyDiffOmitEmpty{}, legacyDiffOmitEmpty{P: new(int), PP: new(*int), PS: &[]int{}, PM: &map[string]int{},
+			PT: &struct{}{}, Sl: []int{}, Bs: []byte{}, M: map[string]int{}, Any: "", Raw: legacyRaw{}, PMJ: &legacyEmptyText{},
+			N: map[string]any{}},
+		legacyDiffOmitEmpty{B: true, I: -1, U: 1, F: 0.5, S: "x", Sl: []int{1}, Any: 0, Raw: legacyRaw(`1`), Z: 1,
+			N: map[string]any{"a": nil}, E: legacyEmbeddedOmit{X: []int{}}},
+		legacyDiffOmitEmptyString{}, legacyDiffOmitEmptyString{I: 3},
 		legacyDiffBytes{}, legacyDiffBytes{B: []byte{1}, NB: []legacyByte{2}, TB: []legacyTextByte{3}, A: [2]byte{4, 5},
 			NA: [2]legacyByte{6, 7}, TA: [2]legacyTextByte{1, 2}, E: []legacyByte{}, P: &[2]byte{8, 9}, Any: []legacyByte{1, 2}},
 	}

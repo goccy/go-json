@@ -262,7 +262,9 @@ var errInvalidStringTag = errors.New("invalid use of `string` tag option")
 func (c *Compiler) v2FieldValueCode(field *StructFieldCode) (Code, bool) {
 	tag := *field.tag
 	field.tag = &tag
-	if tag.IsOmitEmpty {
+	// with OmitEmptyWithLegacySemantics, the value is omitted if it is false, 0, nil or of no length, as v1 omits it,
+	// which the opcodes of omitempty decide by the kind of the field ( see emptyKindOf ), before it is written.
+	if tag.IsOmitEmpty && c.legacy&modeOmitEmptyLegacy == 0 {
 		// the value is omitted if it would be null, "", {} or []: some kinds are known to be empty or not by the
 		// value ( the check of omitempty of v1 ), the others by what they write ( unwriteEmpty ).
 		switch kind := field.typ.Kind(); {

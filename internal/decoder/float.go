@@ -141,8 +141,7 @@ func (d *floatDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p un
 		f, parseErr := strconv.ParseFloat(*(*string)(unsafe.Pointer(&b)), 64)
 		// a number of the grammar which ParseFloat fails is out of the range of float64
 		if inRange := parseErr == nil && !(d.is32 && overflowsFloat32(f)); !inRange {
-			// ±Inf, which ParseFloat returns, or which the conversion to a float32 makes, is stored
-			d.op(p, f)
+			// the value is left as it is, as encoding/json leaves it from Go 1.27.2
 			return ctx.numberError(cursor, end, d.typ)
 		}
 		d.op(p, f)

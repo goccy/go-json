@@ -499,7 +499,7 @@ func (d *v2StringNumberDecoder) DecodePath(ctx *RuntimeContext, cursor, depth in
 }
 
 // setNumber sets the number at p, of the numeric kind, to num, a JSON number, and returns the cause of the error of
-// a number which is not a value of the kind, as strconv returns it. A float out of its range is set to ±Inf.
+// a number which is not a value of the kind, as strconv returns it, which leaves the value as it is.
 func setNumber(p unsafe.Pointer, kind reflect.Kind, num []byte) error {
 	s := unsafe.String(unsafe.SliceData(num), len(num))
 	var err error
@@ -510,11 +510,12 @@ func setNumber(p unsafe.Pointer, kind reflect.Kind, num []byte) error {
 			bits = 32
 		}
 		var f float64
-		f, err = strconv.ParseFloat(s, bits)
-		if kind == reflect.Float32 {
-			*(*float32)(p) = float32(f)
-		} else {
-			*(*float64)(p) = f
+		if f, err = strconv.ParseFloat(s, bits); err == nil {
+			if kind == reflect.Float32 {
+				*(*float32)(p) = float32(f)
+			} else {
+				*(*float64)(p) = f
+			}
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		var i int64

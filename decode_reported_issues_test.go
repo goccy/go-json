@@ -4,6 +4,7 @@ import (
 	stdjson "encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -202,7 +203,7 @@ func TestIssue448NumberGrammar(t *testing.T) {
 
 func TestIssue555NumbersOutOfRange(t *testing.T) {
 	// A number out of the range of a float64 decoded into an interface{} is a type error, after which the
-	// decoding goes on, and a float is set to ±Inf.
+	// decoding goes on: a float is left as it is, and an interface{} is set to 0 ( see TestDecodeFloatOutOfRange ).
 	huge := "1" + strings.Repeat("0", 400)
 	for _, n := range []string{`1e400`, `-1e400`, huge, `1e39`, `-1e39`, `1e-400`} {
 		for _, doc := range []string{n, `{"n":` + n + `,"m":1}`, `[` + n + `,1]`} {
@@ -213,6 +214,38 @@ func TestIssue555NumbersOutOfRange(t *testing.T) {
 		compareUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float64 }) })
 		compareUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X float32 }) })
 		compareUnmarshal(t, `{"F":`+n+`,"X":1}`, func() any { return new(struct{ F, X any }) })
+	}
+}
+
+// A number out of the range of a float is a type error which leaves the float as it is, and sets an interface{} to
+// 0, as encoding/json does from Go 1.27.2, on every version of Go, by Unmarshal and by a Decoder.
+func TestDecodeFloatOutOfRange(t *testing.T) {
+	type pair struct{ F, X float64 }
+	tests := []struct {
+		in       string
+		newValue func() any
+		want     any
+	}{
+		{`1e400`, func() any { f := math.Pi; return &f }, math.Pi},
+		{`1e40`, func() any { f := float32(32.32); return &f }, float32(32.32)},
+		{`{"F":1e400,"X":1}`, func() any { return &pair{F: 5} }, pair{F: 5, X: 1}},
+		{`1e400`, func() any { var v any = 64.64; return &v }, any(0.0)},
+		{`[1e400,1]`, func() any { return new([]any) }, []any{0.0, 1.0}},
+	}
+	for _, tt := range tests {
+		for name, decode := range map[string]func(v any) error{
+			"Unmarshal": func(v any) error { return json.Unmarshal([]byte(tt.in), v) },
+			"Decoder":   func(v any) error { return json.NewDecoder(strings.NewReader(tt.in)).Decode(v) },
+		} {
+			v := tt.newValue()
+			var typeErr *json.UnmarshalTypeError
+			if err := decode(v); !errors.As(err, &typeErr) {
+				t.Errorf("%s of %s: got the error %v, want an UnmarshalTypeError", name, tt.in, err)
+			}
+			if got := reflect.ValueOf(v).Elem().Interface(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("%s of %s: decoded %#v, want %#v", name, tt.in, got, tt.want)
+			}
+		}
 	}
 }
 

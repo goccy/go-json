@@ -47,3 +47,12 @@
   before it, for `{"abc":1}`); encoding/json/v2 gives the method the decoder of the caller (1,
   `""` and 1 before the name, 6, `/abc` and 1 after it). The value decoded and the place of a
   `SemanticError` are the same.
+- The values left by an error (recorded 2026-10-27, found in the review of the decoding of floats
+  out of range as Go 1.27.2; encoding/json/v2 documents none of them):
+  - an element of a slice which is decoded again, within its capacity, keeps what it held where
+    the decoding of a scalar into it fails ( `[1e400]` or `[1.5]` into `[]float64{3}` or
+    `[]int{3}`: go-json `[3]`, encoding/json/v2 `[0]` ); encoding/json/v2 zeroes the element
+    first. The decodes which succeed are the same.
+  - a pointer which is set is set to nil where the decoding of the value it points to fails
+    ( `1.5` into a `**int` whose `*int` is set, `{"P":1.5}` into `struct{ P *int }` whose `P` is
+    set: go-json nil, encoding/json/v2 keeps the pointer ).

@@ -9,6 +9,10 @@
 
 ## What
 
+- An `encoding/json.Number` of a field of the `string` option fails as a type which the option doesn't apply to:
+  encoding/json/v2 reads the number in the JSON string ( `{"N":"1"}` into `struct{ N json.Number "json:\",string\"" }`
+  is `"1"` in encoding/json/v2, the error of the option in go-json; recorded 2026-10-28, found in the review of
+  `StringifyWithLegacySemantics` ).
 - A method of `UnmarshalJSONFrom` or a function of `UnmarshalFromFunc` which reads a token,
   calls `PeekKind` and then returns an error: encoding/json/v2 reports the error at the offset
   of the next value, as `PeekKind` drops the token it read last; go-json at the token it read.

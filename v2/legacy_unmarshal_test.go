@@ -45,6 +45,20 @@ func runLegacyUnmarshalCases(t *testing.T, cases []legacyUnmarshalCase) {
 	}
 }
 
+func TestUnmarshalMatchCaseSensitiveDelimiter(t *testing.T) {
+	type names struct {
+		FooBar int `json:"foo_bar"`
+		Baz    int `json:"baz,case:ignore"`
+	}
+	both := []json.Options{json.MatchCaseInsensitiveNames(true), gojson.MatchCaseSensitiveDelimiter(true)}
+	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{
+		{"another case", `{"FOO_BAR":1}`, both, newOf(names{}), names{FooBar: 1}},
+		{"without the underscore", `{"foobar":1}`, both, newOf(names{}), names{}},
+		{"without the underscore insensitive", `{"foobar":1}`, both[:1], newOf(names{}), names{FooBar: 1}},
+		{"case:ignore", `{"BAZ":2}`, both[1:], newOf(names{}), names{Baz: 2}},
+	})
+}
+
 func TestUnmarshalArrayFromAnyLength(t *testing.T) {
 	anyLength := []json.Options{gojson.UnmarshalArrayFromAnyLength(true)}
 	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{

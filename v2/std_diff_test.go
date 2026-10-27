@@ -238,6 +238,7 @@ func stdOptions(opts []json.Options) []stdjson.Options {
 			{json.FormatNilSliceAsNull, stdjson.FormatNilSliceAsNull},
 			{json.FormatNilMapAsNull, stdjson.FormatNilMapAsNull},
 			{json.OmitZeroStructFields, stdjson.OmitZeroStructFields},
+			{json.MatchCaseInsensitiveNames, stdjson.MatchCaseInsensitiveNames},
 		} {
 			if v, ok := json.GetOption(o, f.ours); ok {
 				out = append(out, f.std(v))

@@ -92,9 +92,34 @@ func legacyDiffOptions() [][]json.Options {
 		{gojson.FormatByteArrayAsArray(true), gojson.FormatBytesWithLegacySemantics(true), json.StringifyNumbers(true),
 			json.FormatNilSliceAsNull(true), json.Deterministic(true)},
 		{gojson.OmitEmptyWithLegacySemantics(true)},
+		{json.MatchCaseInsensitiveNames(true), json.Deterministic(true)},
+		{json.MatchCaseInsensitiveNames(true), gojson.MatchCaseSensitiveDelimiter(true), json.Deterministic(true)},
+		{gojson.MatchCaseSensitiveDelimiter(true), json.Deterministic(true)},
 		{gojson.OmitEmptyWithLegacySemantics(true), json.StringifyNumbers(true), json.OmitZeroStructFields(true),
 			json.Deterministic(true)},
 	}
+}
+
+// legacyDiffDelimiter is a struct of the names which MatchCaseSensitiveDelimiter matches or not.
+type legacyDiffDelimiter struct {
+	FooBar int `json:"foo_bar"`
+	Baz    int `json:"BAZ,case:ignore"`
+	QuxX   int `json:"qux-x,case:ignore"`
+	Strict int `json:"strict_s,case:strict"`
+}
+
+// legacyDiffDelimiterTwo is a struct of two names which are the same but for an underscore.
+type legacyDiffDelimiterTwo struct {
+	AB  int `json:"a_b"`
+	AB2 int `json:"ab"`
+}
+
+// legacyDiffDelimiterFallback is a struct of an embedded fallback, whose names are matched with the names of the
+// fields when marshaling.
+type legacyDiffDelimiterFallback struct {
+	FooBar int            `json:"foo_bar"`
+	Baz    int            `json:"BAZ,case:ignore"`
+	Rest   map[string]int `json:",embed"`
 }
 
 // legacyEmptyText is a struct whose method writes an empty JSON string: never empty by its Go value.
@@ -229,6 +254,10 @@ func legacyDiffValues() []any {
 		legacyDiffOmitEmpty{B: true, I: -1, U: 1, F: 0.5, S: "x", Sl: []int{1}, Any: 0, Raw: legacyRaw(`1`), Z: 1,
 			N: map[string]any{"a": nil}, E: legacyEmbeddedOmit{X: []int{}}},
 		legacyDiffOmitEmptyString{}, legacyDiffOmitEmptyString{I: 3},
+		legacyDiffDelimiterFallback{FooBar: 1, Rest: map[string]int{"foobar": 2}},
+		legacyDiffDelimiterFallback{FooBar: 1, Rest: map[string]int{"FOO_BAR": 2}},
+		legacyDiffDelimiterFallback{Baz: 1, Rest: map[string]int{"baz": 2}},
+		legacyDiffDelimiterFallback{Rest: map[string]int{"b-a-z": 2, "x": 3}},
 		legacyDiffBytes{}, legacyDiffBytes{B: []byte{1}, NB: []legacyByte{2}, TB: []legacyTextByte{3}, A: [2]byte{4, 5},
 			NA: [2]legacyByte{6, 7}, TA: [2]legacyTextByte{1, 2}, E: []legacyByte{}, P: &[2]byte{8, 9}, Any: []legacyByte{1, 2}},
 	}
@@ -245,7 +274,26 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	legacyBytes := unmarshalDiffOptions{legacy: bytesLegacy}
 	bothBytes := unmarshalDiffOptions{legacy: byteArrayAsArray | bytesLegacy}
 	bytesStruct := `{"B":[1],"NB":"AQ==","TB":["b"],"A":"AQI=","NA":[1,2],"TA":"AQI=","E":[],"P":[1,2],"Any":"AQ=="}`
+	delimiter := unmarshalDiffOptions{legacy: caseSensitiveDelimiter}
+	insensitive := unmarshalDiffOptions{matchCaseInsensitiveNames: true}
+	both := unmarshalDiffOptions{legacy: caseSensitiveDelimiter, matchCaseInsensitiveNames: true}
+	newDelimiter := func() any { return new(legacyDiffDelimiter) }
+	newDelimiterTwo := func() any { return new(legacyDiffDelimiterTwo) }
 	return []unmarshalDiffCase{
+		// MatchCaseSensitiveDelimiter
+		{name: "delimiter name of another case", in: `{"FOO_BAR":1}`, out: newDelimiter, opts: both},
+		{name: "delimiter name without the underscore", in: `{"foobar":1}`, out: newDelimiter, opts: both},
+		{name: "delimiter name without the underscore insensitive", in: `{"foobar":1}`, out: newDelimiter, opts: insensitive},
+		{name: "delimiter name of case:ignore", in: `{"baz":2}`, out: newDelimiter, opts: delimiter},
+		{name: "delimiter name of case:ignore without the dash", in: `{"quxx":3,"Qux-X":4}`, out: newDelimiter, opts: delimiter},
+		{name: "delimiter name of case:ignore without the dash by default", in: `{"quxx":3}`, out: newDelimiter},
+		{name: "delimiter name of case:strict", in: `{"STRICT_S":4}`, out: newDelimiter, opts: both},
+		{name: "delimiter names of the same fold", in: `{"A_B":1}`, out: newDelimiterTwo, opts: both},
+		{name: "delimiter names of the same fold insensitive", in: `{"A_B":1}`, out: newDelimiterTwo, opts: insensitive},
+		{name: "delimiter names of the same fold without the underscore", in: `{"AB":1}`, out: newDelimiterTwo, opts: both},
+		{name: "delimiter names of a member twice", in: `{"foo_bar":1,"FOO_BAR":2}`, out: newDelimiter, opts: both},
+		{name: "delimiter names in a long object", in: `{"x":"` + strings.Repeat("x", 600) + `","FOO_BAR":1,"foobar":2,"Baz":3}`,
+			out: newDelimiter, opts: both},
 		// FormatByteArrayAsArray
 		{name: "byte array as array", in: `[1,2,3]`, out: outOf([3]byte{}), opts: arrayOfBytes},
 		{name: "byte array as array of base64", in: `"AQID"`, out: outOf([3]byte{}), opts: arrayOfBytes},

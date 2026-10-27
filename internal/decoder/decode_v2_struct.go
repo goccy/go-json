@@ -42,16 +42,31 @@ type v2StructDecoder struct {
 	fields     []*structFieldSet
 	keyDecoder *structDecoder
 	// foldedTo is the field which a name of the folded name of each field matches ( see jsonfields.FoldName ), by the
-	// indexes of the fields: [0] without V2MatchCaseInsensitiveNames, where only the fields of the `case:ignore`
-	// option match a name so, and [1] with it, where all but the ones of `case:strict` do. It is nil where no field
-	// matches the name, and ambiguousField where several do. A name is of the folded name of the field which v1
-	// finds for it, or which foldKeys finds for it without its '_' and '-' ( see foldKey ). foldKeys is a table as
-	// v1's of the names of the fields without their '_' and '-', v1's own if no name of a field has them. foldAlways
-	// is whether a field matches by its `case:ignore` option, without V2MatchCaseInsensitiveNames.
-	foldedTo   [2][]*structFieldSet
+	// indexes of the fields, in a table for the options ( see foldedOf ): without V2MatchCaseInsensitiveNames, only
+	// the fields of the `case:ignore` option match a name so, and with it all but the ones of `case:strict` do; with
+	// V2CaseSensitiveDelimiter, only the ones of the name but for the case do, as strings.EqualFold compares names,
+	// which v1 finds a name by ( see appendFoldedKey ). It is nil where no field matches the name, and ambiguousField
+	// where several do. A name is of the folded name of the field which v1 finds for it, or which foldKeys finds for
+	// it without its '_' and '-' ( see foldKey ), but with V2CaseSensitiveDelimiter. foldKeys is a table as v1's of
+	// the names of the fields without their '_' and '-', v1's own if no name of a field has them. foldAlways is
+	// whether a field matches by its `case:ignore` option, without V2MatchCaseInsensitiveNames.
+	foldedTo   [foldedTables][]*structFieldSet
 	foldKeys   *structKeys
 	foldAlways bool
 	fallback   *v2Fallback
+}
+
+// The tables of foldedTo of v2StructDecoder, by the options which choose them.
+const (
+	foldedInsensitive = 1 << iota // V2MatchCaseInsensitiveNames
+	foldedDelimiter               // V2CaseSensitiveDelimiter
+	foldedTables      = foldedDelimiter << 1
+)
+
+// foldedOf returns the table of foldedTo for the options flags: the bit of each option, moved to the bit of its table,
+// without a branch.
+func (d *v2StructDecoder) foldedOf(flags V2Flags) []*structFieldSet {
+	return d.foldedTo[flags/V2MatchCaseInsensitiveNames&1*foldedInsensitive|flags/V2CaseSensitiveDelimiter&1*foldedDelimiter]
 }
 
 // compileStructV2 returns the decoder of the struct type typ. It stays in c.decoders after the compile, as the one
@@ -70,8 +85,10 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		d.initErr = fields.FormatErr
 		return d, nil
 	}
-	// the fields whose names may match a name by their folded names, by the folded names
+	// the fields whose names may match a name by their folded names, by the folded names, and by the folded names and
+	// the names folded as v1 folds them, which keeps their '_' and '-' ( see V2CaseSensitiveDelimiter )
 	folded := map[string][]*structFieldSet{}
+	cased := map[[2]string][]*structFieldSet{}
 	for i := range fields.List {
 		f := &fields.List[i]
 		var dec Decoder
@@ -90,17 +107,28 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		if f.Casing&jsonfields.CaseStrict == 0 {
 			key := string(jsonfields.FoldName([]byte(f.Name)))
 			folded[key] = append(folded[key], set)
+			casedKey := [2]string{key, string(appendFoldedKey(nil, []byte(f.Name)))}
+			cased[casedKey] = append(cased[casedKey], set)
 			d.foldAlways = d.foldAlways || f.Casing&jsonfields.CaseIgnore != 0
 		}
 	}
-	d.foldedTo = [2][]*structFieldSet{make([]*structFieldSet, len(d.fields)), make([]*structFieldSet, len(d.fields))}
+	for i := range d.foldedTo {
+		d.foldedTo[i] = make([]*structFieldSet, len(d.fields))
+	}
 	dashes := false
 	for i, f := range d.fields {
-		for _, other := range folded[string(jsonfields.FoldName([]byte(f.key)))] {
+		key := string(jsonfields.FoldName([]byte(f.key)))
+		for _, other := range folded[key] {
 			if fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0 {
 				d.foldedTo[0][i] = onlyField(d.foldedTo[0][i], other)
 			}
-			d.foldedTo[1][i] = onlyField(d.foldedTo[1][i], other)
+			d.foldedTo[foldedInsensitive][i] = onlyField(d.foldedTo[foldedInsensitive][i], other)
+		}
+		for _, other := range cased[[2]string{key, string(appendFoldedKey(nil, []byte(f.key)))}] {
+			if fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0 {
+				d.foldedTo[foldedDelimiter][i] = onlyField(d.foldedTo[foldedDelimiter][i], other)
+			}
+			d.foldedTo[foldedInsensitive|foldedDelimiter][i] = onlyField(d.foldedTo[foldedInsensitive|foldedDelimiter][i], other)
 		}
 		dashes = dashes || strings.ContainsAny(f.key, "_-")
 	}
@@ -712,10 +740,7 @@ func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start i
 	if !plain {
 		return nil, 0, false
 	}
-	folded := d.foldedTo[0]
-	if ctx.Option.V2&V2MatchCaseInsensitiveNames != 0 {
-		folded = d.foldedTo[1]
-	}
+	folded := d.foldedOf(ctx.Option.V2)
 	if field != nil {
 		return field, end, folded[field.fieldIdx] == field
 	}
@@ -738,10 +763,7 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 	}
 	plain := !hasNotASCIIOrEscape(name)
 	insensitive := ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
-	folded := d.foldedTo[0]
-	if insensitive {
-		folded = d.foldedTo[1]
-	}
+	folded := d.foldedOf(ctx.Option.V2)
 	if !plain {
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && !validV2Text(quoted) {
 			return nil, nil, errV2Text
@@ -756,7 +778,7 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 		// the field of the folded name of candidate, which v1 found by the name folded as FoldName folds it, but for
 		// '_' and '-', which no rune folds to: it is the folded name of the name
 		match = folded[candidate.fieldIdx]
-	case insensitive || d.foldAlways:
+	case (insensitive || d.foldAlways) && ctx.Option.V2&V2CaseSensitiveDelimiter == 0:
 		// the name without its '_' and '-' in the table of the fields without theirs, which folds it as FoldName
 		// folds it: v1 found nothing in the same lookup of the name without them in its table. A name of ASCII of
 		// a length which no field has without them is of no field, as the lookup finds ( see structKeys.lookup ).

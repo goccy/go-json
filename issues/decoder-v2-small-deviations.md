@@ -17,6 +17,13 @@
   encoding/json/v2 reads the number in the JSON string ( `{"N":"1"}` into `struct{ N json.Number "json:\",string\"" }`
   is `"1"` in encoding/json/v2, the error of the option in go-json; recorded 2026-10-28, found in the review of
   `StringifyWithLegacySemantics` ).
+- No value where a value of a type which has no representation is ( a `chan`, a `func`, a `complex128`, a
+  `time.Duration` of no format ): go-json reports what it finds there, encoding/json/v2 the `SemanticError` of the
+  type, which it reports before it reads anything. The input is empty or white space only ( `Unmarshal` and
+  `UnmarshalRead` of `""` or `"  "` into a `*chan int`: the unexpected end of the input in go-json ), a delimiter or
+  the end of an object or an array ( `,`, `:`, `]`, `}` at the top level of `UnmarshalDecode`, `[0,]` as an element:
+  a syntax error ), or the end of the stream ( `UnmarshalDecode`: `io.EOF` ). Recorded 2026-10-28, found in the
+  review of `StringifyWithLegacySemantics`. A value, whole or cut, is the error of the type in both.
 - A method of `UnmarshalJSONFrom` or a function of `UnmarshalFromFunc` which reads a token,
   calls `PeekKind` and then returns an error: encoding/json/v2 reports the error at the offset
   of the next value, as `PeekKind` drops the token it read last; go-json at the token it read.

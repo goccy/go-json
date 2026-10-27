@@ -328,9 +328,10 @@ func (s *Stream) decodeV2After(dec Decoder, p unsafe.Pointer, depth, from, start
 // while the value is looked for: keeps and keepFrom are what the stream kept before.
 func (s *Stream) decodeTopV2(dec Decoder, p unsafe.Pointer, depth, from int64, keeps bool, keepFrom int64) error {
 	switch dec.(type) {
-	case *v2UnmarshalFromDecoder, *v2FuncDecoder, *ptrDecoder, *basicPtrDecoder:
+	case *v2UnmarshalFromDecoder, *v2FuncDecoder, *ptrDecoder, *basicPtrDecoder, *v2InvalidDecoder:
 		// a method or a function which reads a jsontext.Decoder, which may read on past the value, as the one of
-		// encoding/json/v2 reads the values after it, also through a pointer
+		// encoding/json/v2 reads the values after it, also through a pointer; or a type of no representation, whose
+		// error is before the value is read, whatever follows
 		s.keeps, s.keepFrom = keeps, keepFrom
 		s.beginElements()
 		return s.decodeNestedV2(dec, p, depth, from)

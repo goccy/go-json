@@ -9,6 +9,10 @@
 
 ## What
 
+- An `encoding/json.Number` ( the `Number` of the root package ) is decoded by its kind, a string, which a JSON number
+  is an error of: encoding/json/v2 decodes it by its `UnmarshalJSONFrom`, which takes a JSON number ( `{"N":5}` into
+  `struct{ N json.Number }`; recorded 2026-10-28, found in the review of `MergeWithLegacySemantics` ). Its methods
+  take the `jsontext` of the standard library, which the decoder of go-json gives no method.
 - An `encoding/json.Number` of a field of the `string` option fails as a type which the option doesn't apply to:
   encoding/json/v2 reads the number in the JSON string ( `{"N":"1"}` into `struct{ N json.Number "json:\",string\"" }`
   is `"1"` in encoding/json/v2, the error of the option in go-json; recorded 2026-10-28, found in the review of

@@ -36,26 +36,23 @@ var ErrUseDefault = errors.New("json: the value is decoded by the next represent
 // compiled for them.
 type UnmarshalFuncs struct {
 	Funcs    []UnmarshalFunc
-	decoders [2]sync.Map // map[uintptr]Decoder by the pointer type, without and with StringifyNumbers
-	castable sync.Map    // map[reflect.Type][]*UnmarshalFunc
+	decoders sync.Map // map[legacyDecoderKey]Decoder by the pointer type and the options which change the decoders
+	castable sync.Map // map[reflect.Type][]*UnmarshalFunc
 }
 
 // decoderOf returns the decoder of the pointer type typ for the functions, compiling it if the type is new.
-func (f *UnmarshalFuncs) decoderOf(typ unsafe.Pointer, stringifyNumbers bool) (Decoder, error) {
-	cache := &f.decoders[0]
-	if stringifyNumbers {
-		cache = &f.decoders[1]
-	}
-	if v, ok := cache.Load(uintptr(typ)); ok {
+func (f *UnmarshalFuncs) decoderOf(typ unsafe.Pointer, flags V2Flags) (Decoder, error) {
+	key := legacyDecoderKey{typeptr: uintptr(typ), flags: flags & (v2LegacyDecoders | V2StringifyNumbers)}
+	if v, ok := f.decoders.Load(key); ok {
 		return v.(Decoder), nil
 	}
 	c := newCompiler(true)
-	c.stringifyNumbers, c.funcs = stringifyNumbers, f
+	c.stringifyNumbers, c.legacy, c.funcs = flags&V2StringifyNumbers != 0, flags&v2LegacyDecoders, f
 	dec, err := compileHead(runtime.TypeOfPtr(typ), c)
 	if err != nil {
 		return nil, err
 	}
-	v, _ := cache.LoadOrStore(uintptr(typ), dec)
+	v, _ := f.decoders.LoadOrStore(key, dec)
 	return v.(Decoder), nil
 }
 

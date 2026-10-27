@@ -135,7 +135,7 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 // stringTagCompiler returns the compiler of the values of a field of the `string` option: a number is decoded from
 // a JSON string, through the pointers to it, and a value of any other type can't be decoded.
 func (c *compiler) stringTagCompiler() *compiler {
-	return &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, stringTag: true, funcs: c.funcs}
+	return &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, stringTag: true, legacy: c.legacy, funcs: c.funcs}
 }
 
 // fieldPathV2 returns the offset of the field of the struct typ at index, by reflect.Type.FieldByIndex, and the
@@ -1012,7 +1012,7 @@ func (c *compiler) compileMapV2(typ reflect.Type, structName, fieldName string) 
 		defer delete(c.decoders, uintptr(runtime.TypePtr(typ)))
 	}
 	// the keys are compiled apart: a type of them, compiled for the names, is not the one of a value
-	keyCompiler := &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, funcs: c.funcs}
+	keyCompiler := &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, legacy: c.legacy, funcs: c.funcs}
 	keyDec, err := keyCompiler.compileV2(typ.Key(), structName, fieldName)
 	if err != nil {
 		return nil, err

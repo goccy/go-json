@@ -158,10 +158,11 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 			return append(dst, text...), err
 		})
 	}
-	switch t {
-	case timeDurationType:
+	switch {
+	case t == timeDurationType && ctx.Option.Flag&DurationAsNanoOption == 0:
+		// the nanoseconds of the int64 with FormatDurationAsNano, which its kind writes
 		return b, &errors.SemanticError{GoType: t, Err: errNoDuration}
-	case jsonNumberType:
+	case t == jsonNumberType:
 		out, err := AppendNumberString(ctx, append(b, '"'), json.Number(v.String()))
 		if err != nil {
 			return b, err

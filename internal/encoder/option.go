@@ -81,7 +81,11 @@ const (
 
 // UncachedOption are the options whose opcodes are not the ones of the tables shared by every goroutine, nor
 // of the recent opcodes of a context: a context which may filter the fields, and the functions of marshaling.
-const UncachedOption = ContextOption | MarshalFuncsOption
+const UncachedOption = ContextOption | MarshalFuncsOption | legacyOpcodeOptions
+
+// legacyOpcodeOptions are the options of encoding/json which change the opcodes of a type, whose opcodes are not the
+// ones of the shared tables either ( see legacyModes ).
+const legacyOpcodeOptions = OmitEmptyLegacyOption<<1 - CallMethodsLegacyOption
 
 // NilMapIsEmpty is whether a nil map is written as an empty JSON object, as encoding/json/v2 does unless
 // FormatNilMapAsNull, or as null.

@@ -43,6 +43,8 @@ type compiler struct {
 	// `string` option ( see compiler.stringTagCompiler ).
 	stringifyNumbers bool
 	stringTag        bool
+	// legacy are the options of encoding/json which the decoders of v2 are compiled for ( see v2LegacyDecoders ).
+	legacy V2Flags
 	// funcs are the functions of unmarshaling which the decoders of v2 are compiled for, or nil.
 	funcs *UnmarshalFuncs
 }

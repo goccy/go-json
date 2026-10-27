@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 	"unsafe"
@@ -51,6 +52,39 @@ var timeDurationType = reflect.TypeOf(time.Duration(0))
 // cachedV2Decoders are the decoders of v2, without and with StringifyNumbers.
 var cachedV2Decoders [2]runtime.TypeCache[Decoder]
 
+// v2LegacyDecoders are the options of encoding/json which change the decoders of a type: a decoding with one of them
+// takes its decoders from legacyDecoders, apart from the tables shared by every goroutine and from the recent
+// decoders of a context, as few programs use them.
+const v2LegacyDecoders = V2CallMethodsLegacy | V2ByteArrayAsArray | V2BytesLegacy | V2DurationAsNano |
+	V2ReportErrorsLegacy | V2StringifyLegacy
+
+// legacyDecoderKey is what the decoders of the options of encoding/json are cached by: the type, and the options of
+// v2LegacyDecoders, with V2StringifyNumbers.
+type legacyDecoderKey struct {
+	typeptr uintptr
+	flags   V2Flags
+}
+
+// legacyDecoders are the decoders of v2 of the options of encoding/json ( see v2LegacyDecoders ).
+var legacyDecoders sync.Map // map[legacyDecoderKey]Decoder
+
+// legacyDecoderOf returns the decoder of the type for the options flags, which have some of v2LegacyDecoders,
+// compiling it if the type is new.
+func legacyDecoderOf(typ unsafe.Pointer, flags V2Flags) (Decoder, error) {
+	key := legacyDecoderKey{typeptr: uintptr(typ), flags: flags & (v2LegacyDecoders | V2StringifyNumbers)}
+	if v, ok := legacyDecoders.Load(key); ok {
+		return v.(Decoder), nil
+	}
+	c := newCompiler(true)
+	c.stringifyNumbers, c.legacy = flags&V2StringifyNumbers != 0, flags&v2LegacyDecoders
+	dec, err := compileHead(runtime.TypeOfPtr(typ), c)
+	if err != nil {
+		return nil, err
+	}
+	v, _ := legacyDecoders.LoadOrStore(key, dec)
+	return v.(Decoder), nil
+}
+
 // CompileToGetDecoderV2 returns the decoder of the type for the semantics of encoding/json/v2, with the numbers in
 // JSON strings if stringifyNumbers is set.
 func CompileToGetDecoderV2(typ unsafe.Pointer, stringifyNumbers bool) (Decoder, error) {
@@ -88,7 +122,11 @@ const (
 func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
 	stringifyNumbers := ctx.Option.V2&V2StringifyNumbers != 0
 	if funcs := ctx.v2Funcs(); funcs != nil {
-		return funcs.decoderOf(typ, stringifyNumbers)
+		return funcs.decoderOf(typ, ctx.Option.V2)
+	}
+	if ctx.Option.V2&v2LegacyDecoders != 0 {
+		// the options of encoding/json, which the keys of the recent decoders of the context don't have
+		return legacyDecoderOf(typ, ctx.Option.V2)
 	}
 	if ctx.recentDecoders == nil {
 		return CompileToGetDecoderV2(typ, stringifyNumbers)
@@ -145,10 +183,12 @@ func (c *compiler) compileNextV2(dec Decoder, next *Decoder, typ reflect.Type, f
 // by the first of its methods of unmarshaling from first on, or by its kind. A method which may decline a value
 // leaves it to the decoder of the methods after it.
 func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fieldName string) (Decoder, error) {
-	switch typ {
-	case timeDurationType:
+	switch {
+	case typ == timeDurationType && c.legacy&V2DurationAsNano == 0:
+		// a time.Duration has no representation, but its nanoseconds as an int64 with FormatDurationAsNano, which
+		// its kind gives
 		return &v2InvalidDecoder{typ: typ, err: errNoDefaultRepresentation}, nil
-	case timeType:
+	case typ == timeType:
 		if c.stringTag {
 			return &v2InvalidDecoder{typ: typ, err: errInvalidStringTag}, nil
 		}

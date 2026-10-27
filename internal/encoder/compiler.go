@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -22,6 +23,14 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 	}
 	if ctx.Option.Flag&MarshalFuncsOption != 0 {
 		return ctx.Option.Funcs.codeSet(typeptr, ctx.compileMode())
+	}
+	if mode := ctx.compileMode(); mode&legacyModes != 0 {
+		// the options of encoding/json, which the keys of the recent opcodes of the context don't have
+		codeSet, err := legacyCodeSet(typeptr, mode)
+		if err != nil {
+			return nil, err
+		}
+		return getFilteredCodeSetIfNeeded(ctx, codeSet)
 	}
 	// a context which may filter the fields finds the type in its set here, as RecentCodeSet doesn't for it.
 	key := ctx.codeSetKey(typeptr)
@@ -46,9 +55,9 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 }
 
 // compileMode is how the opcodes of a type are compiled, which the options of a context choose: the fields of a
-// struct in their order or ordered by the encoder, the semantics of v1 or of v2, and the options of v2 which
-// change the opcodes of a type. The opcodes of each mode are cached apart.
-type compileMode uint8
+// struct in their order or ordered by the encoder, the semantics of v1 or of v2, the options of v2 which change the
+// opcodes of a type, and the options of encoding/json which do, for v2. The opcodes of each mode are cached apart.
+type compileMode uint16
 
 const (
 	modeOptimizeFieldOrder   compileMode = 1 << iota // OptimizeFieldOrderOption
@@ -57,7 +66,29 @@ const (
 	modeOmitZeroStructFields                         // OmitZeroStructFieldsOption, with V2Option
 	modeStringTag                                    // StringTagOption, with modeStringifyNumbers
 
+	// compileModes are the modes of cachedOpcodeSets: the ones without the options of encoding/json below.
 	compileModes = 32
+)
+
+// The modes of the options of encoding/json, with V2Option, above the ones of cachedOpcodeSets, in the order of their
+// options from CallMethodsLegacyOption: their opcodes are cached in legacyCodeSets, apart from the tables shared by
+// every goroutine and from the recent opcodes of a context, as few programs use them.
+const (
+	modeCallMethodsLegacy compileMode = compileModes << iota
+	modeByteArrayAsArray
+	modeBytesLegacy
+	modeDurationAsNano
+	modeReportErrorsLegacy
+	modeStringifyLegacy
+	modeOmitEmptyLegacy
+
+	legacyModes = modeOmitEmptyLegacy<<1 - modeCallMethodsLegacy
+)
+
+// the last of the modes of encoding/json is as far from the first as its option is: both are made by iota.
+const (
+	_ = uint(OmitEmptyLegacyOption/CallMethodsLegacyOption - OptionFlag(modeOmitEmptyLegacy/modeCallMethodsLegacy))
+	_ = uint(OptionFlag(modeOmitEmptyLegacy/modeCallMethodsLegacy) - OmitEmptyLegacyOption/CallMethodsLegacyOption)
 )
 
 // the options of the compile mode are adjacent bits, from OptimizeFieldOrderOption.
@@ -69,7 +100,8 @@ var _ [0]struct{} = [OptimizeFieldOrderOption*OptionFlag(modeOptimizeFieldOrder)
 
 // compileMode is the compile mode of the options of c.
 func (c *RuntimeContext) compileMode() compileMode {
-	return compileMode(c.Option.Flag / OptimizeFieldOrderOption & (compileModes - 1))
+	return compileMode(c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1)) |
+		compileMode(c.Option.Flag/CallMethodsLegacyOption&OptionFlag(legacyModes/modeCallMethodsLegacy))*modeCallMethodsLegacy
 }
 
 // codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type plus the
@@ -131,6 +163,9 @@ func recentCodeSetIndex(typeptr uintptr) uint64 {
 // compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
 // The opcodes of each compile mode are cached apart.
 func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
+	if mode&legacyModes != 0 {
+		return legacyCodeSet(typeptr, mode)
+	}
 	cache := &cachedOpcodeSets[mode]
 	if codeSet := cache.Load(typeptr); codeSet != nil {
 		return codeSet, nil
@@ -140,6 +175,30 @@ func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSe
 		return nil, err
 	}
 	return cache.Store(typeptr, codeSet), nil
+}
+
+// legacyKey is what the opcodes of a type in a mode with options of encoding/json are cached by.
+type legacyKey struct {
+	typeptr uintptr
+	mode    compileMode
+}
+
+// legacyCodeSets are the opcodes of the modes with options of encoding/json ( see legacyModes ).
+var legacyCodeSets sync.Map // map[legacyKey]*OpcodeSet
+
+// legacyCodeSet returns the opcodes of the type in mode, which has options of encoding/json, compiling them if the
+// type is new.
+func legacyCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
+	key := legacyKey{typeptr: typeptr, mode: mode}
+	if v, ok := legacyCodeSets.Load(key); ok {
+		return v.(*OpcodeSet), nil
+	}
+	codeSet, err := newCompiler(mode).compile(typeptr)
+	if err != nil {
+		return nil, err
+	}
+	v, _ := legacyCodeSets.LoadOrStore(key, codeSet)
+	return v.(*OpcodeSet), nil
 }
 
 type marshalerContext interface {
@@ -193,6 +252,8 @@ type Compiler struct {
 	// stringTag is whether the value is the one of a field of the `string` option ( StringTagOption, see
 	// stringTagCode ).
 	stringTag bool
+	// legacy are the options of encoding/json which the opcodes are compiled for ( see legacyModes ).
+	legacy compileMode
 	// embeddingChain is the types of the structs whose fields are written to the JSON object being compiled:
 	// the struct of the object and the structs embedded in it, down to the one being compiled.
 	embeddingChain []uintptr
@@ -282,6 +343,7 @@ func newCompiler(mode compileMode) *Compiler {
 		stringifyNumbers:     mode&modeStringifyNumbers != 0,
 		omitZeroStructFields: mode&modeOmitZeroStructFields != 0,
 		stringTag:            mode&modeStringTag != 0,
+		legacy:               mode & legacyModes,
 		structFieldCounts:    map[uintptr]int{},
 	}
 }

@@ -73,10 +73,12 @@ func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
 			return code, true
 		}
 	}
-	switch typ {
-	case timeDurationType:
+	switch {
+	case typ == timeDurationType && c.legacy&modeDurationAsNano == 0:
+		// a time.Duration has no representation, but its nanoseconds as an int64 with FormatDurationAsNano, which
+		// its kind gives
 		return c.appendFuncCode(typ, appendError(typ, errNoDuration)), true
-	case timeTimeType:
+	case typ == timeTimeType:
 		return c.appendFuncCode(typ, appendTime), true
 	}
 	if code, ok := c.v2MethodCode(typ, after); ok {
@@ -302,7 +304,8 @@ func (c *Compiler) stringTagCode(typ reflect.Type) Code {
 			return nil
 		}
 		code = c.appendFuncCode(elem, appendStringTag(elem))
-	case isNumberKind(elem.Kind()) && elem != timeDurationType || elem == jsonNumberType:
+	case isNumberKind(elem.Kind()) && (elem != timeDurationType || c.legacy&modeDurationAsNano != 0) ||
+		elem == jsonNumberType:
 		return nil
 	case elem == timeDurationType:
 		code = c.appendFuncCode(elem, appendError(elem, errNoDuration))

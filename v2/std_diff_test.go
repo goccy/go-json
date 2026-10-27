@@ -161,7 +161,7 @@ func diffValues() []any {
 	emptyPointer, nonEmptyPointer := &empty, &nonEmpty
 	var nilInt *int
 	f := false
-	return []any{
+	return append([]any{
 		nil, true, false, 0, -1, int8(-128), uint64(math.MaxUint64), 3.5, float32(0.1), 1e21, 1e-7, "", "a\"b\\c",
 		"<html>&</html>", "  ", "日本語", []byte(nil), []byte{}, []byte("bytes"), [4]byte{1, 2, 3, 4},
 		[]int(nil), []int{}, []int{1, 2}, map[string]int(nil), map[string]int{"b": 2, "a": 1}, map[int]bool{3: true, -1: false},
@@ -213,17 +213,17 @@ func diffValues() []any {
 		[]diffPtrToStructOfSlice{&diffStructOfSlice{F: []diffPtrToStructOfSlice{
 			&diffStructOfSlice{F: []diffPtrToStructOfSlice{}}, &diffStructOfSlice{}, nil,
 		}}},
-	}
+	}, legacyDiffValues()...)
 }
 
 func diffOptions() [][]json.Options {
-	return [][]json.Options{
+	return append([][]json.Options{
 		nil,
 		{json.Deterministic(true)},
 		{json.StringifyNumbers(true), json.Deterministic(true)},
 		{json.FormatNilSliceAsNull(true), json.FormatNilMapAsNull(true), json.Deterministic(true)},
 		{json.OmitZeroStructFields(true), json.Deterministic(true)},
-	}
+	}, legacyDiffOptions()...)
 }
 
 func stdOptions(opts []json.Options) []stdjson.Options {
@@ -239,6 +239,11 @@ func stdOptions(opts []json.Options) []stdjson.Options {
 			{json.FormatNilMapAsNull, stdjson.FormatNilMapAsNull},
 			{json.OmitZeroStructFields, stdjson.OmitZeroStructFields},
 		} {
+			if v, ok := json.GetOption(o, f.ours); ok {
+				out = append(out, f.std(v))
+			}
+		}
+		for _, f := range legacyOptionPairs {
 			if v, ok := json.GetOption(o, f.ours); ok {
 				out = append(out, f.std(v))
 			}

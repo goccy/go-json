@@ -80,12 +80,60 @@ func (l legacySet) std() []stdjson.Options {
 	return opts
 }
 
+// legacyDiffOptions are the rows of the options of encoding/json in the marshal differential tests ( see
+// diffOptions ).
+func legacyDiffOptions() [][]json.Options {
+	return [][]json.Options{
+		{gojson.FormatDurationAsNano(true)},
+		{gojson.FormatDurationAsNano(true), json.StringifyNumbers(true), json.Deterministic(true)},
+	}
+}
+
+// legacyDiffDuration is a struct of the time.Duration values of FormatDurationAsNano.
+type legacyDiffDuration struct {
+	D    time.Duration
+	P    *time.Duration
+	S    time.Duration            `json:",string"`
+	SP   *time.Duration           `json:",string"`
+	E    time.Duration            `json:",omitempty"`
+	Z    time.Duration            `json:",omitzero"`
+	Keys map[time.Duration]string `json:",omitempty"`
+	Any  any
+}
+
+// legacyDiffValues are the values of the options of encoding/json in the marshal differential tests ( see
+// diffValues ).
+func legacyDiffValues() []any {
+	d := time.Duration(-3)
+	return []any{
+		time.Duration(1500), &d, []time.Duration{1, 2}, map[time.Duration]int{5: 1, -2: 2}, map[string]time.Duration{"a": 7},
+		legacyDiffDuration{}, legacyDiffDuration{D: 1, P: &d, S: 2, SP: &d, E: 3, Z: 4, Keys: map[time.Duration]string{9: "x"}, Any: d},
+	}
+}
+
 // unmarshalDiffLegacyCases are the cases of the options of encoding/json.
 func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	anyLength := unmarshalDiffOptions{legacy: arrayAnyLength}
 	loose := unmarshalDiffOptions{legacy: looseBase64}
 	rfc := unmarshalDiffOptions{legacy: looseRFC3339}
+	nano := unmarshalDiffOptions{legacy: durationAsNano}
+	nanoStringify := unmarshalDiffOptions{legacy: durationAsNano, stringifyNumbers: true}
 	return []unmarshalDiffCase{
+		// FormatDurationAsNano
+		{name: "duration nano", in: `1500`, out: outOf(time.Duration(0)), opts: nano},
+		{name: "duration nano by default", in: `1500`, out: outOf(time.Duration(0))},
+		{name: "duration nano negative", in: `-3`, out: outOf(time.Duration(0)), opts: nano},
+		{name: "duration nano fraction", in: `1.5`, out: outOf(time.Duration(0)), opts: nano},
+		{name: "duration nano string", in: `"1500"`, out: outOf(time.Duration(0)), opts: nano},
+		{name: "duration nano stringified", in: `"1500"`, out: outOf(time.Duration(0)), opts: nanoStringify},
+		{name: "duration nano null", in: `null`, out: outOf(time.Duration(7)), opts: nano},
+		{name: "duration nano overflow", in: `1e30`, out: outOf(time.Duration(0)), opts: nano},
+		{name: "duration nano key", in: `{"5":1,"-2":2}`, out: func() any { return new(map[time.Duration]int) }, opts: nano},
+		{name: "duration nano key of a fraction", in: `{"1.5":1}`, out: func() any { return new(map[time.Duration]int) }, opts: nano},
+		{name: "duration nano struct", in: `{"D":1,"P":2,"S":"3","SP":"4","E":5,"Z":6,"Keys":{"9":"x"},"Any":7}`,
+			out: func() any { return new(legacyDiffDuration) }, opts: nano},
+		{name: "duration nano string option of a number", in: `{"S":3}`, out: func() any { return new(legacyDiffDuration) }, opts: nano},
+		{name: "duration nano slice", in: `[1,2]`, out: outOf([]time.Duration(nil)), opts: nano},
 		// UnmarshalArrayFromAnyLength
 		{name: "array longer than the Go array", in: `[1,2,3]`, out: outOf([2]int{}), opts: anyLength},
 		{name: "array shorter than the Go array", in: `[1]`, out: outOf([3]int{7, 7, 7}), opts: anyLength},

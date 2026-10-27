@@ -7,7 +7,10 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/jsonstring"
+	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/internal/runtime"
+	"github.com/goccy/go-json/internal/textcoder"
 	"github.com/goccy/go-json/jsontext"
 )
 
@@ -54,6 +57,69 @@ func marshalTo(m marshalerTo) ([]byte, bool, error) {
 	return bytes.Clone(bytes.TrimSuffix(e.buf.Bytes(), []byte{'\n'})), false, nil
 }
 
+// toAttachment is the encoder of jsontext which MarshalJSONTo of github.com/goccy/go-json/jsontext writes to, for a
+// compact output, attached after the output of a context, as a value at its top level ( see appendMarshalTo ), and
+// the place where it is attached. A context has one, which it makes for its first such value.
+type toAttachment struct {
+	enc jsontext.Encoder
+	pl  textcoder.Attachment
+}
+
+// toConfig are the options of the encoder of toAttachment: the output of MarshalJSON may have duplicate names, and
+// invalid UTF-8, which is written as U+FFFD. The characters which are escaped for HTML are escaped after the method
+// ( see appendMarshalTo ).
+var toConfig = options.Config{
+	Set:   options.AllowDuplicateNames | options.AllowInvalidUTF8,
+	Value: options.AllowDuplicateNames | options.AllowInvalidUTF8,
+}
+
+// htmlChars are the bytes which an output escaped for HTML has escaped: '<', '>', '&' and the first byte of U+2028
+// and U+2029, which starts other characters as well ( see lookedAtByCompact ).
+var htmlChars = jsonstring.NewByteClass('<', '>', '&', 0xe2)
+
+// topLevel is the Outer of toAttachment: the value is at the top level of the encoder, which has no levels around
+// it.
+type topLevel struct{}
+
+func (topLevel) Levels() []textcoder.Level { return []textcoder.Level{{}} }
+
+// appendMarshalTo appends what MarshalJSONTo of m writes after b, by the encoder of the context attached after b,
+// or returns that it declined. The pointers of the place are written only if they change, as a write of a pointer
+// costs a write barrier while the GC marks: the output is mostly the same array, whose length is set by a slice of
+// itself.
+func appendMarshalTo(ctx *RuntimeContext, b []byte, m marshalerTo) ([]byte, bool, error) {
+	a := ctx.marshalTo
+	if a == nil {
+		a = &toAttachment{pl: textcoder.Attachment{Top: true, Outer: topLevel{}, Opts: &toConfig}}
+		ctx.marshalTo = a
+	}
+	pl := &a.pl
+	if unsafe.SliceData(pl.Out) == unsafe.SliceData(b) && cap(pl.Out) == cap(b) {
+		pl.Out = pl.Out[:len(b)]
+	} else {
+		pl.Out = b
+	}
+	pl.Count, pl.OuterDepth = 0, int(ctx.ValueDepth)
+	textcoder.Attach(unsafe.Pointer(&a.enc), pl)
+	pl.Same = true // the options of the next attach are the same
+	err := m.MarshalJSONTo(&a.enc)
+	textcoder.Detach(unsafe.Pointer(&a.enc), pl)
+	if err == nil {
+		// a call of MarshalEncode within the method which failed at the encoder
+		err = pl.Failed
+	}
+	pl.Failed = nil
+	declined, err := errors.MethodCallResult(err, pl.Depth, pl.Count)
+	if err != nil || declined {
+		return b, declined, err
+	}
+	out := pl.Out
+	if ctx.Option.Flag&HTMLEscapeOption != 0 && htmlChars.Has(out[len(b):]) {
+		out = jsonstring.AppendHTMLEscaped(out[:len(b)], bytes.Clone(out[len(b):]))
+	}
+	return out, false, nil
+}
+
 // implementsMarshalTo reports whether the encoder of v1 calls MarshalJSONTo of a value of the type, as the data word
 // of its interface value: not where the method declined the value ( see declines ), not of an interface type, whose
 // dynamic value has its own method, nor of a json.Number, which has the one of encoding/json/jsontext from Go 1.27,
@@ -78,13 +144,14 @@ func (c *Compiler) marshalToCall(recv reflect.Type, addressable bool) *Marshaler
 	if !c.implementsMarshalTo(recv) {
 		return nil
 	}
-	// the method of encoding/json/jsontext, which implementsMarshalTo found, if the type has not the one of
-	// github.com/goccy/go-json/jsontext
-	call := stdMarshalTo
-	if recv.Implements(marshalerToType) {
-		call = func(v any) ([]byte, bool, error) { return marshalTo(v.(marshalerTo)) }
-	}
 	typ := runtime.TypePtr(recv)
+	// the method of github.com/goccy/go-json/jsontext is called by the interface value made of its table of methods,
+	// found once, and the data word, without the check of a type assertion
+	var tab *nonEmptyInterface
+	if recv.Implements(marshalerToType) {
+		proto, _ := reflect.New(recv).Elem().Interface().(marshalerTo)
+		tab = (*nonEmptyInterface)(unsafe.Pointer(&proto))
+	}
 	// the error is of the pointer to the value, which encoding/json calls the method of
 	errType := recv
 	if errType.Kind() != reflect.Pointer {
@@ -92,7 +159,26 @@ func (c *Compiler) marshalToCall(recv reflect.Type, addressable bool) *Marshaler
 	}
 	m := &MarshalerCall{nilIsNull: recv.Kind() == reflect.Ptr, recv: recv}
 	m.marshalTo = func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, bool, error) {
-		out, declined, err := call(*(*any)(unsafe.Pointer(&emptyInterface{typ: typ, ptr: p})))
+		var out []byte
+		var declined, appended bool
+		var err error
+		switch {
+		case tab == nil:
+			// the method of encoding/json/jsontext, which implementsMarshalTo found
+			out, declined, err = stdMarshalTo(*(*any)(unsafe.Pointer(&emptyInterface{typ: typ, ptr: p})))
+		case ctx.Option.Flag&IndentOption == 0:
+			// written after b, compact and escaped as the options say, which nothing checks or copies again
+			var m marshalerTo
+			w := (*nonEmptyInterface)(unsafe.Pointer(&m))
+			w.itab, w.ptr = tab.itab, p
+			out, declined, err = appendMarshalTo(ctx, b, m)
+			appended = true
+		default:
+			var m marshalerTo
+			w := (*nonEmptyInterface)(unsafe.Pointer(&m))
+			w.itab, w.ptr = tab.itab, p
+			out, declined, err = marshalTo(m)
+		}
 		switch {
 		case err != nil:
 			return nil, false, errors.ErrMarshaler(errType, err, "MarshalJSONTo")
@@ -100,7 +186,7 @@ func (c *Compiler) marshalToCall(recv reflect.Type, addressable bool) *Marshaler
 			out, err := appendDeclined(ctx, b, recv, p, addressable)
 			return out, true, err
 		}
-		return out, false, nil
+		return out, appended, nil
 	}
 	return m
 }

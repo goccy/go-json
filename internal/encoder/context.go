@@ -207,6 +207,9 @@ type RuntimeContext struct {
 	// the first walk ( see levelsOfRaw ): the context of an encoding of v1 doesn't have them, which keeps it small
 	// to make again after the GC emptied the pool.
 	rawLevels *rawLevels
+	// marshalTo is the encoder which MarshalJSONTo of the values of v1 writes to ( see appendMarshalTo ), made by
+	// the first such value, which keeps the context of an encoding without one small, as rawLevels does.
+	marshalTo *toAttachment
 	// strictEscaper is the escaper of RejectInvalidUTF8Option of the options of strictIndex - 1, which records the
 	// first string of invalid UTF-8 ( see SetStrictEscaper ): at the end, after the fields of every encoding.
 	strictEscaper jsonstring.Escaper

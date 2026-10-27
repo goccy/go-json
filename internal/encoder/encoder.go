@@ -1117,7 +1117,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if !appended {
 		var err error
 		if bytes, err = m.call(p); err != nil {
-			return nil, &errors.MarshalerError{Type: m.recv, Err: err}
+			return nil, errors.ErrMarshaler(m.recv, err, "MarshalText")
 		}
 	}
 	// appendText, written here: it is not inlined, and this is the text of the key of most maps of texts.
@@ -1142,7 +1142,7 @@ func appendMarshalTextByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v
 	}
 	bytes, err := marshaler.MarshalText()
 	if err != nil {
-		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+		return nil, errors.ErrMarshaler(reflect.TypeOf(v), err, "MarshalText")
 	}
 	return appendText(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
 }

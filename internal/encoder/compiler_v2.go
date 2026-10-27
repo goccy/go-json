@@ -96,7 +96,12 @@ func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
 		// compiled: an empty map of it is {}.
 		return c.appendFuncCode(typ, appendError(typ, nil)), true
 	case reflect.Slice:
-		if typ.Elem().Kind() == reflect.Uint8 && typ.Elem().PkgPath() != "" {
+		if elem := typ.Elem(); elem.Kind() == reflect.Uint8 && elem.PkgPath() != "" {
+			if !v2BytesAsArray(typ, c.legacy&modeByteArrayAsArray != 0, c.legacy&modeBytesLegacy != 0) {
+				// the base64 of its bytes, as of a []byte, with FormatBytesWithLegacySemantics
+				code, _ := c.bytesCode(typ, false)
+				return code, true
+			}
 			// a slice of a named byte type is a list of its values, of their own representation: only []byte is
 			// base64.
 			code, err := c.sliceCode(typ)
@@ -106,7 +111,8 @@ func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
 			return code, true
 		}
 	case reflect.Array:
-		if typ.Elem().Kind() == reflect.Uint8 && typ.Elem().PkgPath() == "" {
+		if typ.Elem().Kind() == reflect.Uint8 &&
+			!v2BytesAsArray(typ, c.legacy&modeByteArrayAsArray != 0, c.legacy&modeBytesLegacy != 0) {
 			n := typ.Len()
 			return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 				return AppendByteSlice(ctx, b, unsafe.Slice((*byte)(p), n)), nil
@@ -121,6 +127,21 @@ func (c *Compiler) v2Code(typ reflect.Type) (Code, bool) {
 		}
 	}
 	return nil, false
+}
+
+// v2BytesAsArray reports whether typ, a slice or an array of a byte kind, is written as a JSON array of its elements
+// rather than as the base64 string of its bytes, by the options of encoding/json which say it: a [N]byte with
+// FormatByteArrayAsArray, and a slice or an array of a named byte type, but with FormatBytesWithLegacySemantics for
+// one of a type which has no method of marshaling.
+func v2BytesAsArray(typ reflect.Type, byteArrayAsArray, legacyBytes bool) bool {
+	elem := typ.Elem()
+	switch {
+	case typ.Kind() == reflect.Array && byteArrayAsArray:
+		return true
+	case elem.PkgPath() == "":
+		return false
+	}
+	return !legacyBytes || v2MethodOf(elem, noMethod) != noMethod
 }
 
 // appendFuncCode returns the code which writes a value of typ by fn, which is given the address of the value, as

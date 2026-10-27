@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	gojson "github.com/goccy/go-json"
 	"github.com/goccy/go-json/jsontext"
 	json "github.com/goccy/go-json/v2"
 )
@@ -114,6 +115,9 @@ func TestUnmarshalReadMemory(t *testing.T) {
 		{"skipped", `{"skip":` + readRecords + `,"name":"x"}`, func() any { return new(struct{ Name string }) }, nil},
 		// the names of no field, which are checked for duplicates by sets of their names unless the option is set
 		{"skipped members", readRecords, func() any { return new([]struct{}) }, []json.Options{jsontext.AllowDuplicateNames(true)}},
+		// a JSON array read into bytes with FormatBytesWithLegacySemantics, whose elements past the length are skipped
+		{"bytes of a JSON array", `{"A":[` + strings.Repeat("1,", 500000) + `1]}`, func() any { return new(struct{ A [2]byte }) },
+			[]json.Options{gojson.FormatBytesWithLegacySemantics(true), gojson.UnmarshalArrayFromAnyLength(true)}},
 		{"counted by a method", `{"records":` + readRecords + `}`, func() any { return new(struct{ Records readCounter }) }, nil},
 		{"counted by a method through a pointer", `{"records":` + readRecords + `}`, func() any {
 			return new(struct{ Records *readCounter })

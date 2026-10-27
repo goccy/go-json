@@ -219,7 +219,8 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 			v = elem
 		}
 	case reflect.Array:
-		if t.Elem().Kind() == reflect.Uint8 && t.Elem().PkgPath() == "" {
+		if t.Elem().Kind() == reflect.Uint8 &&
+			!v2BytesAsArray(t, ctx.Option.Flag&ByteArrayAsArrayOption != 0, ctx.Option.Flag&BytesLegacyOption != 0) {
 			src := unsafe.Slice((*byte)(v.Addr().UnsafePointer()), t.Len())
 			b = append(b, '"')
 			return append(base64.StdEncoding.AppendEncode(b, src), '"'), nil

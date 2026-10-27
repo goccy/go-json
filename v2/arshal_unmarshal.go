@@ -459,7 +459,7 @@ func unmarshalError(in *errorInput, err error, cfg *options.Config) error {
 	switch {
 	case e.NoKind:
 		read = textcoder.ReadNothing
-	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType):
+	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType, cfg):
 		read = textcoder.ReadValue
 	}
 	ptr, serr := in.place(cfg, e.Start, read)
@@ -507,10 +507,10 @@ func methodError(se *SemanticError, e *ierrors.UnmarshalError) error {
 	return se
 }
 
-// readsWhole reports whether encoding/json/v2 reads a value whole before it decodes it into a value of typ, whose
-// syntax error comes first: a string, a number, and the bytes of a base64 string. A value of another type is read by
-// its first token, which is the whole value but for an object or an array.
-func readsWhole(typ reflect.Type) bool {
+// readsWhole reports whether encoding/json/v2 reads a value whole before it decodes it into a value of typ by the
+// options of cfg, whose syntax error comes first: a string, a number, and the bytes of a base64 string. A value of
+// another type is read by its first token, which is the whole value but for an object or an array.
+func readsWhole(typ reflect.Type, cfg *options.Config) bool {
 	switch typ.Kind() {
 	case reflect.String,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -518,7 +518,7 @@ func readsWhole(typ reflect.Type) bool {
 		reflect.Float32, reflect.Float64:
 		return true
 	case reflect.Slice, reflect.Array:
-		return typ.Elem().Kind() == reflect.Uint8 && typ.Elem().PkgPath() == ""
+		return decoder.IsV2Bytes(typ, unmarshalFlags(cfg))
 	}
 	return false
 }

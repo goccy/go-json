@@ -211,13 +211,13 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 	case reflect.Ptr:
 		return compilePtr(typ, structName, fieldName, c)
 	case reflect.Slice:
-		if isV2Bytes(typ) {
-			return newV2BytesDecoder(typ), nil
+		if IsV2Bytes(typ, c.legacy) {
+			return c.compileBytesV2(typ, structName, fieldName)
 		}
 		return compileSlice(typ, structName, fieldName, c)
 	case reflect.Array:
-		if isV2Bytes(typ) {
-			return newV2BytesDecoder(typ), nil
+		if IsV2Bytes(typ, c.legacy) {
+			return c.compileBytesV2(typ, structName, fieldName)
 		}
 		return c.compileArrayV2(typ, structName, fieldName)
 	case reflect.Interface:
@@ -245,11 +245,35 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 	return &v2InvalidDecoder{typ: typ}, nil
 }
 
-// isV2Bytes reports whether typ is a []byte or a [N]byte, whose value is a base64 string: a slice or an array of a
-// named byte type is a JSON array of its values.
-func isV2Bytes(typ reflect.Type) bool {
+// IsV2Bytes reports whether typ, a slice or an array, is of bytes for the options flags, whose value is a base64
+// string: a []byte or a [N]byte, but a [N]byte with FormatByteArrayAsArray, and a slice or an array of a named byte
+// type with FormatBytesWithLegacySemantics, which is otherwise a JSON array of its values.
+func IsV2Bytes(typ reflect.Type, flags V2Flags) bool {
 	elem := typ.Elem()
-	return elem.Kind() == reflect.Uint8 && elem.PkgPath() == ""
+	if elem.Kind() != reflect.Uint8 || typ.Kind() == reflect.Array && flags&V2ByteArrayAsArray != 0 {
+		return false
+	}
+	return elem.PkgPath() == "" || flags&V2BytesLegacy != 0
+}
+
+// compileBytesV2 returns the decoder of typ, a slice or an array of bytes ( see IsV2Bytes ), which a JSON array is
+// decoded into element by element with FormatBytesWithLegacySemantics, as into any other slice or array.
+func (c *compiler) compileBytesV2(typ reflect.Type, structName, fieldName string) (Decoder, error) {
+	d := newV2BytesDecoder(typ)
+	if c.legacy&V2BytesLegacy == 0 {
+		return d, nil
+	}
+	var elements Decoder
+	var err error
+	if typ.Kind() == reflect.Slice {
+		elements, err = compileSlice(typ, structName, fieldName, c)
+	} else {
+		elements, err = c.compileArrayV2(typ, structName, fieldName)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &v2LegacyBytesDecoder{bytes: d, elements: elements}, nil
 }
 
 // V2TypeError returns the type error which a decoder of v1 recorded, as the error of v2 ( see v2Error ), or nil if
@@ -870,6 +894,24 @@ func (d *v2BytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 }
 
 func (d *v2BytesDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
+	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
+}
+
+// v2LegacyBytesDecoder is the decoder of a slice or an array of bytes with FormatBytesWithLegacySemantics: a JSON
+// array is decoded by the decoder of its elements, and any other value as bytes.
+type v2LegacyBytesDecoder struct {
+	bytes    *v2BytesDecoder
+	elements Decoder
+}
+
+func (d *v2LegacyBytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	if ctx.Buf[skipWhiteSpace(ctx.Buf, cursor)] == '[' {
+		return d.elements.Decode(ctx, cursor, depth, p)
+	}
+	return d.bytes.Decode(ctx, cursor, depth, p)
+}
+
+func (d *v2LegacyBytesDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
 }
 

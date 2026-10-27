@@ -756,6 +756,12 @@ func (s *Stream) decodeElementsV2(dec Decoder, p unsafe.Pointer, depth, from int
 			return true, s.decodeArrayElementsV2(d, p, depth, from)
 		}
 		typ = d.typ
+	case *v2LegacyBytesDecoder:
+		if c == '[' {
+			return s.decodeElementsV2(d.elements, p, depth, from)
+		}
+		// any other value, which is read whole as bytes are
+		return false, nil
 	case *boolDecoder:
 		typ = d.typ
 	case *v2InvalidDecoder:

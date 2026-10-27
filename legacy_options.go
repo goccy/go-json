@@ -61,8 +61,8 @@ func FormatByteArrayAsArray(v bool) Options { return options.BoolOf(options.Form
 // handles them:
 //
 //   - A slice or an array of a named type of bytes is a JSON string of the base64 of its bytes, as a []byte is,
-//     unless the type of the bytes has a method of marshaling, which writes the slice or the array as a JSON
-//     array of its elements.
+//     rather than a JSON array of its elements; but when marshaling, it is still a JSON array of its elements if
+//     the type of the bytes has a method of marshaling.
 //   - When unmarshaling, a JSON array is read into a slice or an array of bytes element by element, as into any
 //     other slice or array, where it is an error by default.
 //

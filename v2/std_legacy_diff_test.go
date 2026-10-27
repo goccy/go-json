@@ -87,6 +87,10 @@ func legacyDiffOptions() [][]json.Options {
 	return [][]json.Options{
 		{gojson.FormatDurationAsNano(true)},
 		{gojson.FormatDurationAsNano(true), json.StringifyNumbers(true), json.Deterministic(true)},
+		{gojson.FormatByteArrayAsArray(true)},
+		{gojson.FormatBytesWithLegacySemantics(true)},
+		{gojson.FormatByteArrayAsArray(true), gojson.FormatBytesWithLegacySemantics(true), json.StringifyNumbers(true),
+			json.FormatNilSliceAsNull(true), json.Deterministic(true)},
 	}
 }
 
@@ -102,6 +106,21 @@ type legacyDiffDuration struct {
 	Any  any
 }
 
+// legacyDiffBytes is a struct of the bytes of FormatByteArrayAsArray and FormatBytesWithLegacySemantics.
+type legacyDiffBytes struct {
+	B   []byte
+	NB  []legacyByte
+	TB  []legacyTextByte
+	A   [2]byte
+	NA  [2]legacyByte
+	TA  [2]legacyTextByte
+	E   []legacyByte  `json:",omitempty"`
+	EA  [2]legacyByte `json:",omitempty"`
+	Z   [2]byte       `json:",omitzero"`
+	P   *[2]byte
+	Any any
+}
+
 // legacyDiffValues are the values of the options of encoding/json in the marshal differential tests ( see
 // diffValues ).
 func legacyDiffValues() []any {
@@ -109,6 +128,11 @@ func legacyDiffValues() []any {
 	return []any{
 		time.Duration(1500), &d, []time.Duration{1, 2}, map[time.Duration]int{5: 1, -2: 2}, map[string]time.Duration{"a": 7},
 		legacyDiffDuration{}, legacyDiffDuration{D: 1, P: &d, S: 2, SP: &d, E: 3, Z: 4, Keys: map[time.Duration]string{9: "x"}, Any: d},
+		[]byte{1, 2, 3}, []byte(nil), [3]byte{1, 2, 3}, [0]byte{}, []legacyByte{1, 2, 3}, []legacyByte(nil), [3]legacyByte{1, 2, 3},
+		[]legacyTextByte{1, 2}, [2]legacyTextByte{1, 2},
+		map[[2]byte]int{{1, 2}: 1}, map[[2]legacyByte]int{{1, 2}: 1}, map[[2]legacyTextByte]int{{1, 2}: 1},
+		legacyDiffBytes{}, legacyDiffBytes{B: []byte{1}, NB: []legacyByte{2}, TB: []legacyTextByte{3}, A: [2]byte{4, 5},
+			NA: [2]legacyByte{6, 7}, TA: [2]legacyTextByte{1, 2}, E: []legacyByte{}, P: &[2]byte{8, 9}, Any: []legacyByte{1, 2}},
 	}
 }
 
@@ -119,7 +143,40 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	rfc := unmarshalDiffOptions{legacy: looseRFC3339}
 	nano := unmarshalDiffOptions{legacy: durationAsNano}
 	nanoStringify := unmarshalDiffOptions{legacy: durationAsNano, stringifyNumbers: true}
+	arrayOfBytes := unmarshalDiffOptions{legacy: byteArrayAsArray}
+	legacyBytes := unmarshalDiffOptions{legacy: bytesLegacy}
+	bothBytes := unmarshalDiffOptions{legacy: byteArrayAsArray | bytesLegacy}
+	bytesStruct := `{"B":[1],"NB":"AQ==","TB":["b"],"A":"AQI=","NA":[1,2],"TA":"AQI=","E":[],"P":[1,2],"Any":"AQ=="}`
 	return []unmarshalDiffCase{
+		// FormatByteArrayAsArray
+		{name: "byte array as array", in: `[1,2,3]`, out: outOf([3]byte{}), opts: arrayOfBytes},
+		{name: "byte array as array of base64", in: `"AQID"`, out: outOf([3]byte{}), opts: arrayOfBytes},
+		{name: "byte array as array by default", in: `[1,2,3]`, out: outOf([3]byte{})},
+		{name: "byte array as array stringified", in: `["1","2"]`, out: outOf([2]byte{}),
+			opts: unmarshalDiffOptions{legacy: byteArrayAsArray, stringifyNumbers: true}},
+		{name: "byte array as array of a number too big", in: `[1,256]`, out: outOf([2]byte{}), opts: arrayOfBytes},
+		{name: "byte slice with FormatByteArrayAsArray", in: `"AQID"`, out: outOf([]byte(nil)), opts: arrayOfBytes},
+		{name: "byte array key as array", in: `{"AQI=":1}`, out: func() any { return new(map[[2]byte]int) }, opts: arrayOfBytes},
+		{name: "named byte array as array", in: `[1,2]`, out: outOf([2]legacyByte{}), opts: bothBytes},
+		// FormatBytesWithLegacySemantics
+		{name: "legacy bytes of a JSON array", in: `[1,2,3]`, out: outOf([]byte(nil)), opts: legacyBytes},
+		{name: "legacy bytes of a JSON array by default", in: `[1,2,3]`, out: outOf([]byte(nil))},
+		{name: "legacy byte array of a JSON array", in: `[1,2]`, out: outOf([2]byte{}), opts: legacyBytes},
+		{name: "legacy bytes of a JSON array of an error", in: `[1,"x",3]`, out: outOf([]byte(nil)), opts: legacyBytes},
+		{name: "legacy bytes of a long JSON array", in: "[" + strings.Repeat("1,", 600) + "1]", out: outOf([]byte(nil)), opts: legacyBytes},
+		{name: "legacy named bytes of base64", in: `"AQID"`, out: outOf([]legacyByte(nil)), opts: legacyBytes},
+		{name: "legacy named bytes of base64 by default", in: `"AQID"`, out: outOf([]legacyByte(nil))},
+		{name: "legacy named byte array of base64", in: `"AQI="`, out: outOf([2]legacyByte{}), opts: legacyBytes},
+		{name: "legacy named bytes of null", in: `null`, out: func() any { return &[]legacyByte{1} }, opts: legacyBytes},
+		{name: "legacy named bytes of an object", in: `{"a":1}`, out: outOf([]legacyByte(nil)), opts: legacyBytes},
+		{name: "legacy named bytes of an object of a syntax error", in: `{"a":1,}`, out: outOf([]legacyByte(nil)), opts: legacyBytes},
+		{name: "legacy named bytes of a bool", in: `true`, out: outOf([]legacyByte(nil)), opts: legacyBytes},
+		{name: "legacy text bytes of base64", in: `"AQI="`, out: outOf([]legacyTextByte(nil)), opts: legacyBytes},
+		{name: "legacy text bytes of a JSON array", in: `["bb","b"]`, out: outOf([]legacyTextByte(nil)), opts: legacyBytes},
+		{name: "legacy text bytes of a JSON array by default", in: `["bb","b"]`, out: outOf([]legacyTextByte(nil))},
+		{name: "legacy named byte array key", in: `{"AQI=":1}`, out: func() any { return new(map[[2]legacyByte]int) }, opts: legacyBytes},
+		{name: "legacy bytes struct", in: bytesStruct, out: func() any { return new(legacyDiffBytes) }, opts: legacyBytes},
+		{name: "legacy bytes struct with arrays", in: bytesStruct, out: func() any { return new(legacyDiffBytes) }, opts: bothBytes},
 		// FormatDurationAsNano
 		{name: "duration nano", in: `1500`, out: outOf(time.Duration(0)), opts: nano},
 		{name: "duration nano by default", in: `1500`, out: outOf(time.Duration(0))},

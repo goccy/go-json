@@ -162,7 +162,9 @@ func (d *v2UnmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64
 	}
 	switch ctx.Buf[start] {
 	case 'n':
-		d.zero.zero(p)
+		if ctx.Option.V2&V2MergeLegacy == 0 {
+			d.zero.zero(p)
+		}
 		return end, nil
 	case '"':
 	default:
@@ -191,7 +193,9 @@ func (d v2TimeDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	}
 	switch ctx.Buf[start] {
 	case 'n':
-		*(*time.Time)(p) = time.Time{}
+		if ctx.Option.V2&V2MergeLegacy == 0 {
+			*(*time.Time)(p) = time.Time{}
+		}
 		return end, nil
 	case '"':
 	default:

@@ -78,6 +78,29 @@ func TestUnmarshalStringifyWithLegacySemantics(t *testing.T) {
 	})
 }
 
+func TestUnmarshalMergeWithLegacySemantics(t *testing.T) {
+	merge := []json.Options{gojson.MergeWithLegacySemantics(true)}
+	type pair struct{ X, Y int }
+	type values struct {
+		I  int
+		S  string
+		A  [2]pair
+		Sl []pair
+		M  map[string]pair
+	}
+	newValues := func() any {
+		return &values{I: 1, S: "s", A: [2]pair{{1, 2}, {3, 4}}, Sl: append(make([]pair, 0, 2), pair{1, 2}), M: map[string]pair{"a": {1, 2}}}
+	}
+	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{
+		{"nulls", `{"I":null,"S":null}`, merge, newValues, values{I: 1, S: "s", A: [2]pair{{1, 2}, {3, 4}},
+			Sl: []pair{{1, 2}}, M: map[string]pair{"a": {1, 2}}}},
+		{"elements and values", `{"A":[{"X":9},{"Y":8}],"Sl":[{"X":9}],"M":{"a":{"X":9}}}`, merge, newValues, values{I: 1, S: "s",
+			A: [2]pair{{9, 2}, {3, 8}}, Sl: []pair{{9, 2}}, M: map[string]pair{"a": {9, 0}}}},
+		{"elements and values by default", `{"A":[{"X":9},{"Y":8}],"Sl":[{"X":9}],"M":{"a":{"X":9}}}`, nil, newValues, values{I: 1,
+			S: "s", A: [2]pair{{9, 0}, {0, 8}}, Sl: []pair{{9, 0}}, M: map[string]pair{"a": {9, 2}}}},
+	})
+}
+
 func TestUnmarshalArrayFromAnyLength(t *testing.T) {
 	anyLength := []json.Options{gojson.UnmarshalArrayFromAnyLength(true)}
 	runLegacyUnmarshalCases(t, []legacyUnmarshalCase{

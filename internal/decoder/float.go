@@ -127,8 +127,8 @@ func (d *floatDecoder) decodeSlow(ctx *RuntimeContext, cursor, depth int64, p un
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		if ctx.Option.V2 != 0 {
-			// the semantics of encoding/json/v2 decode null as the zero value
+		if ctx.Option.V2 != 0 && ctx.Option.V2&V2MergeLegacy == 0 {
+			// the semantics of encoding/json/v2 decode null as the zero value, but with MergeWithLegacySemantics
 			d.op(p, 0)
 		}
 		return cursor + 4, nil

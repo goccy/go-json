@@ -149,6 +149,40 @@ type legacyDiffStringifyText struct {
 	S string `json:",string"`
 }
 
+// legacyPair is a struct of two fields, which a JSON object of one of them merges into or not.
+type legacyPair struct{ X, Y int }
+
+// legacyDiffMerge is a struct of the values which MergeWithLegacySemantics merges into or not.
+type legacyDiffMerge struct {
+	B   bool
+	I   int
+	U   uint
+	F   float64
+	S   string
+	A   [2]int
+	AP  [2]legacyPair
+	St  legacyPair
+	Sl  []legacyPair
+	M   map[string]legacyPair
+	MA  map[string]any
+	P   *int
+	T   time.Time
+	Tx  legacyTextInByte
+	BA  [2]byte
+	Bs  []byte
+	Any any
+}
+
+// newLegacyDiffMerge returns a value of legacyDiffMerge whose fields are not zero.
+func newLegacyDiffMerge() any {
+	n := 9
+	sl := make([]legacyPair, 2, 3)
+	sl[0], sl[1] = legacyPair{1, 2}, legacyPair{3, 4}
+	return &legacyDiffMerge{B: true, I: 1, U: 2, F: 3, S: "s", A: [2]int{4, 5}, AP: [2]legacyPair{{1, 2}, {3, 4}},
+		St: legacyPair{6, 7}, Sl: sl, M: map[string]legacyPair{"a": {1, 2}}, MA: map[string]any{"a": map[string]any{"x": 1.0}, "p": new(int)},
+		P: &n, T: time.Unix(1, 0).UTC(), Tx: 3, BA: [2]byte{1, 2}, Bs: []byte{1}, Any: map[string]any{"k": 1.0}}
+}
+
 // legacyEmptyText is a struct whose method writes an empty JSON string: never empty by its Go value.
 type legacyEmptyText struct{ X int }
 
@@ -306,6 +340,11 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	legacyBytes := unmarshalDiffOptions{legacy: bytesLegacy}
 	bothBytes := unmarshalDiffOptions{legacy: byteArrayAsArray | bytesLegacy}
 	bytesStruct := `{"B":[1],"NB":"AQ==","TB":["b"],"A":"AQI=","NA":[1,2],"TA":"AQI=","E":[],"P":[1,2],"Any":"AQ=="}`
+	merge := unmarshalDiffOptions{legacy: mergeLegacy}
+	mergeNulls := `{"B":null,"I":null,"U":null,"F":null,"S":null,"A":null,"AP":null,"St":null,"Sl":null,"M":null,"MA":null,` +
+		`"P":null,"T":null,"Tx":null,"BA":null,"Bs":null,"Any":null}`
+	mergeValues := `{"A":[8,9],"AP":[{"X":9},{"Y":8}],"St":{"X":9},"Sl":[{"X":9}],"M":{"a":{"X":9}},"MA":{"a":{"y":2},"p":5},` +
+		`"Any":{"j":2},"BA":"AwQ=","Tx":"bb"}`
 	stringify := unmarshalDiffOptions{legacy: stringifyLegacy}
 	stringifyNumbers := unmarshalDiffOptions{legacy: stringifyLegacy, stringifyNumbers: true}
 	newStringify := func() any { return new(legacyDiffStringify) }
@@ -315,6 +354,40 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 	newDelimiter := func() any { return new(legacyDiffDelimiter) }
 	newDelimiterTwo := func() any { return new(legacyDiffDelimiterTwo) }
 	return []unmarshalDiffCase{
+		// MergeWithLegacySemantics
+		{name: "merge nulls", in: mergeNulls, out: newLegacyDiffMerge, opts: merge},
+		{name: "merge nulls by default", in: mergeNulls, out: newLegacyDiffMerge},
+		{name: "merge values", in: mergeValues, out: newLegacyDiffMerge, opts: merge},
+		{name: "merge values by default", in: mergeValues, out: newLegacyDiffMerge},
+		{name: "merge values of duplicate names", in: `{"MA":{"a":{"x":2},"a":{"y":3}},"M":{"a":{"Y":1},"a":{"X":5}}}`,
+			out: newLegacyDiffMerge, opts: unmarshalDiffOptions{legacy: mergeLegacy, allowDuplicateNames: true}},
+		{name: "merge a null into a pointer to a pointer held by an interface", in: `null`, out: func() any {
+			n := 1
+			pn := &n
+			var v any = &pn
+			return &v
+		}, opts: merge},
+		{name: "merge a number into a pointer held by an interface", in: `5`, out: func() any {
+			var v any = new(int)
+			return &v
+		}, opts: merge},
+		{name: "merge an object into a struct held by an interface", in: `{"X":5}`, out: func() any {
+			var v any = legacyPair{1, 2}
+			return &v
+		}, opts: merge},
+		{name: "merge a null of the string option", in: `{"I":null,"F":null}`, out: func() any {
+			return &legacyDiffStringify{I: 1, F: 2}
+		}, opts: merge},
+		{name: "merge a quoted null of the string option", in: `{"I":"null","S":"null"}`, out: func() any {
+			return &legacyDiffStringify{I: 1, S: "x"}
+		}, opts: unmarshalDiffOptions{legacy: mergeLegacy | stringifyLegacy}},
+		{name: "merge a long object", in: `{"X":"` + strings.Repeat("x", 600) + `",` + mergeValues[1:], out: func() any {
+			v := newLegacyDiffMerge()
+			return &struct {
+				X string
+				*legacyDiffMerge
+			}{legacyDiffMerge: v.(*legacyDiffMerge)}
+		}, opts: merge},
 		// StringifyWithLegacySemantics
 		{name: "stringify bool", in: `{"B":"true","EB":"false"}`, out: newStringify, opts: stringify},
 		{name: "stringify bool by default", in: `{"B":"true"}`, out: newStringify},

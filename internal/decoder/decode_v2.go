@@ -439,6 +439,9 @@ func (d v2StringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		var ok bool
 		if s, next, ok, err = d.decodeStringValue(ctx, start); err == nil && ok {
 			err = replacedRuneError(ctx, s, start, next)
+		} else if err == nil && buf[start] == 'n' && ctx.Option.V2&V2MergeLegacy != 0 {
+			// null, which leaves the string as it is with MergeWithLegacySemantics
+			return next, nil
 		}
 	}
 	if err != nil {
@@ -576,7 +579,9 @@ func (d *v2StringNumberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64,
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		clear(unsafe.Slice((*byte)(p), d.typ.Size()))
+		if ctx.Option.V2&V2MergeLegacy == 0 {
+			clear(unsafe.Slice((*byte)(p), d.typ.Size()))
+		}
 		return cursor + 4, nil
 	case '"':
 	default:
@@ -594,7 +599,9 @@ func (d *v2StringNumberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64,
 	}
 	if err := setNumber(p, d.kind, num); err != nil {
 		if stringify && string(num) == "null" {
-			clear(unsafe.Slice((*byte)(p), d.typ.Size()))
+			if ctx.Option.V2&V2MergeLegacy == 0 {
+				clear(unsafe.Slice((*byte)(p), d.typ.Size()))
+			}
 			return next, nil
 		}
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, End: next, HasValue: true, Err: err}
@@ -619,7 +626,7 @@ func (d *v2StringifiedDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		d.zero(p)
+		d.zero(ctx, p)
 		return cursor + 4, nil
 	case '"':
 	default:
@@ -632,7 +639,7 @@ func (d *v2StringifiedDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	}
 	switch {
 	case s == "null":
-		d.zero(p)
+		d.zero(ctx, p)
 	case d.kind == reflect.Bool && (s == "true" || s == "false"):
 		*(*bool)(p) = s == "true"
 	case d.kind == reflect.Bool:
@@ -647,8 +654,11 @@ func (d *v2StringifiedDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 	return end, nil
 }
 
-// zero sets the bool or the string at p to its zero value.
-func (d *v2StringifiedDecoder) zero(p unsafe.Pointer) {
+// zero sets the bool or the string at p to its zero value for null, but with MergeWithLegacySemantics.
+func (d *v2StringifiedDecoder) zero(ctx *RuntimeContext, p unsafe.Pointer) {
+	if ctx.Option.V2&V2MergeLegacy != 0 {
+		return
+	}
 	if d.kind == reflect.Bool {
 		*(*bool)(p) = false
 	} else {
@@ -877,7 +887,7 @@ func newV2SliceDecoder(d *sliceDecoder) *v2SliceDecoder {
 
 func (d *v2SliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(ctx.Buf, cursor)
-	if d.zero && ctx.Buf[cursor] == '[' && (*sliceHeader)(p).cap > 0 {
+	if d.zero && ctx.Buf[cursor] == '[' && (*sliceHeader)(p).cap > 0 && ctx.Option.V2&V2MergeLegacy == 0 {
 		s := valueAt(d.slicePtrType, p)
 		s.Slice(0, s.Cap()).Clear()
 	}
@@ -914,7 +924,9 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		d.array.zero(p)
+		if ctx.Option.V2&V2MergeLegacy == 0 {
+			d.array.zero(p)
+		}
 		return cursor + 4, nil
 	case '[':
 	default:
@@ -931,7 +943,9 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		for {
 			if idx < d.alen {
 				ep := unsafe.Add(p, uintptr(idx)*d.elem.size)
-				d.elem.zero(ep)
+				if ctx.Option.V2&V2MergeLegacy == 0 {
+					d.elem.zero(ep)
+				}
 				c, err := d.valueDecoder.Decode(ctx, cursor, depth, ep)
 				if err != nil {
 					return 0, err
@@ -1006,7 +1020,7 @@ func (d *v2BytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		}
 		if d.alen < 0 {
 			*(*[]byte)(p) = nil
-		} else {
+		} else if ctx.Option.V2&V2MergeLegacy == 0 {
 			clear(unsafe.Slice((*byte)(p), d.alen))
 		}
 		return cursor + 4, nil
@@ -1119,6 +1133,19 @@ func (c *compiler) newV2InterfaceDecoder(typ reflect.Type) *v2InterfaceDecoder {
 func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
+	if ctx.Option.V2&V2MergeLegacy != 0 && (*[2]unsafe.Pointer)(p)[0] != nil {
+		if !d.holdsPointer(p) {
+			*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
+		} else if buf[cursor] == 'n' && runtime.TypeOfPtr(heldType(p, d.empty)).Elem().Kind() == reflect.Pointer {
+			// null into a pointer to a pointer, which sets the pointer it points to nil, rather than the interface
+			// value
+			if err := validateNull(buf, cursor); err != nil {
+				return 0, err
+			}
+			*(*unsafe.Pointer)(*interfaceData(p)) = nil
+			return cursor + 4, nil
+		}
+	}
 	if buf[cursor] == 'n' {
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
@@ -1216,6 +1243,13 @@ func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64
 	return next, err
 }
 
+// holdsPointer reports whether the interface value at p, which holds a value, holds a pointer which is not nil: the only
+// value which MergeWithLegacySemantics decodes into, through the pointer, while any other is dropped before the value
+// is decoded.
+func (d *v2InterfaceDecoder) holdsPointer(p unsafe.Pointer) bool {
+	return runtime.TypeOfPtr(heldType(p, d.empty)).Kind() == reflect.Pointer && *interfaceData(p) != nil
+}
+
 // heldType returns the type of the value which the interface value at p holds, which is not nil: the first word of
 // an interface{}, if empty, or else the second word of the itab, the first word of an interface value of an interface
 // type with methods.
@@ -1309,7 +1343,11 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 		if buf[cursor] != ':' {
 			return 0, syntaxErrorAt(buf, cursor, whereAfterKey)
 		}
-		value := m[key]
+		// the value of the name which m has, which is decoded into, but with MergeWithLegacySemantics, which replaces it
+		var value any
+		if ctx.Option.V2&V2MergeLegacy == 0 {
+			value = m[key]
+		}
 		c, err = d.decodeElem(ctx, cursor+1, depth, unsafe.Pointer(&value))
 		m[key] = value
 		if err != nil {

@@ -1303,7 +1303,12 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 			if rejectDuplicateNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
-			v.Elem().Set(old)
+			// the value of the name is decoded into, but replaced with MergeWithLegacySemantics
+			if s.Option.V2&V2MergeLegacy == 0 {
+				v.Elem().Set(old)
+			} else {
+				v.Elem().SetZero()
+			}
 		} else {
 			v.Elem().SetZero()
 		}
@@ -1340,7 +1345,7 @@ func (s *Stream) nextElementV2(idx int) (int64, bool, error) {
 // decodeSliceElementsV2 decodes the array at the cursor into the slice at p, as v2SliceDecoder.Decode does, after
 // from, the total offset of the end of the token before it.
 func (s *Stream) decodeSliceElementsV2(d *v2SliceDecoder, p unsafe.Pointer, depth, from int64) error {
-	if d.zero && (*sliceHeader)(p).cap > 0 {
+	if d.zero && (*sliceHeader)(p).cap > 0 && s.Option.V2&V2MergeLegacy == 0 {
 		sv := valueAt(d.slicePtrType, p)
 		sv.Slice(0, sv.Cap()).Clear()
 	}
@@ -1503,7 +1508,9 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 		}
 		if idx < d.alen {
 			ep := unsafe.Add(p, uintptr(idx)*d.elem.size)
-			d.elem.zero(ep)
+			if s.Option.V2&V2MergeLegacy == 0 {
+				d.elem.zero(ep)
+			}
 			err = s.decodeNestedV2(d.valueDecoder, ep, depth, step)
 		} else {
 			err = s.skipValueV2(depth, step)
@@ -1523,6 +1530,10 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 // having read nothing, for a value which is read whole.
 func (s *Stream) decodeInterfaceElementsV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth, from int64) (bool, error) {
 	ctx := s.ctx
+	if s.Option.V2&V2MergeLegacy != 0 && (*[2]unsafe.Pointer)(p)[0] != nil && !d.holdsPointer(p) {
+		// MergeWithLegacySemantics decodes into a pointer which the interface value holds only
+		*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
+	}
 	if (*[2]unsafe.Pointer)(p)[0] != nil {
 		// a value which the interface value holds is decoded into
 		iface := valueAt(d.ptrType, p)
@@ -1789,8 +1800,12 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		s.setName(lv, k)
 		s.keeps, s.keepFrom = keeps, keepFrom
 		// the value of the name in the map is decoded into, as decodeElem does: the decoder of the interface{}
-		// decodes a name of an object twice into its first value ( see v2InterfaceDecoder.Decode )
-		value := m[name]
+		// decodes a name of an object twice into its first value ( see v2InterfaceDecoder.Decode ), but with
+		// MergeWithLegacySemantics, which replaces it
+		var value any
+		if s.Option.V2&V2MergeLegacy == 0 {
+			value = m[name]
+		}
 		err = s.decodeNestedV2(d, unsafe.Pointer(&value), depth, nameEnd)
 		m[name] = value
 		if err != nil {

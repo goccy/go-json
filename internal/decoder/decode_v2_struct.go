@@ -217,7 +217,9 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		d.zero.zero(p)
+		if ctx.Option.V2&V2MergeLegacy == 0 {
+			d.zero.zero(p)
+		}
 		return cursor + 4, nil
 	case '{':
 	default:
@@ -1135,7 +1137,12 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			if rejectDuplicateNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
 				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 			}
-			v.Elem().Set(old)
+			// the value of the name is decoded into, but replaced with MergeWithLegacySemantics
+			if ctx.Option.V2&V2MergeLegacy == 0 {
+				v.Elem().Set(old)
+			} else {
+				v.Elem().SetZero()
+			}
 		} else {
 			v.Elem().SetZero()
 		}

@@ -74,8 +74,9 @@ const (
 	ReportErrorsLegacyOption
 	StringifyLegacyOption
 	OmitEmptyLegacyOption
-	// CaseSensitiveDelimiterOption matches the names of an embedded fallback case-insensitively by
-	// strings.EqualFold: an underscore or a dash is not ignored.
+	// CaseSensitiveDelimiterOption restricts the case-insensitive matching of the names of an embedded fallback
+	// ( by MatchCaseInsensitiveNamesOption or case:ignore ) to strings.EqualFold: an underscore or a dash is not
+	// ignored.
 	CaseSensitiveDelimiterOption
 )
 

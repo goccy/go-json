@@ -297,24 +297,25 @@ func releaseFrom(call *decoder.V2Call) {
 
 // unmarshalFlags returns the options of the decoder for the options of a call.
 func unmarshalFlags(c *options.Config) decoder.V2Flags {
-	flags := decoder.V2Semantics
-	if c.Has(options.AllowInvalidUTF8) {
+	// the value is read once, so that the function stays small enough to be inlined into its callers
+	v := c.Value
+	// the options of encoding/json which change the unmarshaling, copied at once, as their flags are in the same order
+	flags := decoder.V2Semantics | decoder.V2Flags(v&legacyUnmarshaling/options.ParseBytesWithLooseRFC4648)*decoder.V2LooseBase64
+	if v&options.AllowInvalidUTF8 != 0 {
 		flags |= decoder.V2AllowInvalidUTF8
 	}
-	if c.Has(options.AllowDuplicateNames) {
+	if v&options.AllowDuplicateNames != 0 {
 		flags |= decoder.V2AllowDuplicateNames
 	}
-	if c.Has(options.StringifyNumbers) {
+	if v&options.StringifyNumbers != 0 {
 		flags |= decoder.V2StringifyNumbers
 	}
-	if c.Has(options.MatchCaseInsensitiveNames) {
+	if v&options.MatchCaseInsensitiveNames != 0 {
 		flags |= decoder.V2MatchCaseInsensitiveNames
 	}
-	if c.Has(options.RejectUnknownMembers) {
+	if v&options.RejectUnknownMembers != 0 {
 		flags |= decoder.V2RejectUnknownMembers
 	}
-	// the options of encoding/json which change the unmarshaling, copied at once, as their flags are in the same order
-	flags |= decoder.V2Flags(c.Value&legacyUnmarshaling/options.ParseBytesWithLooseRFC4648) * decoder.V2LooseBase64
 	return flags
 }
 

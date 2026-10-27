@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/goccy/go-json"
+	"github.com/goccy/go-json/jsontext"
 	jsonv2 "github.com/goccy/go-json/v2"
 )
 
@@ -55,19 +56,25 @@ func TestLegacyOptions(t *testing.T) {
 		}
 	}
 	// the options of the v2 json package and jsontext which DefaultOptionsV1 sets
-	for name, v := range map[string]bool{
-		"Deterministic":             first(jsonv2.GetOption(json.DefaultOptionsV1(), jsonv2.Deterministic)),
-		"FormatNilMapAsNull":        first(jsonv2.GetOption(json.DefaultOptionsV1(), jsonv2.FormatNilMapAsNull)),
-		"FormatNilSliceAsNull":      first(jsonv2.GetOption(json.DefaultOptionsV1(), jsonv2.FormatNilSliceAsNull)),
-		"MatchCaseInsensitiveNames": first(jsonv2.GetOption(json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames)),
+	for _, o := range []struct {
+		name string
+		of   func(bool) json.Options
+	}{
+		{"Deterministic", jsonv2.Deterministic},
+		{"FormatNilMapAsNull", jsonv2.FormatNilMapAsNull},
+		{"FormatNilSliceAsNull", jsonv2.FormatNilSliceAsNull},
+		{"MatchCaseInsensitiveNames", jsonv2.MatchCaseInsensitiveNames},
+		{"AllowDuplicateNames", jsontext.AllowDuplicateNames},
+		{"AllowInvalidUTF8", jsontext.AllowInvalidUTF8},
+		{"EscapeForHTML", jsontext.EscapeForHTML},
+		{"EscapeForJS", jsontext.EscapeForJS},
+		{"PreserveRawStrings", jsontext.PreserveRawStrings},
 	} {
-		if !v {
-			t.Errorf("%s of DefaultOptionsV1: false", name)
+		if v, ok := jsonv2.GetOption(json.DefaultOptionsV1(), o.of); !v || !ok {
+			t.Errorf("%s of DefaultOptionsV1: got %v, %v, want true, true", o.name, v, ok)
 		}
 	}
 	if v, ok := jsonv2.GetOption(json.DefaultOptionsV1(), jsonv2.StringifyNumbers); v || ok {
 		t.Errorf("StringifyNumbers of DefaultOptionsV1: got %v, %v, want false, false", v, ok)
 	}
 }
-
-func first(v, _ bool) bool { return v }

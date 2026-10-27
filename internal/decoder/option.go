@@ -62,7 +62,7 @@ const (
 
 type Option struct {
 	Flags OptionFlags
-	// V2 is in the room which Flags leaves before Context, so that Option keeps its size.
+	// V2 is in the room which Flags leaves before Context on 64-bit platforms, so that Option keeps its size there.
 	V2      V2Flags
 	Context context.Context
 	Path    *Path

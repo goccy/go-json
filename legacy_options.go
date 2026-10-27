@@ -10,15 +10,20 @@ import "github.com/goccy/go-json/internal/options"
 //	jsonv2.Marshal(v, json.DefaultOptionsV1())         // as json.Marshal(v)
 //	jsonv2.Unmarshal(b, &v, json.FormatDurationAsNano(true))
 
-// Options are the options of github.com/goccy/go-json/v2 and github.com/goccy/go-json/jsontext, which the
-// functions of this file make.
+// Options are the options of github.com/goccy/go-json/v2 and github.com/goccy/go-json/jsontext, which
+// DefaultOptionsV1 and the options of the semantics of encoding/json below, such as FormatDurationAsNano, make: not
+// EncodeOptionFunc and DecodeOptionFunc, which are the options of the functions of this package. It is the same
+// type as the Options of those packages.
 type Options = options.Options
 
 // DefaultOptionsV1 sets every option whose default differs between this package and github.com/goccy/go-json/v2 to
 // the default of this package: AllowDuplicateNames, AllowInvalidUTF8, EscapeForHTML, EscapeForJS and
 // PreserveRawStrings of jsontext, Deterministic, FormatNilMapAsNull, FormatNilSliceAsNull and
-// MatchCaseInsensitiveNames of github.com/goccy/go-json/v2, and the options of this file, all true. Other options
-// are not set.
+// MatchCaseInsensitiveNames of github.com/goccy/go-json/v2, and CallMethodsWithLegacySemantics,
+// FormatByteArrayAsArray, FormatBytesWithLegacySemantics, FormatDurationAsNano, MatchCaseSensitiveDelimiter,
+// MergeWithLegacySemantics, OmitEmptyWithLegacySemantics, ParseBytesWithLooseRFC4648, ParseTimeWithLooseRFC3339,
+// ReportErrorsWithLegacySemantics, StringifyWithLegacySemantics and UnmarshalArrayFromAnyLength of this package,
+// all true. Other options are not set.
 //
 // Marshal and Unmarshal of github.com/goccy/go-json/v2 with it marshal and unmarshal as Marshal and Unmarshal of
 // encoding/json of Go 1.27 do.
@@ -111,8 +116,9 @@ func ParseBytesWithLooseRFC4648(v bool) Options {
 	return options.BoolOf(options.ParseBytesWithLooseRFC4648, v)
 }
 
-// ParseTimeWithLooseRFC3339 specifies that a time.Time is read from a JSON string as time.Time.UnmarshalText reads
-// it, which allows some texts which RFC 3339 doesn't, such as an hour of one digit.
+// ParseTimeWithLooseRFC3339 specifies that a time.Time may be read from a JSON string which RFC 3339 doesn't allow
+// in these ways: an hour of one digit, a comma before the fraction of a second, and a timezone offset whose hour is
+// 24 or whose minute is 60.
 //
 // This affects unmarshaling only. It is true by default in this package.
 func ParseTimeWithLooseRFC3339(v bool) Options {
@@ -121,15 +127,16 @@ func ParseTimeWithLooseRFC3339(v bool) Options {
 
 // ReportErrorsWithLegacySemantics specifies that the errors are reported as this package reports them:
 //
-//   - The errors are of the types of this package, such as SyntaxError, MarshalerError, UnsupportedTypeError,
+//   - The errors are usually of the types of this package, such as SyntaxError, MarshalerError, UnsupportedTypeError,
 //     UnsupportedValueError, InvalidUnmarshalError and UnmarshalTypeError, rather than SemanticError of
 //     github.com/goccy/go-json/v2 and SyntacticError of github.com/goccy/go-json/jsontext.
 //   - The error of a method of marshaling is wrapped in a MarshalerError, and the one of a method of unmarshaling
 //     is returned as it is.
 //   - A struct type with an error, such as two fields of the same name or a wrong tag, is handled as well as it
 //     can be, rather than as an error.
-//   - A name which matches more than one field case-insensitively is read into the first of them, rather than
-//     being an error.
+//   - A name which matches no field exactly and more than one field case-insensitively, by
+//     MatchCaseInsensitiveNames of github.com/goccy/go-json/v2 or the case:ignore option of a field, is read into
+//     the first of them, rather than being an error.
 //   - The whole JSON value is checked before it is unmarshaled, so that an input with a syntax error changes
 //     nothing, and an error of a value doesn't stop the unmarshaling: the first such error is reported at the
 //     end.

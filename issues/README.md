@@ -40,7 +40,6 @@ Priority 3
 - [encoder-report-gaps-vs-sonic.md](encoder-report-gaps-vs-sonic.md)
 - [selection-api.md](selection-api.md)
 - [selection-promoted-field-key.md](selection-promoted-field-key.md)
-- [ci-go-1.27-pin.md](ci-go-1.27-pin.md)
 
 Priority 4
 

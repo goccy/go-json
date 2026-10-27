@@ -1360,6 +1360,37 @@ var unsupportedValues = []any{
 	pointerCycleIndirect,
 }
 
+// The value of the error of a float which is not finite is the float, of its type, as encoding/json gives it.
+func TestUnsupportedValueErrorValue(t *testing.T) {
+	type namedFloat float64
+	inf := namedFloat(math.Inf(1))
+	f32 := float32(math.Inf(-1))
+	for _, tt := range []struct {
+		in   any
+		want any
+	}{
+		{namedFloat(math.NaN()), namedFloat(math.NaN())},
+		{math.Inf(-1), math.Inf(-1)},
+		{map[string]float64{"x": math.Inf(1)}, math.Inf(1)},
+		{[]namedFloat{namedFloat(math.NaN())}, namedFloat(math.NaN())},
+		{struct{ F float64 }{math.Inf(-1)}, math.Inf(-1)},
+		{&inf, inf},
+		{struct{ P *namedFloat }{&inf}, inf},
+		{&f32, f32},
+		{[]any{inf}, inf},
+	} {
+		_, err := json.Marshal(tt.in)
+		var unsupported *json.UnsupportedValueError
+		if !errors.As(err, &unsupported) {
+			t.Fatalf("%#v: got the error %v, want an UnsupportedValueError", tt.in, err)
+		}
+		got, want := unsupported.Value, reflect.ValueOf(tt.want)
+		if !got.IsValid() || got.Type() != want.Type() || got.Float() != want.Float() && !(math.IsNaN(got.Float()) && math.IsNaN(want.Float())) {
+			t.Errorf("%#v: got the value %v, want %#v", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestUnsupportedValues(t *testing.T) {
 	for _, v := range unsupportedValues {
 		if _, err := json.Marshal(v); err != nil {

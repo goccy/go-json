@@ -1,8 +1,11 @@
 package json
 
 import (
+	"bytes"
 	stdjson "encoding/json"
 	"errors"
+	"math"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -65,5 +68,37 @@ func TestMarshalDurationKey(t *testing.T) {
 	}
 	if got, err := Marshal(map[time.Duration]int{}); err != nil || string(got) != "{}" {
 		t.Errorf("an empty map: got %s %v, want {}", got, err)
+	}
+}
+
+// A number out of the range of a float is an error which leaves the float as it is, also in an interface{}, and
+// sets a nil interface{} to 0, as encoding/json/v2 does from Go 1.27.2, by Unmarshal and by UnmarshalRead.
+func TestUnmarshalFloatOutOfRange(t *testing.T) {
+	tests := []struct {
+		in       string
+		newValue func() any
+		want     any
+		opts     []Options
+	}{
+		{`1e400`, func() any { f := math.Pi; return &f }, math.Pi, nil},
+		{`1e40`, func() any { f := float32(32.32); return &f }, float32(32.32), nil},
+		{`"1e400"`, func() any { f := math.Pi; return &f }, math.Pi, []Options{StringifyNumbers(true)}},
+		{`1e400`, func() any { var v any = 64.64; return &v }, any(64.64), nil},
+		{`1e400`, func() any { var v any = float32(32.32); return &v }, any(float32(32.32)), nil},
+		{`1e400`, func() any { return new(any) }, any(0.0), nil},
+	}
+	for _, tt := range tests {
+		for name, unmarshal := range map[string]func(v any) error{
+			"Unmarshal":     func(v any) error { return Unmarshal([]byte(tt.in), v, tt.opts...) },
+			"UnmarshalRead": func(v any) error { return UnmarshalRead(bytes.NewReader([]byte(tt.in)), v, tt.opts...) },
+		} {
+			v := tt.newValue()
+			if err := unmarshal(v); err == nil {
+				t.Errorf("%s of %s: no error", name, tt.in)
+			}
+			if got := reflect.ValueOf(v).Elem().Interface(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("%s of %s: decoded %#v, want %#v", name, tt.in, got, tt.want)
+			}
+		}
 	}
 }

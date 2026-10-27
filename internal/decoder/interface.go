@@ -244,8 +244,8 @@ func (d *interfaceDecoder) decodeWithMethods(ctx *RuntimeContext, cursor, depth 
 
 // decodeFloatSlow decodes the number at cursor into the interface{} at p, which the fast parse doesn't: a number
 // which is not valid by the grammar is a syntax error, and a number out of the range of a float64 is a type error,
-// after which the decoding goes on, which stores ±Inf. It is not inlined, so that the decoding of the values of
-// interface{} keeps the size it had.
+// after which the decoding goes on, which stores 0, as encoding/json does from Go 1.27.2. It is not inlined, so
+// that the decoding of the values of interface{} keeps the size it had.
 //
 //go:noinline
 func decodeFloatSlow(ctx *RuntimeContext, cursor int64, p unsafe.Pointer) (int64, error) {
@@ -259,6 +259,7 @@ func decodeFloatSlow(ctx *RuntimeContext, cursor int64, p unsafe.Pointer) (int64
 	// a number of the grammar which ParseFloat fails is out of the range of float64
 	if inRange := parseErr == nil; !inRange {
 		ctx.numberTypeError(cursor, end, float64Type)
+		f = 0
 	}
 	**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
 	return end, nil

@@ -209,8 +209,15 @@ func valueKeyName(x any, byPointer bool) (string, error) {
 }
 
 // methodKeyName returns the name of the value which x holds, or which x points to, by AppendText or MarshalText of
-// x, and whether x has one of them.
+// x, and whether x has one of them. A value of a string kind, or which x points to, is its string, without its
+// methods, as encoding/json names it from Go 1.27.2.
 func methodKeyName(x any) (string, bool, error) {
+	switch v := reflect.ValueOf(x); {
+	case v.Kind() == reflect.String:
+		return v.String(), true, nil
+	case v.Kind() == reflect.Pointer && !v.IsNil() && v.Elem().Kind() == reflect.String:
+		return v.Elem().String(), true, nil
+	}
 	var b []byte
 	var err error
 	switch m := x.(type) {

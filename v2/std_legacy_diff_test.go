@@ -116,6 +116,12 @@ type legacyDiffDelimiterTwo struct {
 	AB2 int `json:"ab"`
 }
 
+// legacyDiffDelimiterIgnore is a struct of two names of case:ignore which are the same but for an underscore.
+type legacyDiffDelimiterIgnore struct {
+	AB  int `json:"a_b,case:ignore"`
+	AB2 int `json:"ab,case:ignore"`
+}
+
 // legacyDiffDelimiterFallback is a struct of an embedded fallback, whose names are matched with the names of the
 // fields when marshaling.
 type legacyDiffDelimiterFallback struct {
@@ -427,6 +433,10 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 		{name: "delimiter names of the same fold", in: `{"A_B":1}`, out: newDelimiterTwo, opts: both},
 		{name: "delimiter names of the same fold insensitive", in: `{"A_B":1}`, out: newDelimiterTwo, opts: insensitive},
 		{name: "delimiter names of the same fold without the underscore", in: `{"AB":1}`, out: newDelimiterTwo, opts: both},
+		{name: "delimiter names of case:ignore of the same fold", in: `{"A_B":1}`,
+			out: func() any { return new(legacyDiffDelimiterIgnore) }, opts: delimiter},
+		{name: "delimiter names of case:ignore of the same fold by default", in: `{"A_B":1}`,
+			out: func() any { return new(legacyDiffDelimiterIgnore) }},
 		{name: "delimiter names of a member twice", in: `{"foo_bar":1,"FOO_BAR":2}`, out: newDelimiter, opts: both},
 		{name: "delimiter names in a long object", in: `{"x":"` + strings.Repeat("x", 600) + `","FOO_BAR":1,"foobar":2,"Baz":3}`,
 			out: newDelimiter, opts: both},

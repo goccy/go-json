@@ -85,10 +85,8 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		d.initErr = fields.FormatErr
 		return d, nil
 	}
-	// the fields whose names may match a name by their folded names, by the folded names, and by the folded names and
-	// the names folded as v1 folds them, which keeps their '_' and '-' ( see V2CaseSensitiveDelimiter )
+	// the fields whose names may match a name by their folded names, by the folded names
 	folded := map[string][]*structFieldSet{}
-	cased := map[[2]string][]*structFieldSet{}
 	for i := range fields.List {
 		f := &fields.List[i]
 		var dec Decoder
@@ -107,8 +105,6 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		if f.Casing&jsonfields.CaseStrict == 0 {
 			key := string(jsonfields.FoldName([]byte(f.Name)))
 			folded[key] = append(folded[key], set)
-			casedKey := [2]string{key, string(appendFoldedKey(nil, []byte(f.Name)))}
-			cased[casedKey] = append(cased[casedKey], set)
 			d.foldAlways = d.foldAlways || f.Casing&jsonfields.CaseIgnore != 0
 		}
 	}
@@ -117,15 +113,17 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 	}
 	dashes := false
 	for i, f := range d.fields {
-		key := string(jsonfields.FoldName([]byte(f.key)))
-		for _, other := range folded[key] {
-			if fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0 {
+		for _, other := range folded[string(jsonfields.FoldName([]byte(f.key)))] {
+			ignore := fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0
+			if ignore {
 				d.foldedTo[0][i] = onlyField(d.foldedTo[0][i], other)
 			}
 			d.foldedTo[foldedInsensitive][i] = onlyField(d.foldedTo[foldedInsensitive][i], other)
-		}
-		for _, other := range cased[[2]string{key, string(appendFoldedKey(nil, []byte(f.key)))}] {
-			if fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0 {
+			if !strings.EqualFold(other.key, f.key) {
+				// a name of the field matches the other field without their '_' and '-' only
+				continue
+			}
+			if ignore {
 				d.foldedTo[foldedDelimiter][i] = onlyField(d.foldedTo[foldedDelimiter][i], other)
 			}
 			d.foldedTo[foldedInsensitive|foldedDelimiter][i] = onlyField(d.foldedTo[foldedInsensitive|foldedDelimiter][i], other)
@@ -747,8 +745,10 @@ func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start i
 		return field, end, folded[field.fieldIdx] == field
 	}
 	// a name of no field of v1, which the table of the names of the fields without '_' and '-' may find without its
-	// own, but not if no field has its length without them, which foldedPlainFieldV2 counts
-	return nil, end, dashes == 0 && d.foldKeys == d.keyDecoder.keys || !d.foldKeys.hasLength(int(end-start-2)-dashes)
+	// own, but not if no field has its length without them, which foldedPlainFieldV2 counts, nor with
+	// V2CaseSensitiveDelimiter, where a name matches a field only as v1 finds it
+	return nil, end, ctx.Option.V2&V2CaseSensitiveDelimiter != 0 || dashes == 0 && d.foldKeys == d.keyDecoder.keys ||
+		!d.foldKeys.hasLength(int(end-start-2)-dashes)
 }
 
 // memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was:

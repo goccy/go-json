@@ -160,6 +160,16 @@ func (c *Compiler) appendFuncCode(typ reflect.Type, fn AppendFunc) *MarshalJSONC
 	return &MarshalJSONCode{typ: typ, appendValue: fn, isAddrForMarshaler: true}
 }
 
+// hasNoRepresentation reports whether a value of the kind has no JSON representation: a complex number, a channel, a
+// function or an unsafe.Pointer.
+func hasNoRepresentation(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Complex64, reflect.Complex128, reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		return true
+	}
+	return false
+}
+
 // appendError returns the function which fails for a value of typ with err.
 func appendError(typ reflect.Type, err error) AppendFunc {
 	return func(_ *RuntimeContext, b []byte, _ unsafe.Pointer) ([]byte, error) {
@@ -354,6 +364,9 @@ func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) Code {
 		code = c.appendFuncCode(elem, appendStringifiedBool)
 	case stringify && elem.Kind() == reflect.String:
 		code = c.appendFuncCode(elem, appendStringifiedString(elem))
+	case hasNoRepresentation(elem.Kind()):
+		// the error of the type, which has no representation whatever its options are
+		code = c.appendFuncCode(elem, appendError(elem, nil))
 	default:
 		code = c.appendFuncCode(elem, appendError(elem, errInvalidStringTag))
 	}

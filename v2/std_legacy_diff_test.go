@@ -978,3 +978,52 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 		{name: "time of a wrong text loose", in: `"2006-01-02"`, out: outOf(time.Time{}), opts: rfc},
 	}
 }
+
+// A value of the `string` option of a type which has no representation is the error of the type, as encoding/json/v2
+// reports it, with StringifyWithLegacySemantics or not, through a pointer, and its null is null.
+func TestStringOptionOfNoRepresentationMatchesStd(t *testing.T) {
+	type C struct {
+		F chan int `json:",string"`
+	}
+	type P struct {
+		F *chan int `json:",string"`
+	}
+	type X struct {
+		F complex64 `json:",string"`
+	}
+	describe := func(err error) string {
+		var se *json.SemanticError
+		var sse *stdjson.SemanticError
+		switch {
+		case errors.As(err, &se):
+			return fmt.Sprintf("%v %v %d %q", se.GoType, se.Err, se.ByteOffset, se.JSONPointer)
+		case errors.As(err, &sse):
+			return fmt.Sprintf("%v %v %d %q", sse.GoType, sse.Err, sse.ByteOffset, sse.JSONPointer)
+		}
+		return fmt.Sprint(err)
+	}
+	for _, stringify := range []bool{false, true} {
+		var opts []json.Options
+		var stdOpts []stdjson.Options
+		if stringify {
+			opts, stdOpts = []json.Options{gojson.StringifyWithLegacySemantics(true)}, []stdjson.Options{stdjsonv1.StringifyWithLegacySemantics(true)}
+		}
+		ch := make(chan int)
+		for _, v := range []any{C{}, P{}, P{F: &ch}, X{}} {
+			_, err := json.Marshal(v, opts...)
+			_, stdErr := stdjson.Marshal(v, stdOpts...)
+			if g, w := describe(err), describe(stdErr); g != w {
+				t.Errorf("Marshal %T stringify %v: %s | std %s", v, stringify, g, w)
+			}
+		}
+		for _, in := range []string{`{"F":"1"}`, `{"F":1}`, `{"F":null}`} {
+			for _, newOut := range []func() any{func() any { return new(C) }, func() any { return new(P) }, func() any { return new(X) }} {
+				err := json.Unmarshal([]byte(in), newOut(), opts...)
+				stdErr := stdjson.Unmarshal([]byte(in), newOut(), stdOpts...)
+				if g, w := describe(err), describe(stdErr); g != w {
+					t.Errorf("Unmarshal %s into %T stringify %v: %s | std %s", in, newOut(), stringify, g, w)
+				}
+			}
+		}
+	}
+}

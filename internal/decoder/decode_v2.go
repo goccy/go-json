@@ -239,7 +239,7 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 		return &v2UnmarshalTextDecoder{typ: typ, ptrType: runtime.TypePtr(reflect.PointerTo(typ)), zero: newZeroer(typ)}, nil
 	}
 	stringify := c.stringTag && c.legacy&V2StringifyLegacy != 0
-	if c.stringTag && typ.Kind() != reflect.Ptr && !isNumberKind(typ.Kind()) {
+	if c.stringTag && typ.Kind() != reflect.Ptr && !isNumberKind(typ.Kind()) && !hasNoRepresentation(typ.Kind()) {
 		if stringify && typ != jsonNumberType && (typ.Kind() == reflect.Bool || typ.Kind() == reflect.String) {
 			// the option applies to a bool and a string too with StringifyWithLegacySemantics
 			return &v2StringifiedDecoder{typ: typ, kind: typ.Kind(), str: v2StringDecoder{newStringDecoder("", "")}}, nil
@@ -284,8 +284,19 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 	case reflect.Map:
 		return c.compileMapV2(typ, structName, fieldName)
 	}
-	// a complex number, a channel, a function or an unsafe.Pointer, which has no representation
+	// a complex number, a channel, a function or an unsafe.Pointer, which has no representation, whatever the options
+	// are ( see hasNoRepresentation )
 	return &v2InvalidDecoder{typ: typ}, nil
+}
+
+// hasNoRepresentation reports whether a value of the kind has no JSON representation: a complex number, a channel, a
+// function or an unsafe.Pointer.
+func hasNoRepresentation(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Complex64, reflect.Complex128, reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		return true
+	}
+	return false
 }
 
 // IsV2Bytes reports whether typ, a slice or an array, is of bytes for the options flags, whose value is a base64

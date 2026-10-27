@@ -54,6 +54,32 @@ const (
 	StringTag
 )
 
+// The properties of marshaling and unmarshaling Go values by the semantics of encoding/json ( v1 ), which the options
+// of the root package set, as the ones of encoding/json do: the v2 json package applies each of them, alone or with
+// the others.
+const (
+	ParseBytesWithLooseRFC4648 Flags = StringTag << (iota + 1)
+	ParseTimeWithLooseRFC3339
+	UnmarshalArrayFromAnyLength
+	MatchCaseSensitiveDelimiter
+	MergeWithLegacySemantics
+	CallMethodsWithLegacySemantics
+	FormatByteArrayAsArray
+	FormatBytesWithLegacySemantics
+	FormatDurationAsNano
+	ReportErrorsWithLegacySemantics
+	StringifyWithLegacySemantics
+	OmitEmptyWithLegacySemantics
+)
+
+// LegacyFlags are the properties of the semantics of encoding/json.
+const LegacyFlags = OmitEmptyWithLegacySemantics<<1 - ParseBytesWithLooseRFC4648
+
+// DefaultV1Flags are the properties which DefaultOptionsV1 of the root package sets to true, and DefaultOptionsV2 of
+// the v2 json package to false: the ones whose defaults differ between encoding/json and encoding/json/v2.
+const DefaultV1Flags = AllowDuplicateNames | AllowInvalidUTF8 | EscapeForHTML | EscapeForJS | PreserveRawStrings |
+	Deterministic | FormatNilMapAsNull | FormatNilSliceAsNull | MatchCaseInsensitiveNames | LegacyFlags
+
 // Config is the state of the options: the properties which were set, and their values.
 type Config struct {
 	Set   Flags // the properties which an option set

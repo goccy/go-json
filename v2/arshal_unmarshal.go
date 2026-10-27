@@ -313,8 +313,23 @@ func unmarshalFlags(c *options.Config) decoder.V2Flags {
 	if c.Has(options.RejectUnknownMembers) {
 		flags |= decoder.V2RejectUnknownMembers
 	}
+	// the options of encoding/json which change the unmarshaling, copied at once, as their flags are in the same order
+	flags |= decoder.V2Flags(c.Value&legacyUnmarshaling/options.ParseBytesWithLooseRFC4648) * decoder.V2LooseBase64
 	return flags
 }
+
+// legacyUnmarshaling are the options of encoding/json which change the unmarshaling: all but
+// OmitEmptyWithLegacySemantics, which are adjacent properties, from ParseBytesWithLooseRFC4648, in the order of their
+// flags in the decoder.
+const legacyUnmarshaling = options.LegacyFlags &^ options.OmitEmptyWithLegacySemantics
+
+// the last of the options is as far from the first as its flag is: both are made by iota.
+const (
+	_ = uint(options.Flags(decoder.V2StringifyLegacy/decoder.V2LooseBase64) -
+		options.StringifyWithLegacySemantics/options.ParseBytesWithLooseRFC4648)
+	_ = uint(options.StringifyWithLegacySemantics/options.ParseBytesWithLooseRFC4648 -
+		options.Flags(decoder.V2StringifyLegacy/decoder.V2LooseBase64))
+)
 
 // decodeInput decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type typ,
 // by the options of cfg, which the options of ctx are made of.

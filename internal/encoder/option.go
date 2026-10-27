@@ -64,6 +64,19 @@ const (
 	// functions of marshaling return, which AppendFormattedRaw doesn't follow: they are formatted by the v2 json
 	// package ( see V2Hooks.FormatRaw ).
 	RawRewriteOption
+	// The options of the semantics of encoding/json which the v2 json package applies when marshaling ( see the
+	// options of the root package ), in the order of their properties in internal/options, from
+	// CallMethodsWithLegacySemantics, so that they are copied at once.
+	CallMethodsLegacyOption
+	ByteArrayAsArrayOption
+	BytesLegacyOption
+	DurationAsNanoOption
+	ReportErrorsLegacyOption
+	StringifyLegacyOption
+	OmitEmptyLegacyOption
+	// CaseSensitiveDelimiterOption matches the names of an embedded fallback case-insensitively by
+	// strings.EqualFold: an underscore or a dash is not ignored.
+	CaseSensitiveDelimiterOption
 )
 
 // UncachedOption are the options whose opcodes are not the ones of the tables shared by every goroutine, nor

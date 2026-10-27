@@ -18,7 +18,7 @@ const (
 
 // V2Flags are the options of a decoding by the semantics of encoding/json/v2, which the v2 json package decodes by
 // ( see CompileToGetDecoderV2 ). They are zero for the decodings of v1.
-type V2Flags uint8
+type V2Flags uint32
 
 const (
 	// V2Semantics is set for every decoding of v2.
@@ -35,6 +35,20 @@ const (
 	// V2RejectUnknownMembers makes a name of an object which is the name of no field of a struct an error, unless
 	// the struct has an embedded fallback.
 	V2RejectUnknownMembers
+	// The options of the semantics of encoding/json which the v2 json package applies when unmarshaling ( see the
+	// options of the root package ), in the order of their properties in internal/options, from
+	// ParseBytesWithLooseRFC4648, so that they are copied at once.
+	V2LooseBase64
+	V2LooseRFC3339
+	V2ArrayAnyLength
+	V2CaseSensitiveDelimiter
+	V2MergeLegacy
+	V2CallMethodsLegacy
+	V2ByteArrayAsArray
+	V2BytesLegacy
+	V2DurationAsNano
+	V2ReportErrorsLegacy
+	V2StringifyLegacy
 )
 
 // The options of the text which v1 accepts and encoding/json/v2 rejects by default, names twice in an object and

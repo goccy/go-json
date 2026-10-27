@@ -93,11 +93,7 @@ func DefaultOptionsV2() Options {
 	return defaultOptionsV2
 }
 
-var defaultOptionsV2 = &options.Config{
-	Set: options.AllowDuplicateNames | options.AllowInvalidUTF8 | options.EscapeForHTML | options.EscapeForJS |
-		options.PreserveRawStrings | options.Deterministic | options.FormatNilMapAsNull | options.FormatNilSliceAsNull |
-		options.MatchCaseInsensitiveNames,
-}
+var defaultOptionsV2 = &options.Config{Set: options.DefaultV1Flags}
 
 // StringifyNumbers specifies that a Go value which would be a JSON number is a JSON string of that number. When
 // unmarshaling, the value is read from a JSON string which holds only the number, without white space.

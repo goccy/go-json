@@ -216,7 +216,9 @@ type Compiler struct {
 	// v2EmbedPath is the index of the embedded field being compiled, whose struct is a part of v2Object, or nil.
 	v2EmbedPath []int
 	// v2DefaultType is the type whose default representation is compiled after the functions of marshaling and the
-	// method v2DefaultAfter, which declined to write a value of it ( see appendDefault ).
+	// method v2DefaultAfter, which declined to write a value of it ( see appendDefault ). For v1, it is the type
+	// whose MarshalJSONTo declined, compiled after the method until its value is reached ( see appendDeclined and
+	// typeToCodeWithPtr ).
 	v2DefaultType  reflect.Type
 	v2DefaultAfter int
 	// funcs are the functions of marshaling of the opcodes, of MarshalFuncsOption.
@@ -432,9 +434,19 @@ func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error)
 	} else {
 		switch {
 		case c.implementsMarshalJSON(typ):
-			return c.marshalJSONCode(typ)
+			return c.marshalJSONCode(typ, isPtr)
 		case c.implementsMarshalText(typ):
 			return c.marshalTextCode(typ)
+		}
+		if c.declines(typ) && typ.Kind() != reflect.Ptr {
+			// the value whose MarshalJSONTo declined, which is written by its kind once: a value of the type in it
+			// calls the method ( see appendDeclined ). A kind which has no representation fails now, as the value
+			// is being written: its code would find the method again.
+			c.v2DefaultType = nil
+			switch typ.Kind() {
+			case reflect.Complex64, reflect.Complex128, reflect.Chan, reflect.Func, reflect.UnsafePointer:
+				return nil, &errors.UnsupportedTypeError{Type: typ}
+			}
 		}
 	}
 	defer c.enterValue(typ)()
@@ -630,14 +642,31 @@ func (c *Compiler) interfaceCode(typ reflect.Type, isPtr bool) (*InterfaceCode, 
 	return &InterfaceCode{typ: typ, isPtr: isPtr}, nil
 }
 
+// marshalJSONCode returns the code of a value of the type with MarshalJSON or MarshalJSONTo, which is addressable
+// if addressable is set.
+//
 //nolint:unparam
-func (c *Compiler) marshalJSONCode(typ reflect.Type) (*MarshalJSONCode, error) {
-	return &MarshalJSONCode{
+func (c *Compiler) marshalJSONCode(typ reflect.Type, addressable bool) (*MarshalJSONCode, error) {
+	code := &MarshalJSONCode{
 		typ:                typ,
 		isAddrForMarshaler: c.isPtrMarshalJSONType(typ),
 		isNilableType:      c.isNilableType(typ),
 		isMarshalerContext: typ.Implements(marshalJSONContextType) || reflect.PointerTo(typ).Implements(marshalJSONContextType),
-	}, nil
+	}
+	switch {
+	case code.isAddrForMarshaler:
+		code.call = c.marshalToCall(reflect.PointerTo(typ), addressable)
+	case addressable && runtime.IfaceIndir(typ) && !c.implementsMarshalTo(typ):
+		// an addressable value has the methods of its pointer, whose MarshalJSONTo comes before its own MarshalJSON:
+		// the opcode gives the method the address of the value, the data word of the value
+		if code.call = c.marshalToCall(reflect.PointerTo(typ), true); code.call != nil {
+			break
+		}
+		fallthrough
+	default:
+		code.call = c.marshalToCall(typ, addressable)
+	}
+	return code, nil
 }
 
 //nolint:unparam
@@ -733,9 +762,10 @@ func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 		return &MarshalJSONCode{
 			typ:                ptrType,
 			isMarshalerContext: ptrType.Implements(marshalJSONContextType),
+			call:               c.marshalToCall(ptrType, true),
 		}, nil
 	case !c.v2 && c.implementsMarshalJSONType(typ):
-		return c.marshalJSONCode(typ)
+		return c.marshalJSONCode(typ, true)
 	case !c.v2 && !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType):
 		return &MarshalTextCode{typ: reflect.PointerTo(typ)}, nil
 	case typ.Kind() == reflect.Map && !(c.v2 && c.hasMarshaler(typ)):
@@ -1107,7 +1137,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 	}
 	switch {
 	case !c.v2 && c.isMovePointerPositionFromHeadToFirstMarshalJSONFieldCase(fieldType, isIndirectSpecialCase):
-		code, err := c.marshalJSONCode(fieldType)
+		code, err := c.marshalJSONCode(fieldType, true)
 		if err != nil {
 			return nil, err
 		}
@@ -1129,7 +1159,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 	case !c.v2 && isPtr && c.isPtrMarshalJSONType(fieldType):
 		// *struct{ field T }
 		// func (*T) MarshalJSON() ([]byte, error)
-		code, err := c.marshalJSONCode(fieldType)
+		code, err := c.marshalJSONCode(fieldType, true)
 		if err != nil {
 			return nil, err
 		}
@@ -1428,8 +1458,10 @@ func (c *Compiler) isNilableType(typ reflect.Type) bool {
 	}
 }
 
+// implementsMarshalJSONType reports whether a value of the type is written by MarshalJSON, or by MarshalJSONTo as
+// MarshalJSON is ( see marshalToCall ).
 func (c *Compiler) implementsMarshalJSONType(typ reflect.Type) bool {
-	return typ.Implements(marshalJSONType) || typ.Implements(marshalJSONContextType)
+	return typ.Implements(marshalJSONType) || typ.Implements(marshalJSONContextType) || c.implementsMarshalTo(typ)
 }
 
 func (c *Compiler) isPtrMarshalJSONType(typ reflect.Type) bool {

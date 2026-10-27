@@ -5,15 +5,13 @@ Issues; this directory holds what the maintainers have found and planned.
 
 ## Order
 
-The decoding API of v2 is complete (2026-10-23). Its speed against v1 comes first, then the calls
-of the v2 methods by the root package; the known defects and the other speed gaps wait until
-then, since none of them is urgent.
+The decoding API of v2 is complete (2026-10-23), and the root package calls the v2 methods
+(2026-10-27). The speed of v2 against v1 comes first; the known defects and the other speed gaps
+wait until then, since none of them is urgent.
 
 Priority 1: now
 
 - [decoder-v2-speed.md](decoder-v2-speed.md): v2 decoding at parity with v1
-- [v1-calls-v2-methods.md](v1-calls-v2-methods.md): the root package calls `UnmarshalJSONFrom`
-  and `MarshalJSONTo` (right after the speed of v2 decoding)
 
 Priority 2: first after priority 1
 

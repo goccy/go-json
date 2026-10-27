@@ -27,6 +27,9 @@
   encoding/json of those releases writes the string it leads to, and "" for a nil one (recorded
   2026-10-27). Writing the string needs an opcode of a pointer to a string whose nil is "", which
   the VM doesn't have. Such a pointer in a key of an interface type is written as the string.
+- v1 with a field query ( `Selection`, `FieldQuery` ): the fields of a struct whose `MarshalJSONTo`
+  declined are all written, as the value is written by the opcodes of its type compiled apart,
+  without the query (recorded 2026-10-27).
 - Recorded 2026-09-21 as needing a change of the VM:
   - an `omitempty` field whose type has `MarshalText` is written when it is the zero value;
   - a nil map whose type has a marshaler is written as `null` instead of calling the marshaler;

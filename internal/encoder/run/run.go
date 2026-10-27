@@ -98,6 +98,8 @@ func EncodeIndent(ctx *encoder.RuntimeContext, v any, prefix, indent string) ([]
 		return b, nil
 	}
 	ctx.Init(p, codeSet.CodeLength)
+	// a nested run is indented as this one ( see Code )
+	ctx.Option.Flag |= encoder.IndentOption
 	buf, err := IndentCode(ctx, b, codeSet, prefix, indent)
 	// the VM refers to the value by uintptr.
 	runtime.KeepAlive(v)
@@ -112,6 +114,11 @@ func EncodeIndent(ctx *encoder.RuntimeContext, v any, prefix, indent string) ([]
 
 // Code runs the opcodes of a value, which ctx is set up for, by the VM of the options of ctx.
 func Code(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
+	if ctx.Option.Flag&encoder.IndentOption != 0 {
+		// a run nested in an indented one, with its prefix and its indentation, as of a value which its
+		// MarshalJSONTo declined
+		return indentRun(ctx, b, codeSet)
+	}
 	// the escaper of the strings ( see encoder.RuntimeContext.SetEscaper ), without a call for most options.
 	// It is set again only for other options than the ones it was set for: the one of RejectInvalidUTF8Option,
 	// whose record of invalid UTF-8 the caller reads and clears after each run ( see InvalidUTF8Output ), as well.
@@ -138,6 +145,11 @@ func Code(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]
 func IndentCode(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet, prefix, indent string) ([]byte, error) {
 	ctx.Prefix = []byte(prefix)
 	ctx.IndentStr = []byte(indent)
+	return indentRun(ctx, b, codeSet)
+}
+
+// indentRun is IndentCode with the prefix and the indentation which ctx has.
+func indentRun(ctx *encoder.RuntimeContext, b []byte, codeSet *encoder.OpcodeSet) ([]byte, error) {
 	ctx.SetEscaper()
 	if (ctx.Option.Flag & encoder.DebugOption) != 0 {
 		if (ctx.Option.Flag & encoder.ColorizeOption) != 0 {

@@ -122,6 +122,16 @@ func TestEncodeMapInterfaceKeys(t *testing.T) {
 		{"stringer keys", map[ifaceKeyStringer]int{ifaceKeyStringerValue("s"): 1}},
 		{"stringer float64 keys", map[fmt.Stringer]int{time.Duration(3): 1}},
 		{"text marshaler keys", map[interface{ MarshalText() ([]byte, error) }]int{ifaceKeyText{"t"}: 1, &ifaceKeyPtrText{"p"}: 2}},
+		{"text marshaler keys of a string type", map[ifaceKeyNamedText]int{"y": 1, "z": 2}},
+		{"text marshaler keys of a string type in a struct", struct{ M map[ifaceKeyNamedText]int }{map[ifaceKeyNamedText]int{"y": 1}}},
+		{"text marshaler of a string type in a text marshaler key", map[interface{ MarshalText() ([]byte, error) }]int{ifaceKeyNamedText("w"): 1}},
+		{"pointer to a text marshaler of a string type", func() any { s := ifaceKeyNamedText("v"); return map[any]any{&s: 1} }()},
+		{"pointer to a text marshaler of a string type in a text marshaler key", func() any {
+			s := ifaceKeyNamedText("u")
+			p := &s
+			return map[interface{ MarshalText() ([]byte, error) }]int{p: 1}
+		}()},
+		{"pointers to a text marshaler of a string type", func() any { s := ifaceKeyNamedText("t"); p := &s; return map[any]any{&p: 1} }()},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

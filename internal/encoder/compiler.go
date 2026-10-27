@@ -693,11 +693,18 @@ func (c *Compiler) arrayCode(typ reflect.Type) (*ArrayCode, error) {
 }
 
 func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
-	mapKeyCode := c.mapKeyCode
-	if c.v2 {
-		mapKeyCode = c.v2MapKeyCode
+	var keyCode Code
+	var err error
+	switch key := typ.Key(); {
+	case c.v2:
+		keyCode, err = c.v2MapKeyCode(key)
+	case key.Kind() == reflect.String:
+		// a key of a string type is the string, without its MarshalText, as encoding/json documents it; a pointer
+		// to one is not of a string type ( see mapKeyCode ).
+		keyCode, err = c.stringCode(key, false)
+	default:
+		keyCode, err = c.mapKeyCode(key)
 	}
-	keyCode, err := mapKeyCode(typ.Key())
 	if err != nil {
 		return nil, err
 	}

@@ -168,7 +168,13 @@ func (st *callState) marshalError(out []byte, err error) error {
 	switch e := err.(type) {
 	case *ierrors.SemanticError:
 		pos, ptr := st.at(out)
-		return &SemanticError{action: "marshal", ByteOffset: pos, JSONPointer: ptr, GoType: e.GoType, Err: e.Err}
+		inner := e.Err
+		if te, ok := inner.(*ierrors.TextError); ok {
+			// the text error of the value, as of a string of invalid UTF-8 of the `string` option, which has no place
+			// of its own
+			inner = &jsontext.SyntacticError{Err: te.Err}
+		}
+		return &SemanticError{action: "marshal", ByteOffset: pos, JSONPointer: ptr, GoType: e.GoType, Err: inner}
 	case *ierrors.OutputError:
 		return st.marshalError(e.Out, e.Err)
 	case *ierrors.MethodError:

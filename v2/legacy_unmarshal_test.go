@@ -1,6 +1,7 @@
 package json_test
 
 import (
+	stdjsonv1 "encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -74,6 +75,10 @@ func TestUnmarshalStringifyWithLegacySemantics(t *testing.T) {
 		{"quoted nulls", `{"B":"null","S":"null","I":"null","P":"null"}`, stringify, newOf(values{B: true, S: "x", I: 1, P: &s}),
 			values{}},
 		// a quoted null of an escape is a quoted null too, unlike encoding/json/v2, which tells it by the raw value
+		// encoding/json.Number, a string kind, is no string of the option: a JSON string of a JSON string of it fails
+		{"number of a JSON string", `{"N":"\"1\""}`, stringify, newOf(struct {
+			N stdjsonv1.Number `json:",string"`
+		}{}), nil},
 		{"quoted null of an escape", `{"P":"nul\u006c"}`, stringify, newOf(values{P: &s}), values{}},
 	})
 }

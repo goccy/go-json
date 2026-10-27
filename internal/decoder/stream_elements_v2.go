@@ -559,6 +559,14 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		return s.decodeNestedV2(d.next, p, depth, from)
 	case *v2FuncDecoder:
 		return s.decodeFuncsV2(d, p, depth, from)
+	case *v2InvalidDecoder:
+		// the error before the value is read, as encoding/json/v2 reports it, whatever the value is
+		return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: s.cursor, NoKind: true, Err: d.err}, from)
+	case *v2StringifiedPtrDecoder:
+		if _, invalid := d.ptr.(*v2InvalidDecoder); invalid && s.buf[s.cursor] != 'n' {
+			// a pointer to a pointer of the `string` option, which fails before its value is read
+			return s.decodeNestedV2(d.ptr, p, depth, from)
+		}
 	case *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, v2StringDecoder, *v2InterfaceDecoder:
 		// a string, a number or a literal which the buffer has whole is decoded in it, as v1 decodes it, after from,
 		// which a read for the rest of a string keeps ( see decodeScalar, which decodes a value of an interface only
@@ -756,6 +764,9 @@ func (s *Stream) decodeElementsV2(dec Decoder, p unsafe.Pointer, depth, from int
 			return true, s.decodeArrayElementsV2(d, p, depth, from)
 		}
 		typ = d.typ
+	case *v2StringifiedPtrDecoder:
+		// the pointer, or the error of a pointer to a pointer, before the value
+		return s.decodeElementsV2(d.ptr, p, depth, from)
 	case *v2LegacyBytesDecoder:
 		if c == '[' {
 			return s.decodeElementsV2(d.elements, p, depth, from)

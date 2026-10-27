@@ -5,10 +5,13 @@ package json_test
 import (
 	stdjsonv1 "encoding/json"
 	stdjson "encoding/json/v2"
+	"errors"
 	"strings"
+	"testing"
 	"time"
 
 	gojson "github.com/goccy/go-json"
+	"github.com/goccy/go-json/jsontext"
 	json "github.com/goccy/go-json/v2"
 )
 
@@ -150,6 +153,31 @@ type legacyDiffStringifyPtr struct {
 	PP **int `json:",string"`
 }
 
+// legacyTextBool is a named bool whose UnmarshalText fails for "null" and sets it true for any other text.
+type legacyTextBool bool
+
+func (b *legacyTextBool) UnmarshalText(text []byte) error {
+	if string(text) == "null" {
+		return errLegacyNull
+	}
+	*b = true
+	return nil
+}
+
+// errLegacyNull is the error of legacyTextBool, an error of encoding/json, which both packages report as it is.
+var errLegacyNull error = &stdjsonv1.UnsupportedValueError{Str: "null"}
+
+// legacyDiffStringifyPointers is a struct of pointers of the `string` option to values which the option doesn't apply
+// to, and of a pointer of the option and another one to the same string.
+type legacyDiffStringifyPointers struct {
+	PSl *[]int          `json:",string"`
+	PSt *legacyPair     `json:",string"`
+	PM  *map[string]int `json:",string"`
+	PT  *legacyTextBool `json:",string"`
+	P   *string         `json:",string"`
+	A   *string
+}
+
 // legacyDiffStringifyText is a struct of a string of the `string` option, of the texts which a JSON string escapes.
 type legacyDiffStringifyText struct {
 	S string `json:",string"`
@@ -187,6 +215,21 @@ func newLegacyDiffMerge() any {
 	return &legacyDiffMerge{B: true, I: 1, U: 2, F: 3, S: "s", A: [2]int{4, 5}, AP: [2]legacyPair{{1, 2}, {3, 4}},
 		St: legacyPair{6, 7}, Sl: sl, M: map[string]legacyPair{"a": {1, 2}}, MA: map[string]any{"a": map[string]any{"x": 1.0}, "p": new(int)},
 		P: &n, T: time.Unix(1, 0).UTC(), Tx: 3, BA: [2]byte{1, 2}, Bs: []byte{1}, Any: map[string]any{"k": 1.0}}
+}
+
+// The error of a string of invalid UTF-8 of the `string` option with StringifyWithLegacySemantics is the one of
+// encoding/json/v2: a SemanticError of the type of the string, whose error is a SyntacticError.
+func TestStringifyInvalidUTF8MatchesStd(t *testing.T) {
+	v := legacyDiffStringifyText{S: "x\xff"}
+	_, err := json.Marshal(v, gojson.StringifyWithLegacySemantics(true))
+	_, stdErr := stdjson.Marshal(v, stdjsonv1.StringifyWithLegacySemantics(true))
+	if err == nil || stdErr == nil || err.Error() != stdErr.Error() {
+		t.Fatalf("got %v, want %v", err, stdErr)
+	}
+	var se *jsontext.SyntacticError
+	if !errors.As(err, &se) {
+		t.Fatalf("got %v, of no SyntacticError", err)
+	}
 }
 
 // legacyEmptyText is a struct whose method writes an empty JSON string: never empty by its Go value.
@@ -419,6 +462,28 @@ func unmarshalDiffLegacyCases() []unmarshalDiffCase {
 		}, opts: stringify},
 		{name: "stringify pointer to a pointer", in: `{"PP":"1"}`, out: func() any { return new(legacyDiffStringifyPtr) }, opts: stringify},
 		{name: "stringify pointer to a pointer of null", in: `{"PP":null}`, out: func() any { return new(legacyDiffStringifyPtr) }, opts: stringify},
+		{name: "stringify pointer to a pointer of an array", in: `{"PP":[1,{"a":2}]}`, out: func() any { return new(legacyDiffStringifyPtr) },
+			opts: stringify},
+		{name: "stringify pointer to a pointer cut", in: `{"PP":"1`, out: func() any { return new(legacyDiffStringifyPtr) }, opts: stringify},
+		{name: "string option of a slice cut", in: `{"X":"1`, out: func() any {
+			return new(struct {
+				X []int `json:",string"`
+			})
+		}},
+		{name: "stringify bool and string of a JSON null", in: `{"B":null,"S":null}`, out: func() any { return &legacyDiffStringify{B: true, S: "x"} },
+			opts: stringify},
+		{name: "stringify quoted null into a pointer to a slice", in: `{"PSl":"null"}`, out: func() any { return new(legacyDiffStringifyPointers) },
+			opts: stringify},
+		{name: "stringify quoted null into a pointer to a struct", in: `{"PSt":"null"}`, out: func() any { return new(legacyDiffStringifyPointers) },
+			opts: stringify},
+		{name: "stringify quoted null into a pointer to a map", in: `{"PM":"null"}`, out: func() any { return new(legacyDiffStringifyPointers) },
+			opts: stringify},
+		{name: "stringify quoted null into a pointer of a method", in: `{"PT":"null"}`, out: func() any { return new(legacyDiffStringifyPointers) },
+			opts: stringify},
+		{name: "stringify quoted null into a pointer which is set", in: `{"P":"null"}`, out: func() any {
+			s := "keep"
+			return &legacyDiffStringifyPointers{P: &s, A: &s}
+		}, opts: stringify},
 		{name: "stringify with StringifyNumbers", in: `["+5","null","1"]`, out: outOf([]int(nil)), opts: stringifyNumbers},
 		{name: "stringify map keys", in: `{"null":1,"+2":2}`, out: func() any { return new(map[int]int) }, opts: stringify},
 		{name: "stringify map keys by default", in: `{"+2":2}`, out: func() any { return new(map[int]int) }},

@@ -234,7 +234,7 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 	}
 	stringify := c.stringTag && c.legacy&V2StringifyLegacy != 0
 	if c.stringTag && typ.Kind() != reflect.Ptr && !isNumberKind(typ.Kind()) {
-		if stringify && (typ.Kind() == reflect.Bool || typ.Kind() == reflect.String) {
+		if stringify && typ != jsonNumberType && (typ.Kind() == reflect.Bool || typ.Kind() == reflect.String) {
 			// the option applies to a bool and a string too with StringifyWithLegacySemantics
 			return &v2StringifiedDecoder{typ: typ, kind: typ.Kind(), str: v2StringDecoder{newStringDecoder("", "")}}, nil
 		}
@@ -592,13 +592,12 @@ func (d *v2StringNumberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64,
 		return 0, err
 	}
 	// with StringifyWithLegacySemantics, the number is read by the syntax of Go numbers, of which the JSON numbers are
-	// a part, and a quoted null is null, as v1 reads them
-	stringify := ctx.Option.V2&V2StringifyLegacy != 0
-	if !stringify && !jsonnum.IsValid(num) {
+	// a part, and a quoted null is null, as v1 reads them: the option is looked at for a number of no JSON number only
+	if !jsonnum.IsValid(num) && ctx.Option.V2&V2StringifyLegacy == 0 {
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, End: next, HasValue: true, Err: strconv.ErrSyntax}
 	}
 	if err := setNumber(p, d.kind, num); err != nil {
-		if stringify && string(num) == "null" {
+		if ctx.Option.V2&V2StringifyLegacy != 0 && string(num) == "null" {
 			if ctx.Option.V2&V2MergeLegacy == 0 {
 				clear(unsafe.Slice((*byte)(p), d.typ.Size()))
 			}
@@ -673,9 +672,10 @@ func (d *v2StringifiedDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int
 // compileStringifiedPtrV2 returns the decoder of a pointer of a field of the `string` option with
 // StringifyWithLegacySemantics ( see v2StringifiedPtrDecoder ).
 func (c *compiler) compileStringifiedPtrV2(typ reflect.Type, structName, fieldName string) (Decoder, error) {
-	d := &v2StringifiedPtrDecoder{typ: typ, str: v2StringDecoder{newStringDecoder("", "")}}
+	d := &v2StringifiedPtrDecoder{str: v2StringDecoder{newStringDecoder("", "")}}
 	if typ.Elem().Kind() == reflect.Ptr {
-		// the option applies to one pointer only
+		// the option applies to one pointer only: a pointer to a pointer is its error, before the value is read
+		d.ptr = &v2InvalidDecoder{typ: typ, err: errInvalidStringTag}
 		return d, nil
 	}
 	var err error
@@ -684,10 +684,10 @@ func (c *compiler) compileStringifiedPtrV2(typ reflect.Type, structName, fieldNa
 }
 
 // v2StringifiedPtrDecoder is the decoder of a pointer of a field of the `string` option with
-// StringifyWithLegacySemantics: null and the JSON string "null" are nil, and any other value is decoded by ptr, the
-// decoder of the pointer, or is the error of the option for a pointer to a pointer, whose ptr is nil.
+// StringifyWithLegacySemantics: null is nil, and any other value is decoded by ptr, the decoder of the pointer, after
+// which the JSON string "null" sets the pointer nil, as encoding/json/v2 sets it after the value it points to is
+// decoded. A pointer to a pointer is the error of the option, of ptr.
 type v2StringifiedPtrDecoder struct {
-	typ reflect.Type
 	ptr Decoder
 	str v2StringDecoder
 }
@@ -695,30 +695,30 @@ type v2StringifiedPtrDecoder struct {
 func (d *v2StringifiedPtrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
-	switch buf[cursor] {
-	case 'n':
+	if buf[cursor] == 'n' {
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
 		*(*unsafe.Pointer)(p) = nil
 		return cursor + 4, nil
-	case '"':
-		if d.ptr != nil {
-			var s string
-			end, err := d.str.Decode(ctx, cursor, depth, unsafe.Pointer(&s))
-			if err != nil {
-				return 0, err
-			}
-			if s == "null" {
-				*(*unsafe.Pointer)(p) = nil
-				return end, nil
-			}
-		}
 	}
-	if d.ptr == nil {
-		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, NoKind: true, Err: errInvalidStringTag}
+	end, err := d.ptr.Decode(ctx, cursor, depth, p)
+	if err != nil {
+		return 0, err
 	}
-	return d.ptr.Decode(ctx, cursor, depth, p)
+	// the JSON string "null", also of escapes, unlike encoding/json/v2, which tells it by the value as the input has
+	// it only
+	if raw := buf[cursor:end]; string(raw) == `"null"` || raw[0] == '"' && bytes.IndexByte(raw, '\\') >= 0 && d.isNull(ctx, cursor, depth) {
+		*(*unsafe.Pointer)(p) = nil
+	}
+	return end, nil
+}
+
+// isNull reports whether the JSON string at cursor, of escapes, is "null".
+func (d *v2StringifiedPtrDecoder) isNull(ctx *RuntimeContext, cursor, depth int64) bool {
+	var s string
+	_, err := d.str.Decode(ctx, cursor, depth, unsafe.Pointer(&s))
+	return err == nil && s == "null"
 }
 
 func (d *v2StringifiedPtrDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {

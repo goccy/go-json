@@ -159,7 +159,7 @@ type (
 		*dominanceZeroArray
 		X int
 	}
-	// a recursive struct whose last field is omitted.
+	// a recursive struct whose last field is omitted from Go 1.24, by omitzero.
 	dominanceLastOmitted struct {
 		B *dominanceEmbedsLastOmitted
 		V int `json:",omitzero"`
@@ -211,9 +211,6 @@ func TestEncodeEmbeddedRecursiveStructDominance(t *testing.T) {
 		{"nothing left to write", dominanceZeroArray{
 			X: &dominanceEmbedsZeroArray{&dominanceZeroArray{}, 1},
 		}, `{"X":{"X":1}}`, "{\n \"X\": {\n  \"X\": 1\n }\n}"},
-		{"the last field omitted", dominanceLastOmitted{
-			B: &dominanceEmbedsLastOmitted{&dominanceLastOmitted{}, 1},
-		}, `{"B":{"B":null,"X":1}}`, "{\n \"B\": {\n  \"B\": null,\n  \"X\": 1\n }\n}"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -227,4 +224,10 @@ func TestEncodeEmbeddedRecursiveStructDominance(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The last field of a recursive struct embedded in another is omitted as encoding/json of the Go the test runs
+// with omits it: an older Go than 1.24 ignores omitzero, and so does go-json.
+func TestEncodeEmbeddedRecursiveStructLastFieldOmitted(t *testing.T) {
+	compareStdEncoding(t, dominanceLastOmitted{B: &dominanceEmbedsLastOmitted{&dominanceLastOmitted{}, 1}})
 }

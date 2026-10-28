@@ -27,13 +27,19 @@ func (stackReader) MarshalJSONTo(e *jsontext.Encoder) error {
 // UnmarshalRead with ReportErrorsWithLegacySemantics, which reads its input whole, keeps none of it in the stream,
 // which the pool keeps.
 func TestUnmarshalReadKeepsNoInput(t *testing.T) {
+	// the stream which the pool gives the call, and gives again after it
+	s := decoder.TakeStreamV2(strings.NewReader(""))
+	decoder.ReleaseStreamV2(s)
 	in := "[" + strings.Repeat("1,", 1000) + "1]"
 	var v []int8
 	if err := UnmarshalRead(strings.NewReader(in), &v, options.BoolOf(options.ReportErrorsWithLegacySemantics, true)); err != nil {
 		t.Fatal(err)
 	}
-	s := decoder.TakeStreamV2(strings.NewReader(""))
-	defer decoder.ReleaseStreamV2(s)
+	again := decoder.TakeStreamV2(strings.NewReader(""))
+	defer decoder.ReleaseStreamV2(again)
+	if again != s {
+		t.Skip("the pool gave another stream")
+	}
 	if buf := s.Context().Buf; buf != nil {
 		t.Fatalf("the stream keeps an input of %d bytes", len(buf))
 	}

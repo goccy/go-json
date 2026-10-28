@@ -48,10 +48,11 @@ type v2StructDecoder struct {
 	// V2MatchCaseSensitiveDelimiter, only the ones of the name but for the case do, as strings.EqualFold compares
 	// names, which v1 finds a name by ( see appendFoldedKey ). It is nil where no field matches the name, and
 	// ambiguousField where several do, but the first of them in the breadth-first order of the fields with
-	// V2ReportErrorsWithLegacySemantics, as encoding/json chooses it. A name is of the folded name of the field which v1 finds for it, or which
-	// foldKeys finds for it without its '_' and '-' ( see foldKey ), but with V2MatchCaseSensitiveDelimiter. foldKeys
-	// is a table as v1's of the names of the fields without their '_' and '-', v1's own if no name of a field has them.
-	// foldAlways is whether a field matches by its `case:ignore` option, without V2MatchCaseInsensitiveNames.
+	// V2ReportErrorsWithLegacySemantics, as encoding/json chooses it. A name is of the folded name of the field which
+	// v1 finds for it, or which foldKeys finds for it without its '_' and '-' ( see foldKey ), but with
+	// V2MatchCaseSensitiveDelimiter. foldKeys is a table as v1's of the names of the fields without their '_' and '-',
+	// v1's own if no name of a field has them. foldAlways is whether a field matches by its `case:ignore` option,
+	// without V2MatchCaseInsensitiveNames.
 	foldedTo   [foldedTables][]*structFieldSet
 	foldKeys   *structKeys
 	foldAlways bool
@@ -806,11 +807,11 @@ func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start i
 		!d.foldKeys.hasLength(int(end-start-2)-dashes)
 }
 
-// memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was:
-// candidate is the field which v1 finds, exactly or by its folded name, which is the field if the name is its name
-// as it is. Any other name matches the field which its folded name matches ( see foldedTo ), but a name which
-// several fields match so is an error, without V2ReportErrorsWithLegacySemantics. A name of a byte which is not ASCII or of an escape must have the text which
-// v2 allows.
+// memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was: candidate
+// is the field which v1 finds, exactly or by its folded name, which is the field if the name is its name as it is. Any
+// other name matches the field which its folded name matches ( see foldedTo ), but a name which several fields match so
+// is an error, without V2ReportErrorsWithLegacySemantics. A name of a byte which is not ASCII or of an escape must have
+// the text which v2 allows.
 func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate *structFieldSet) (*structFieldSet, []byte, error) {
 	name := quoted[1 : len(quoted)-1]
 	if candidate != nil && string(name) == candidate.key {

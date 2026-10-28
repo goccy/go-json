@@ -413,7 +413,7 @@ func TestCallMethodsWithLegacySemanticsMatchesStd(t *testing.T) {
 	}
 }
 
-// v1LargeCall is a struct of many fields of v1SharedCall.
+// v1LargeCall is a struct of many fields, the type of the fields of v1SharedCall.
 type v1LargeCall struct {
 	F00 int
 	F01 int
@@ -1561,6 +1561,10 @@ func TestUnmarshalDecodeReportErrorsInValuesMatchesStd(t *testing.T) {
 				if g, w := describeV1Error(err), describeV1Error(stdErr); g != w || ours != theirs {
 					t.Errorf("%s, reads of %d, value %d:\n got %s, %+v\nwant %s, %+v", in, n, i, g, ours, w, theirs)
 				}
+			}
+			// both decoders end at the same kind: the end of the array or the object, or none after a failure
+			if k, w := dec.PeekKind(), stdDec.PeekKind(); byte(k) != byte(w) {
+				t.Errorf("%s, reads of %d: the values end at %v, want %v", in, n, k, w)
 			}
 		}
 	}

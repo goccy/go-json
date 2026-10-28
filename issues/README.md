@@ -16,6 +16,7 @@ Priority 1: now
 Priority 2: first after priority 1
 
 - [decoder-v2-stream-error-places.md](decoder-v2-stream-error-places.md)
+- [decoder-v2-method-ignored-error.md](decoder-v2-method-ignored-error.md)
 - [decoder-disallow-unknown-fields-order.md](decoder-disallow-unknown-fields-order.md)
 - [decoder-unexported-embedded-pointer-error.md](decoder-unexported-embedded-pointer-error.md)
 - [decoder-case-insensitive-field-choice.md](decoder-case-insensitive-field-choice.md)

@@ -1461,6 +1461,10 @@ func reportCases() []reportCase {
 		add("nested", `{"A":{"B":"x"},"C":2}`, func() any { return new(nested) }, set)
 		add("nested object", `{"A":{"B":{"q":1}},"C":2}`, func() any { return new(nested) }, set)
 		add("cut", `{"A":1,`, func() any { return new(R1) }, set)
+		add("comma before the end", `{"A":1,}`, func() any { return new(R1) }, set)
+		add("comma before the end of an array", `{"A":1,"C":[1,]}`, func() any { return new(R2) }, set)
+		add("commas twice", `{"A":1,,"B":2}`, func() any { return new(R1) }, set)
+		add("missing value", `{"A":1,"B":}`, func() any { return new(R1) }, set)
 		add("after", `{"A":1} x`, func() any { return new(R1) }, set)
 		add("empty", ``, func() any { return new(R1) }, set)
 		add("literal", `{"A":tru}`, func() any { return new(R1) }, set)
@@ -1606,6 +1610,31 @@ func TestUnmarshalReportErrorsMatchesStd(t *testing.T) {
 			stdErr = stdjson.UnmarshalDecode(stdjsontext.NewDecoder(newChunkReader(c.in, n)), theirs, stdOpts...)
 			if g, w := describeLegacyError(err), describeStd(stdErr); g != w {
 				t.Errorf("%s, options %b, reads of %d: UnmarshalDecode:\n got %s\nwant %s", c.name, c.opts, n, g, w)
+			}
+		}
+	}
+}
+
+// With ReportErrorsWithLegacySemantics, the syntax error of an escape after the first read of a decoder, which reads
+// its input in parts, is the one of the whole input, as Unmarshal of encoding/json/v2 reports it, also for UnmarshalRead,
+// whatever its reads are, which the error of encoding/json/v2 depends on: its text is cut at the end of a read.
+func TestUnmarshalReportErrorsOfLongInputsMatchesStd(t *testing.T) {
+	for _, in := range []string{
+		`["` + strings.Repeat("a", 4022) + `","\u12zz"]`,
+		`[` + strings.Repeat("1,", 2011) + `"\ud800y"]`,
+	} {
+		for _, set := range []legacySet{reportErrorsLegacy, allLegacy} {
+			var ours, theirs any
+			err := json.Unmarshal([]byte(in), &ours, set.ours()...)
+			want := describeLegacyError(stdjson.Unmarshal([]byte(in), &theirs, set.std()...))
+			if got := describeLegacyError(err); got != want {
+				t.Errorf("options %b: Unmarshal of %.20q...:\n got %s\nwant %s", set, in, got, want)
+			}
+			for _, n := range readSizes {
+				err := json.UnmarshalRead(newChunkReader(in, n), &ours, set.ours()...)
+				if got := describeLegacyError(err); got != want {
+					t.Errorf("options %b, reads of %d: UnmarshalRead of %.20q...:\n got %s\nwant %s", set, n, in, got, want)
+				}
 			}
 		}
 	}

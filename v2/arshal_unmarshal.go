@@ -3,6 +3,7 @@ package json
 import (
 	"bytes"
 	"errors"
+	"io"
 	"reflect"
 	"runtime"
 	"slices"
@@ -432,12 +433,18 @@ func legacyOutputError(err error) error {
 }
 
 // legacyInputError returns the syntax error of in, a single JSON value at the offset base of the whole input, by the
-// options of cfg, as encoding/json reports it before it decodes the value, or nil.
+// options of cfg, as encoding/json reports it before it decodes the value, or nil: the value is read whole, as
+// encoding/json/v2 checks it with the option, and the input after it, as the call reads it.
 func legacyInputError(in []byte, base int64, cfg *options.Config) error {
 	if jsontext.Value(in).IsValid(cfg) {
 		return nil
 	}
-	_, err := textcoder.UnmarshalPlace(in, cfg, -1, textcoder.ReadToken)
+	// the decoder reads a bytes.Buffer in place, whole, as a value whose error is at the end of a read is reported
+	_, err := jsontext.NewDecoder(bytes.NewBuffer(in), cfg).ReadValue()
+	if err == nil || err == io.EOF {
+		// the end of the input, or a value after the value
+		_, err = textcoder.UnmarshalPlace(in, cfg, -1, textcoder.ReadToken)
+	}
 	if serr, ok := err.(*jsontext.SyntacticError); ok {
 		at := *serr
 		at.ByteOffset += base

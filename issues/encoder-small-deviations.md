@@ -3,7 +3,7 @@
 - Area: encoder
 - Kind: defect
 - Priority: 3
-- Status: recorded; re-check each on master before fixing
+- Status: recorded; each checked on master 9adc5cb on 2026-10-28
 
 ## What
 
@@ -14,8 +14,6 @@
   method, which is escaped as the one of `MarshalJSON` (recorded 2026-10-28).
 - v2 `PreserveRawStrings` with `Deterministic` keeps the raw escapes in names where
   encoding/json/v2 sorts and writes them decoded (recorded 2026-10-11).
-- `Colorize` with a color format that contains `"` or `\` breaks the order of sorted map keys
-  (recorded 2026-10-11).
 - v2 `Marshal` of a map whose key is not a name, behind a pointer or held by an interface:
   the `GoType` of the `SemanticError` is the type of the value the key points to or holds, where
   encoding/json/v2 reports the type of the key ( `map[*[2]int]int`: `[2]int` for `*[2]int`;
@@ -73,7 +71,3 @@
   `SyntaxError` at its offset plus one, as the ones of the output, which encoding/json reports after the text of the
   error; encoding/json reports it at its own offset, as only the errors which its jsontext makes with the option are
   after their text (recorded 2026-10-28, found in the review of `ReportErrorsWithLegacySemantics`).
-- Recorded 2026-09-21 as needing a change of the VM:
-  - an `omitempty` field whose type has `MarshalText` is written when it is the zero value;
-  - a nil map whose type has a marshaler is written as `null` instead of calling the marshaler;
-  - the indentation of a recursive type held by an interface value is wrong.

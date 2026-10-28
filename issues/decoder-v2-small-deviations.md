@@ -33,6 +33,12 @@
   a struct of `A`, `C` and the embedded value `1` ); go-json reports the error of the member, as encoding/json/v2
   reports it without the option, and decodes on after its value ( recorded 2026-10-28, found in the work on
   `ReportErrorsWithLegacySemantics` ).
+- With `StringifyWithLegacySemantics`, a quoted null of an escape into a pointer of the `string` option sets the
+  pointer nil, as a quoted null does, which the documentation of the option makes a substitute for a JSON null:
+  encoding/json/v2 tells a quoted null of a pointer by the raw value, and decodes the escape into the value which
+  the pointer points to, as the quoted null of a value of no pointer ( `{"P":"nul\u006c"}` into
+  `struct{ P *string "json:\",string\"" }` whose `P` is set: go-json nil, encoding/json/v2 the pointer to
+  `""`; recorded 2026-10-28, found by the tests of `StringifyWithLegacySemantics` ).
 - No value where a value of a type which has no representation is ( a `chan`, a `func`, a `complex128`, a
   `time.Duration` of no format ): go-json reports what it finds there, encoding/json/v2 the `SemanticError` of the
   type, which it reports before it reads anything. The input is empty or white space only ( `Unmarshal` and

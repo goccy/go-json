@@ -130,47 +130,30 @@ func (v stringOptionDuration) MarshalJSONTo(e *jsontext.Encoder) error {
 // A value of the `string` option of a type which has no representation fails as the type, whatever its options are,
 // as encoding/json/v2 reports it: a SemanticError of the type, of no cause, not the error of the option.
 func TestStringOptionOfNoRepresentation(t *testing.T) {
-	for _, c := range []struct {
-		v   any
-		out func() any
-	}{
-		{struct {
+	for _, v := range []any{
+		struct {
 			F chan int `json:",string"`
-		}{}, func() any {
-			return new(struct {
-				F chan int `json:",string"`
-			})
-		}},
-		{struct {
+		}{},
+		struct {
 			F func() `json:",string"`
-		}{}, func() any {
-			return new(struct {
-				F func() `json:",string"`
-			})
-		}},
-		{struct {
+		}{},
+		struct {
 			F complex128 `json:",string"`
-		}{}, func() any {
-			return new(struct {
-				F complex128 `json:",string"`
-			})
-		}},
-		{struct {
+		}{},
+		struct {
 			F *chan int `json:",string"`
-		}{F: new(chan int)}, func() any {
-			return new(struct {
-				F *chan int `json:",string"`
-			})
-		}},
+		}{F: new(chan int)},
 	} {
-		_, err := json.Marshal(c.v)
+		_, err := json.Marshal(v)
 		var serr *json.SemanticError
 		if !errors.As(err, &serr) || serr.Err != nil || serr.GoType.Kind() == reflect.Pointer {
-			t.Errorf("Marshal(%T): got %v, want the error of the type", c.v, err)
+			t.Errorf("Marshal(%T): got %v, want the error of the type", v, err)
 		}
-		err = json.Unmarshal([]byte(`{"F":"1"}`), c.out())
+		// a new value of the type of v
+		out := reflect.New(reflect.TypeOf(v)).Interface()
+		err = json.Unmarshal([]byte(`{"F":"1"}`), out)
 		if !errors.As(err, &serr) || serr.Err != nil || serr.GoType.Kind() == reflect.Pointer {
-			t.Errorf("Unmarshal into %T: got %v, want the error of the type", c.out(), err)
+			t.Errorf("Unmarshal into %T: got %v, want the error of the type", out, err)
 		}
 	}
 }

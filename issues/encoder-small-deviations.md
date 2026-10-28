@@ -54,7 +54,7 @@
   encoding/json/v2 writes `[]` or `{}` without counting its level (recorded 2026-10-28, found in the review of
   `CallMethodsWithLegacySemantics`, without the option too).
 - v2: the error of a value deeper than the max depth is at the start of the value whose opcodes go deeper, a level or
-  two above the token where encoding/json/v2 reports it ( `type C [1]struct{ V int; Next []C }` 3333 levels deep:
+  two above the token where encoding/json/v2 reports it ( `type C [1]struct{ V int; Next []C }` nested 3333 times:
   offset 53328 and a pointer one token shorter, 53329 in encoding/json/v2; recorded 2026-10-28, found in the review of
   `CallMethodsWithLegacySemantics` ).
 - v2 `MarshalWrite`: the error of the writer is returned as it is; encoding/json/v2 wraps it as the error of the writer

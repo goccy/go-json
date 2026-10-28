@@ -213,7 +213,7 @@ func diffValues() []any {
 		[]diffPtrToStructOfSlice{&diffStructOfSlice{F: []diffPtrToStructOfSlice{
 			&diffStructOfSlice{F: []diffPtrToStructOfSlice{}}, &diffStructOfSlice{}, nil,
 		}}},
-	}, legacyDiffValues()...)
+	}, v1DiffValues()...)
 }
 
 func diffOptions() [][]json.Options {
@@ -223,7 +223,7 @@ func diffOptions() [][]json.Options {
 		{json.StringifyNumbers(true), json.Deterministic(true)},
 		{json.FormatNilSliceAsNull(true), json.FormatNilMapAsNull(true), json.Deterministic(true)},
 		{json.OmitZeroStructFields(true), json.Deterministic(true)},
-	}, legacyDiffOptions()...)
+	}, v1DiffOptions()...)
 }
 
 func stdOptions(opts []json.Options) []stdjson.Options {
@@ -244,7 +244,7 @@ func stdOptions(opts []json.Options) []stdjson.Options {
 				out = append(out, f.std(v))
 			}
 		}
-		for _, f := range legacyOptionPairs {
+		for _, f := range v1OptionPairs {
 			if v, ok := json.GetOption(o, f.ours); ok {
 				out = append(out, f.std(v))
 			}
@@ -287,12 +287,12 @@ func compareWithStd(t *testing.T, name string, v any, opts []json.Options) {
 		return
 	}
 	if err != nil {
+		// a SemanticError is compared by its fields; the place of another error, as of a name twice in a map which is
+		// not sorted, may depend on the order of the members
 		var serr *json.SemanticError
 		var stdSerr *stdjson.SemanticError
-		if errors.As(err, &serr) != errors.As(wantErr, &stdSerr) {
-			t.Errorf("%s: Marshal error = %v; std %v", name, err, wantErr)
-		} else if serr != nil && (serr.ByteOffset != stdSerr.ByteOffset || string(serr.JSONPointer) != string(stdSerr.JSONPointer) || serr.GoType != stdSerr.GoType) {
-			t.Errorf("%s: Marshal error = %#v; std %#v", name, serr, stdSerr)
+		if errors.As(err, &serr) != errors.As(wantErr, &stdSerr) || serr != nil && describeUnmarshalError(serr) != describeUnmarshalError(stdSerr) {
+			t.Errorf("%s: Marshal error:\n got %s\nwant %s", name, describeUnmarshalError(err), describeUnmarshalError(wantErr))
 		}
 		return
 	}

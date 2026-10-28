@@ -39,8 +39,8 @@ type unmarshalDiffCase struct {
 type unmarshalDiffOptions struct {
 	stringifyNumbers, allowInvalidUTF8, allowDuplicateNames bool
 	matchCaseInsensitiveNames, rejectUnknownMembers         bool
-	// legacy are the options of encoding/json which are set ( see legacySet )
-	legacy legacySet
+	// v1Options are the options of encoding/json which are set
+	v1Options v1OptionSet
 }
 
 func (o unmarshalDiffOptions) ours() []json.Options {
@@ -50,7 +50,7 @@ func (o unmarshalDiffOptions) ours() []json.Options {
 		jsontext.AllowDuplicateNames(o.allowDuplicateNames),
 		json.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
 		json.RejectUnknownMembers(o.rejectUnknownMembers),
-	}, o.legacy.ours()...)
+	}, o.v1Options.ours()...)
 }
 
 func (o unmarshalDiffOptions) std() []stdjson.Options {
@@ -60,18 +60,7 @@ func (o unmarshalDiffOptions) std() []stdjson.Options {
 		stdjsontext.AllowDuplicateNames(o.allowDuplicateNames),
 		stdjson.MatchCaseInsensitiveNames(o.matchCaseInsensitiveNames),
 		stdjson.RejectUnknownMembers(o.rejectUnknownMembers),
-	}, o.legacy.std()...)
-}
-
-// outOf returns the function which makes a pointer to a new value of T set to v. v must refer to no memory, which
-// the values of the two packages would share: a value which does, a map, a slice or a pointer which is not nil, is
-// made by a function of its own.
-func outOf[T any](v T) func() any {
-	return func() any {
-		p := new(T)
-		*p = v
-		return p
-	}
+	}, o.v1Options.std()...)
 }
 
 var (
@@ -324,7 +313,7 @@ func unmarshalDiffCases() []unmarshalDiffCase {
 		{name: "any duplicate before a nested syntax error allowed", in: `{"a":1,"a":[[1,]]}`, out: outOf[any](nil), opts: duplicates},
 		{name: "any duplicate overflow without the option", in: `{"a":"s","a":1e400}`, out: outOf[any](nil)},
 		{name: "any duplicates before an overflow", in: `{"a":1,"a":2,"b":1e400}`, out: outOf[any](nil)},
-	}, unmarshalDiffLegacyCases()...)
+	}, unmarshalDiffV1Cases()...)
 }
 
 type unmarshalDiffStringer string
@@ -439,7 +428,8 @@ func TestUnmarshalLeavesWhatElementsPointTo(t *testing.T) {
 	}
 }
 
-// describeUnmarshalError describes an error of either package by its type and its fields.
+// describeUnmarshalError describes an error of either package by its type and its fields, with the type of the cause
+// of a SemanticError, and the texts of the causes with one modal verb ( see stableErrorText ).
 func describeUnmarshalError(err error) string {
 	var (
 		se     *json.SemanticError
@@ -450,22 +440,28 @@ func describeUnmarshalError(err error) string {
 			if err == nil {
 				return "<nil>"
 			}
-			return err.Error()
+			return stableErrorText(err.Error())
 		}
 	)
 	switch {
 	case err == nil:
 		return "nil"
 	case errors.As(err, &se):
-		return fmt.Sprintf("SemanticError{ByteOffset: %d, JSONPointer: %q, JSONKind: %v, JSONValue: %q, GoType: %v, Err: %s}",
-			se.ByteOffset, se.JSONPointer, se.JSONKind, se.JSONValue, se.GoType, errMsg(se.Err))
+		return fmt.Sprintf("SemanticError{ByteOffset: %d, JSONPointer: %q, JSONKind: %v, JSONValue: %q, GoType: %v, Err: %T %s}",
+			se.ByteOffset, se.JSONPointer, se.JSONKind, se.JSONValue, se.GoType, se.Err, errMsg(se.Err))
 	case errors.As(err, &stdSe):
-		return fmt.Sprintf("SemanticError{ByteOffset: %d, JSONPointer: %q, JSONKind: %v, JSONValue: %q, GoType: %v, Err: %s}",
-			stdSe.ByteOffset, stdSe.JSONPointer, stdSe.JSONKind, stdSe.JSONValue, stdSe.GoType, errMsg(stdSe.Err))
+		return fmt.Sprintf("SemanticError{ByteOffset: %d, JSONPointer: %q, JSONKind: %v, JSONValue: %q, GoType: %v, Err: %T %s}",
+			stdSe.ByteOffset, stdSe.JSONPointer, stdSe.JSONKind, stdSe.JSONValue, stdSe.GoType, stdSe.Err, errMsg(stdSe.Err))
 	case errors.As(err, &ye):
 		return fmt.Sprintf("SyntacticError{ByteOffset: %d, JSONPointer: %q, Err: %s}", ye.ByteOffset, ye.JSONPointer, errMsg(ye.Err))
 	case errors.As(err, &stdYe):
 		return fmt.Sprintf("SyntacticError{ByteOffset: %d, JSONPointer: %q, Err: %s}", stdYe.ByteOffset, stdYe.JSONPointer, errMsg(stdYe.Err))
 	}
 	return fmt.Sprintf("%T: %v", err, err)
+}
+
+// stableErrorText returns s, the text of an error, with "cannot" for the modal verb by which encoding/json/v2 words
+// its SemanticError, which it chooses at random once per process between "cannot" and "unable to".
+func stableErrorText(s string) string {
+	return strings.ReplaceAll(s, "unable to", "cannot")
 }

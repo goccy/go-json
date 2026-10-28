@@ -79,23 +79,25 @@ type maxDepthDeclined [1]struct {
 	Next []maxDepthDeclined
 }
 
-// maxDepthPtrMarshaler is a struct whose MarshalJSON has a pointer receiver.
-type maxDepthPtrMarshaler struct{ X int }
-
-func (*maxDepthPtrMarshaler) MarshalJSON() ([]byte, error) { return []byte(`"called"`), nil }
-
-// maxDepthAddressable is maxDepthDeclined of a field of maxDepthPtrMarshaler, whose values in the slices are written
+// maxDepthAddressable is maxDepthDeclined of a field of v1PtrMarshaler, whose values in the slices are written
 // by their default representations, addressable, with CallMethodsWithLegacySemantics.
 type maxDepthAddressable [1]struct {
-	V    maxDepthPtrMarshaler
+	V    v1PtrMarshaler
 	Next []maxDepthAddressable
 }
 
-// A value written by default representations, in contexts of their own, has the max depth of the others: 3332 levels
-// of three are 9999 deep, and the innermost value one more, as encoding/json/v2 writes them, and 3333 are deeper.
+// A value written by default representations, in contexts of their own, has the max depth of the others, as
+// encoding/json/v2 writes them: a nesting of maxDepthDeclined or maxDepthAddressable is three levels, the array, the
+// struct and the slice, and so is the innermost value, of an empty slice.
 func TestMarshalMaxDepthOfDefaultRepresentations(t *testing.T) {
+	const (
+		// maxDepth is the deepest nesting of the objects and the arrays which encoding/json/v2 writes
+		maxDepth         = 10000
+		levelsPerNesting = 3
+		// deepest is the number of the nestings within the max depth: 3332, 9999 levels with the innermost value
+		deepest = maxDepth/levelsPerNesting - 1
+	)
 	declines := json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, any) error { return errors.ErrUnsupported }))
-	legacy := gojson.CallMethodsWithLegacySemantics(true)
 	for name, c := range map[string]struct {
 		of   func(n int) any
 		opts json.Options
@@ -113,16 +115,16 @@ func TestMarshalMaxDepthOfDefaultRepresentations(t *testing.T) {
 				v = maxDepthAddressable{{Next: []maxDepthAddressable{v}}}
 			}
 			return v
-		}, legacy},
+		}, gojson.CallMethodsWithLegacySemantics(true)},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := json.Marshal(c.of(3332), c.opts); err != nil {
-				t.Errorf("3332 levels: %v", err)
+			if _, err := json.Marshal(c.of(deepest), c.opts); err != nil {
+				t.Errorf("%d nestings: %v", deepest, err)
 			}
-			_, err := json.Marshal(c.of(3333), c.opts)
+			_, err := json.Marshal(c.of(deepest+1), c.opts)
 			var serr *jsontext.SyntacticError
 			if !errors.As(err, &serr) {
-				t.Errorf("3333 levels: got %v, want the error of the max depth", err)
+				t.Errorf("%d nestings: got %v, want the error of the max depth", deepest+1, err)
 			}
 		})
 	}

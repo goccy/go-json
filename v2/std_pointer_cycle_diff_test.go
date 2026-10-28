@@ -6,6 +6,7 @@ import (
 	stdjsontext "encoding/json/jsontext"
 	stdjson "encoding/json/v2"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/goccy/go-json/jsontext"
@@ -41,32 +42,31 @@ func TestStringOptionOfPointerCycleMatchesStd(t *testing.T) {
 	var y cycleB
 	x := cycleA(&y)
 	values := []any{cycleString{N: 1}, cycleString{P: b, N: 1}, cycleString{P: &b, N: 1}, cycleTwo{A: x, N: 1}}
-	for _, set := range []legacySet{0, reportErrorsLegacy, stringifyLegacy, reportErrorsLegacy | stringifyLegacy, callMethodsLegacy} {
+	for _, set := range []v1OptionSet{0, reportErrorsWithLegacySemantics, stringifyWithLegacySemantics, reportErrorsWithLegacySemantics | stringifyWithLegacySemantics, callMethodsWithLegacySemantics} {
 		for _, v := range values {
 			want, wantErr := stdjson.Marshal(v, set.std()...)
 			got, err := json.Marshal(v, set.ours()...)
-			if g, w := describeLegacyError(err), describeLegacyError(wantErr); g != w || err == nil && string(got) != string(want) {
-				t.Errorf("options %b: Marshal of %#v:\n got %s %s\nwant %s %s", set, v, got, g, want, w)
+			if g, w := describeV1Error(err), describeV1Error(wantErr); g != w || err == nil && string(got) != string(want) {
+				t.Errorf("options %v: Marshal of %#v:\n got %s %s\nwant %s %s", set, v, got, g, want, w)
 			}
 		}
-		var err error
 		var cycle cyclePointer
 		cycle = &cycle
 		// encoding/json/v2 overflows its stack for the value, which is an error of go-json
 		if _, err := json.Marshal(cycleString{P: cycle}, set.ours()...); err == nil {
-			t.Errorf("options %b: Marshal of a cycle: got no error", set)
+			t.Errorf("options %v: Marshal of a cycle: got no error", set)
 		}
 		var ours, theirs cycleString
-		err = json.Unmarshal([]byte(`{"P":null,"N":1}`), &ours, set.ours()...)
+		err := json.Unmarshal([]byte(`{"P":null,"N":1}`), &ours, set.ours()...)
 		stdErr := stdjson.Unmarshal([]byte(`{"P":null,"N":1}`), &theirs, set.std()...)
-		if g, w := describeLegacyError(err), describeLegacyError(stdErr); g != w || ours.P != nil || ours.N != theirs.N {
-			t.Errorf("options %b: Unmarshal of null:\n got %s %+v\nwant %s %+v", set, g, ours, w, theirs)
+		if g, w := describeV1Error(err), describeV1Error(stdErr); g != w || !reflect.DeepEqual(ours, theirs) {
+			t.Errorf("options %v: Unmarshal of null:\n got %s %+v\nwant %s %+v", set, g, ours, w, theirs)
 		}
 		// encoding/json/v2 overflows its stack for a value which is not null, which is an error of go-json
 		for _, in := range []string{`{"P":1,"N":1}`, `{"P":"1","N":1}`, `{"P":"null","N":1}`} {
 			var ours cycleString
 			if err := json.Unmarshal([]byte(in), &ours, set.ours()...); err == nil {
-				t.Errorf("options %b: Unmarshal of %s: got no error", set, in)
+				t.Errorf("options %v: Unmarshal of %s: got no error", set, in)
 			}
 		}
 	}
@@ -107,13 +107,16 @@ func TestStringOptionOfFuncsOfPointersMatchesStd(t *testing.T) {
 	q := &c
 	n := 1
 	pn := &n
-	for _, set := range []legacySet{0, reportErrorsLegacy, stringifyLegacy, reportErrorsLegacy | stringifyLegacy, allLegacy} {
-		for i, funcs := range [][2]any{{ours, theirs}, {oursOfFields, theirsOfFields}} {
+	for _, set := range []v1OptionSet{0, reportErrorsWithLegacySemantics, stringifyWithLegacySemantics, reportErrorsWithLegacySemantics | stringifyWithLegacySemantics, allV1Options} {
+		for i, funcs := range []struct {
+			ours   json.Options
+			theirs stdjson.Options
+		}{{ours, theirs}, {oursOfFields, theirsOfFields}} {
 			for _, v := range []any{cyclePointerFuncs{P: &c, PP: &q, N: 1}, doublePointerFunc{D: &pn, N: 1}, cycleString{N: 1}} {
-				want, wantErr := stdjson.Marshal(v, append(set.std(), funcs[1].(stdjson.Options))...)
-				got, err := json.Marshal(v, append(set.ours(), funcs[0].(json.Options))...)
-				if g, w := describeLegacyError(err), describeLegacyError(wantErr); g != w || err == nil && string(got) != string(want) {
-					t.Errorf("options %b, functions %d: Marshal of %T:\n got %s %s\nwant %s %s", set, i, v, got, g, want, w)
+				want, wantErr := stdjson.Marshal(v, append(set.std(), funcs.theirs)...)
+				got, err := json.Marshal(v, append(set.ours(), funcs.ours)...)
+				if g, w := describeV1Error(err), describeV1Error(wantErr); g != w || err == nil && string(got) != string(want) {
+					t.Errorf("options %v, functions %d: Marshal of %T:\n got %s %s\nwant %s %s", set, i, v, got, g, want, w)
 				}
 			}
 		}
@@ -131,15 +134,13 @@ type doublePointerField struct {
 func TestStringOptionOfDecliningFuncOfPointersMatchesStd(t *testing.T) {
 	ours := json.WithUnmarshalers(json.UnmarshalFromFunc(func(*jsontext.Decoder, ***int) error { return errors.ErrUnsupported }))
 	theirs := stdjson.WithUnmarshalers(stdjson.UnmarshalFromFunc(func(*stdjsontext.Decoder, ***int) error { return errors.ErrUnsupported }))
-	for _, set := range []legacySet{reportErrorsLegacy | stringifyLegacy, allLegacy} {
+	for _, set := range []v1OptionSet{reportErrorsWithLegacySemantics | stringifyWithLegacySemantics, allV1Options} {
 		for _, in := range []string{`{"F":1,"N":1}`, `{"F":"1","N":1}`, `{"F":null,"N":1}`} {
 			var got, want doublePointerField
 			err := json.Unmarshal([]byte(in), &got, append(set.ours(), ours)...)
 			stdErr := stdjson.Unmarshal([]byte(in), &want, append(set.std(), theirs)...)
-			if g, w := describeLegacyError(err), describeLegacyError(stdErr); g != w || got.N != want.N ||
-				(got.F == nil) != (want.F == nil) || got.F != nil && (*got.F == nil) != (*want.F == nil) ||
-				got.F != nil && *got.F != nil && **got.F != **want.F {
-				t.Errorf("options %b: Unmarshal of %s:\n got %s %+v\nwant %s %+v", set, in, g, got, w, want)
+			if g, w := describeV1Error(err), describeV1Error(stdErr); g != w || !reflect.DeepEqual(got, want) {
+				t.Errorf("options %v: Unmarshal of %s:\n got %s %+v\nwant %s %+v", set, in, g, got, w, want)
 			}
 		}
 	}

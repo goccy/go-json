@@ -38,7 +38,7 @@ func UnmarshalRead(in io.Reader, out any, opts ...Options) error {
 func UnmarshalReadOf[T any](in io.Reader, out *T, opts ...Options) error {
 	ptrType := reflect.TypeFor[*T]()
 	if out == nil {
-		return &SemanticError{action: "unmarshal", GoType: ptrType, Err: errNonNilReference}
+		return nilOutputError(ptrType, opts)
 	}
 	s := decoder.TakeStreamV2(in)
 	p := reusedValue(s.Context(), out)
@@ -58,7 +58,17 @@ func unmarshalStream(s *decoder.Stream, typ, p unsafe.Pointer, opts []Options) e
 	} else {
 		setPlainCall(ctx)
 	}
-	err := decodeStream(s, typ, p, cfg)
+	var err error
+	if cfg.Has(options.ReportErrorsWithLegacySemantics) {
+		// the whole input, which encoding/json reads and checks before it decodes the value: an error of the reader is
+		// returned as it is
+		var in []byte
+		if in, err = s.ReadAllV2(); err == nil {
+			err = legacyUnmarshal(ctx, ctx.SetInput(in), 0, typ, p, cfg, nil)
+		}
+	} else {
+		err = decodeStream(s, typ, p, cfg)
+	}
 	endCall(ctx)
 	return err
 }

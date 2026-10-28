@@ -50,9 +50,8 @@ func (d *ptrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	}
 	c, err := d.dec.Decode(ctx, cursor, depth, newptr)
 	if err != nil {
-		*(*unsafe.Pointer)(p) = nil
-		// the cursor is the one of the decoder: after a key of a map of another type, the map goes on from it
-		// ( see errMapKeyType )
+		// the pointer is left as it is, as encoding/json leaves it; the cursor is the one of the decoder: after a key
+		// of a map of another type, the map goes on from it ( see errMapKeyType )
 		return c, err
 	}
 	cursor = c
@@ -86,9 +85,7 @@ func (d *basicPtrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 	}
 	c, err := d.dec.Decode(ctx, cursor, depth, newptr)
 	if err != nil {
-		*(*unsafe.Pointer)(p) = nil
-		// the cursor is the one of the decoder: after a key of a map of another type, the map goes on from it
-		// ( see errMapKeyType )
+		// as ptrDecoder.Decode
 		return c, err
 	}
 	return c, nil

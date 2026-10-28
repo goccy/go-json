@@ -117,7 +117,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 func endWithError(ctx *decoder.RuntimeContext, typ unsafe.Pointer, err error) error {
 	err = inputSyntaxError(ctx, err)
 	if err == nil {
-		err = ctx.TypeError(runtime.TypeOfPtr(typ), 0, 0)
+		err = ctx.TypeError(runtime.TypeOfPtr(typ), 0, 0, nil)
 	}
 	ctx.DiscardTypeError()
 	decoder.ReleaseRuntimeContext(ctx)

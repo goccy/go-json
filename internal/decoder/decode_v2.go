@@ -830,6 +830,14 @@ type v2InvalidDecoder struct {
 
 func (d *v2InvalidDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(ctx.Buf, cursor)
+	if d.err == nil && ctx.Option.V2&V2ReportErrorsLegacy != 0 {
+		// with ReportErrorsWithLegacySemantics, a type of no representation fails after its value, as encoding/json
+		// reads it, but for null, which is decoded into nothing
+		if ctx.Buf[cursor] == 'n' {
+			return cursor + 4, validateNull(ctx.Buf, cursor)
+		}
+		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor}
+	}
 	return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, NoKind: true, Err: d.err}
 }
 
@@ -918,7 +926,7 @@ func (c *compiler) compileArrayV2(typ reflect.Type, structName, fieldName string
 	if err != nil {
 		return nil, err
 	}
-	d.valueDecoder = dec
+	d.valueDecoder = c.goOnDecoder(dec)
 	return d, nil
 }
 
@@ -1183,19 +1191,26 @@ func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p 
 		return d.decodeByKind(ctx, cursor, depth, p)
 	}
 	next, err := d.fast.decodeEmptyInterface(ctx, cursor, depth, p)
-	if (err != nil || ctx.typeError != nil) && ctx.Option.V2&V2AllowDuplicateNames != 0 {
+	// with ReportErrorsWithLegacySemantics, the type error may be the one of a value before, which the decoding went
+	// on after, which doesn't make the value decoded again and is kept
+	legacy := ctx.Option.V2&V2ReportErrorsLegacy != 0
+	if (err != nil || ctx.typeError != nil && !legacy) && ctx.Option.V2&V2AllowDuplicateNames != 0 {
 		if c := buf[cursor]; c == '{' || c == '[' {
 			// The value may have a name twice, whose second value is decoded into the first one, which v1 doesn't
 			// do, and whose error may come before the one v1 found: the value is decoded again, by the merging of
-			// v2, which meets its errors in the order of the input.
-			ctx.typeError = nil
+			// v2, which meets its errors in the order of the input. The error which v1 recorded in the value, at
+			// it or after it, is dropped; the one of a value before, with ReportErrorsWithLegacySemantics, is kept.
+			if e := ctx.typeError; e != nil && e.start >= cursor {
+				ctx.typeError = nil
+			}
 			*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
 			return d.decodeMerging(ctx, cursor, depth, p)
 		}
 	}
-	if ctx.typeError != nil {
+	if ctx.typeError != nil && !legacy {
 		// a number out of the range of a float64, which v1 records and decodes on from: it comes before any other
-		// error of the value
+		// error of the value, which is the error of the decoding, but with ReportErrorsWithLegacySemantics, which goes
+		// on after it as v1 does
 		return 0, ctx.v2Error()
 	}
 	if err != nil {
@@ -1325,10 +1340,19 @@ func (d *v2InterfaceDecoder) decodeMerging(ctx *RuntimeContext, cursor, depth in
 // decodeMerging too, so that the input is read once, whatever names it has twice.
 func (d *v2InterfaceDecoder) decodeElem(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(ctx.Buf, cursor)
+	var next int64
+	var err error
 	if c := ctx.Buf[cursor]; (c == '{' || c == '[') && *(*any)(p) == nil {
-		return d.decodeMerging(ctx, cursor, depth, p)
+		next, err = d.decodeMerging(ctx, cursor, depth, p)
+	} else {
+		next, err = d.Decode(ctx, cursor, depth, p)
 	}
-	return d.Decode(ctx, cursor, depth, p)
+	if err != nil {
+		// with ReportErrorsWithLegacySemantics, the decoding goes on after the value, as v2GoOnDecoder goes on: a
+		// value of another kind than the one it is merged into, as an object into a []any, fails
+		return ctx.goOnAfter(err, cursor, depth)
+	}
+	return next, nil
 }
 
 // decodeObjectInto decodes the object at cursor into m, merging the value of a name into the value of the name

@@ -223,6 +223,10 @@ var UnmarshalPlaceAt func(p *DecoderAttachment, stop int64, read Read) (string, 
 // the top-level value, as jsontext reports it.
 var AfterTopLevelError func(in []byte, base int64, opts *options.Config) error
 
+// ConfigureDecoder makes the Decoder at dec read by the options of opts, which are its own and the ones of a call, until
+// restore is called, which gives it back its own.
+var ConfigureDecoder func(dec unsafe.Pointer, opts *options.Config) (restore func())
+
 // ReadError returns err, the error of a reader of the input, as jsontext reports it, and IsIOError reports whether
 // err is the error of a reader or of a writer, which a method passes on as it is.
 var (

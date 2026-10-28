@@ -77,8 +77,11 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		c.decoders[uintptr(runtime.TypePtr(typ))] = d
 	}
 	fields := jsonfields.Of(typ)
+	legacy := c.legacy&V2ReportErrorsLegacy != 0
 	switch {
-	case fields.Err != nil:
+	case fields.Err != nil && !legacy:
+		// with ReportErrorsWithLegacySemantics, the fields which jsonfields found are decoded, as encoding/json
+		// decodes them
 		d.initErr = fields.Err
 		return d, nil
 	case fields.FormatErr != nil:
@@ -91,7 +94,7 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		f := &fields.List[i]
 		var dec Decoder
 		var err error
-		if f.String {
+		if f.String && (!legacy || c.legacyStringTag(f.Type)) {
 			dec, err = c.stringTagCompiler().compileV2(f.Type, typ.Name(), f.Name)
 		} else {
 			dec, err = compile(f.Type, typ.Name(), f.Name, c)
@@ -100,7 +103,7 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 			return nil, err
 		}
 		offset, dec := fieldPathV2(typ, typ, f.Index, dec)
-		set := &structFieldSet{dec: dec, offset: offset, key: f.Name, keyLen: int64(len(f.Name)), fieldIdx: i}
+		set := &structFieldSet{dec: c.goOnDecoder(dec), offset: offset, key: f.Name, keyLen: int64(len(f.Name)), fieldIdx: i}
 		d.fields = append(d.fields, set)
 		if f.Casing&jsonfields.CaseStrict == 0 {
 			key := string(jsonfields.FoldName([]byte(f.Name)))
@@ -111,22 +114,33 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 	for i := range d.foldedTo {
 		d.foldedTo[i] = make([]*structFieldSet, len(d.fields))
 	}
+	only := onlyField
+	if legacy {
+		// the first field in the breadth-first order of the fields, as encoding/json matches a name which several
+		// fields match with ReportErrorsWithLegacySemantics
+		only = func(match, field *structFieldSet) *structFieldSet {
+			if match == nil || fields.List[field.fieldIdx].ID < fields.List[match.fieldIdx].ID {
+				return field
+			}
+			return match
+		}
+	}
 	dashes := false
 	for i, f := range d.fields {
 		for _, other := range folded[string(jsonfields.FoldName([]byte(f.key)))] {
 			ignore := fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0
 			if ignore {
-				d.foldedTo[0][i] = onlyField(d.foldedTo[0][i], other)
+				d.foldedTo[0][i] = only(d.foldedTo[0][i], other)
 			}
-			d.foldedTo[foldedInsensitive][i] = onlyField(d.foldedTo[foldedInsensitive][i], other)
+			d.foldedTo[foldedInsensitive][i] = only(d.foldedTo[foldedInsensitive][i], other)
 			if !strings.EqualFold(other.key, f.key) {
 				// a name of the field matches the other field without their '_' and '-' only
 				continue
 			}
 			if ignore {
-				d.foldedTo[foldedDelimiter][i] = onlyField(d.foldedTo[foldedDelimiter][i], other)
+				d.foldedTo[foldedDelimiter][i] = only(d.foldedTo[foldedDelimiter][i], other)
 			}
-			d.foldedTo[foldedInsensitive|foldedDelimiter][i] = onlyField(d.foldedTo[foldedInsensitive|foldedDelimiter][i], other)
+			d.foldedTo[foldedInsensitive|foldedDelimiter][i] = only(d.foldedTo[foldedInsensitive|foldedDelimiter][i], other)
 		}
 		dashes = dashes || strings.ContainsAny(f.key, "_-")
 	}
@@ -162,6 +176,29 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 // a JSON string, through the pointers to it, and a value of any other type can't be decoded.
 func (c *compiler) stringTagCompiler() *compiler {
 	return &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, stringTag: true, legacy: c.legacy, funcs: c.funcs}
+}
+
+// legacyStringTag reports whether the `string` option of a field of typ is in effect with
+// ReportErrorsWithLegacySemantics, which drops the option of a value which it doesn't apply to, as encoding/json drops
+// it: it applies to a value which a function or a method decodes, but a time.Time, to a number, to a time.Duration and
+// to a value of a type which has no representation, which fail as they do without it, and with
+// StringifyWithLegacySemantics to a bool and a string, through one pointer only. The value which an interface value
+// holds, which encoding/json decodes by the option without StringifyWithLegacySemantics, is decoded without it.
+func (c *compiler) legacyStringTag(typ reflect.Type) bool {
+	elem, ptrNum := typ, 0
+	for elem.Kind() == reflect.Pointer && len(c.funcs.funcsOf(elem)) == 0 {
+		elem, ptrNum = elem.Elem(), ptrNum+1
+	}
+	stringify := c.legacy&V2StringifyLegacy != 0
+	switch {
+	case elem == timeType, stringify && ptrNum > 1:
+		return false
+	case len(c.funcs.funcsOf(elem)) > 0 || v2MethodOf(elem, methodUnmarshalJSONFrom) != noMethod:
+		return true
+	case isNumberKind(elem.Kind()) || elem == jsonNumberType || elem == timeDurationType || hasNoRepresentation(elem.Kind()):
+		return true
+	}
+	return stringify && (elem.Kind() == reflect.Bool || elem.Kind() == reflect.String)
 }
 
 // fieldPathV2 returns the offset of the field of the struct typ at index, by reflect.Type.FieldByIndex, and the
@@ -506,7 +543,11 @@ func (d *v2StructDecoder) decodedMember(ctx *RuntimeContext, buf []byte, start i
 // field one after another, as most such members are, and the state of that loop is not kept around their calls.
 func (d *v2StructDecoder) skipUnknownMembers(ctx *RuntimeContext, unknown *nameSet, fold bool, buf []byte, start, end int64, name []byte, depth int64) (int64, bool, error) {
 	if ctx.Option.V2&V2RejectUnknownMembers != 0 {
-		return 0, false, &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
+		if ctx.Option.V2&V2ReportErrorsLegacy == 0 {
+			return 0, false, &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
+		}
+		// with ReportErrorsWithLegacySemantics, the error is recorded and the members are decoded on
+		ctx.unknownFieldError(buf, start, end, name)
 	}
 	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	// the values are skipped as skipValueV2 skips them, by the kind of their first byte: the objects and the arrays by
@@ -942,7 +983,7 @@ func (c *compiler) compileFallback(root reflect.Type, f *jsonfields.Field) (*v2F
 		if err != nil {
 			return nil, err
 		}
-		fb.value = value
+		fb.value = c.goOnDecoder(value)
 	}
 	return fb, nil
 }
@@ -989,8 +1030,9 @@ func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p u
 		// the value which the member is appended to is checked before the value of the member is read
 		b, err := fb.openRaw(p)
 		if err != nil {
-			// the error of the member, at its name
-			return 0, &errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: start, Err: err}
+			// the error of the member, at its name, after whose value the decoding goes on with
+			// ReportErrorsWithLegacySemantics
+			return ctx.goOnAfter(&errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: start, Err: err}, cursor, depth)
 		}
 		valueStart := skipWhiteSpace(ctx.Buf, cursor)
 		valueEnd, err := ctx.skipValueV2(valueStart, depth)
@@ -1045,7 +1087,7 @@ func (c *compiler) compileMapV2(typ reflect.Type, structName, fieldName string) 
 	if err != nil {
 		return nil, err
 	}
-	d.keyDecoder, d.valueDecoder = keyDec, valueDec
+	d.keyDecoder, d.valueDecoder = keyDec, c.goOnDecoder(valueDec)
 	return d, nil
 }
 
@@ -1127,7 +1169,16 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		k.Elem().SetZero()
 		next, err := d.keyDecoder.Decode(ctx, start, depth, k.UnsafePointer())
 		if err != nil {
-			return 0, err
+			// with ReportErrorsWithLegacySemantics, the member of the key is skipped, and the next one decoded
+			if next, err = ctx.goOnAfterKey(err, start, depth); err != nil {
+				return 0, err
+			}
+			if cursor = skipWhiteSpace(buf, next); buf[cursor] == '}' {
+				names.end(ctx.v2)
+				return cursor + 1, nil
+			}
+			cursor = skipWhiteSpace(buf, cursor+1)
+			continue
 		}
 		if keyNames && !names.addCopy(ctx.V2Call(), nil, unquotedName(buf[start:next])) {
 			return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}

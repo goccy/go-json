@@ -67,6 +67,15 @@ func init() {
 		_, failed := (*Decoder)(dec).d.r.(*failedInput)
 		return failed
 	}
+	textcoder.ConfigureDecoder = func(dec unsafe.Pointer, opts *options.Config) func() {
+		d := &(*Decoder)(dec).d
+		saved, validUTF8, rejectDuplicateNames := d.cfg, d.vs.validUTF8, d.vs.rejectDuplicateNames
+		d.cfg = *opts
+		d.vs.validUTF8, d.vs.rejectDuplicateNames = !d.cfg.Has(allowInvalidUTF8), !d.cfg.Has(allowDuplicateNames)
+		return func() {
+			d.cfg, d.vs.validUTF8, d.vs.rejectDuplicateNames = saved, validUTF8, rejectDuplicateNames
+		}
+	}
 	textcoder.ReadError = func(err error) error { return &ioError{err: err} }
 	textcoder.IsIOError = func(err error) bool {
 		var e *ioError

@@ -9,6 +9,8 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
+	ierrors "github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/internal/textcoder"
 	"github.com/goccy/go-json/jsontext"
 )
@@ -187,6 +189,10 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 	if _, ok := err.(*jsontext.SyntacticError); ok || textcoder.IsIOError(err) {
 		// a syntax error and an error of the reader, which are not wrapped, as encoding/json/v2 doesn't wrap them
 		return 0, err
+	}
+	if call.Config.Has(options.ReportErrorsWithLegacySemantics) {
+		// the error of the method, which encoding/json returns as it is, and decodes on after its value
+		return 0, &ierrors.UnmarshalError{GoType: typ, Start: cursor, Err: err, Method: ierrors.UnmarshalJSONMethod}
 	}
 	// the place of the error, where it stopped reading: the value if it read nothing, the value it read if it read
 	// one, and else the level it is in, after the last token it read.

@@ -355,7 +355,7 @@ func compileSlice(typ reflect.Type, structName, fieldName string, c *compiler) (
 	if err != nil {
 		return nil, err
 	}
-	d.valueDecoder = decoder
+	d.valueDecoder = c.goOnDecoder(decoder)
 	return dec, nil
 }
 

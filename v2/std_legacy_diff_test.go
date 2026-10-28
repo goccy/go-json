@@ -9,6 +9,7 @@ import (
 	stdjson "encoding/json/v2"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"reflect"
@@ -1050,6 +1051,16 @@ func describeLegacyError(err error) string {
 		return "MarshalerError " + e.Type.String() + " " + legacyText(e.Error()) + " of " + describeLegacyError(e.Err)
 	case *stdjsonv1.MarshalerError:
 		return "MarshalerError " + e.Type.String() + " " + legacyText(e.Error()) + " of " + describeLegacyError(e.Err)
+	case *gojson.UnmarshalTypeError:
+		return fmt.Sprintf("UnmarshalTypeError %q %v %d %q %q %s of %s", e.Value, e.Type, e.Offset, e.Struct, e.Field,
+			legacyText(e.Error()), describeLegacyError(e.Err))
+	case *stdjsonv1.UnmarshalTypeError:
+		return fmt.Sprintf("UnmarshalTypeError %q %v %d %q %q %s of %s", e.Value, e.Type, e.Offset, e.Struct, e.Field,
+			legacyText(e.Error()), describeLegacyError(e.Err))
+	case *gojson.InvalidUnmarshalError:
+		return "InvalidUnmarshalError " + e.Error()
+	case *stdjsonv1.InvalidUnmarshalError:
+		return "InvalidUnmarshalError " + e.Error()
 	case *gojson.SyntaxError:
 		return fmt.Sprintf("SyntaxError %d %s", e.Offset, e.Error())
 	case *stdjsonv1.SyntaxError:
@@ -1310,5 +1321,327 @@ func TestMarshalReportErrorsOfFuncsMatchesStd(t *testing.T) {
 	}
 	if calls != stdCalls {
 		t.Errorf("calls of the declining function: got %d, want %d", calls, stdCalls)
+	}
+}
+
+// reportUnmarshalJSON is a type whose UnmarshalJSON fails for a JSON number, and reportUnmarshalText one whose
+// UnmarshalText fails for "bad".
+type reportUnmarshalJSON int
+
+func (v *reportUnmarshalJSON) UnmarshalJSON(b []byte) error {
+	if b[0] != '"' {
+		*v = 5
+		return errors.New("json method failed")
+	}
+	return nil
+}
+
+type reportUnmarshalText string
+
+func (v *reportUnmarshalText) UnmarshalText(b []byte) error {
+	if string(b) == "bad" {
+		return errors.New("text method failed")
+	}
+	*v = reportUnmarshalText(b)
+	return nil
+}
+
+// reportUnmarshalFrom is a type whose UnmarshalJSONFrom fails after it reads its value, and reportStdUnmarshalFrom the
+// one for encoding/json.
+type reportUnmarshalFrom int
+
+func (v *reportUnmarshalFrom) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if _, err := dec.ReadValue(); err != nil {
+		return err
+	}
+	return errors.New("from method failed")
+}
+
+type reportStdUnmarshalFrom int
+
+func (v *reportStdUnmarshalFrom) UnmarshalJSONFrom(dec *stdjsontext.Decoder) error {
+	if _, err := dec.ReadValue(); err != nil {
+		return err
+	}
+	return errors.New("from method failed")
+}
+
+// reportUnexported is an unexported struct, which an embedded nil pointer to can't be set.
+type reportUnexported struct{ X int }
+
+// reportNilField embeds a pointer to an unexported struct.
+type reportNilField struct {
+	*reportUnexported
+	Y int
+}
+
+// reportCases are the inputs and the outputs of the unmarshaling with ReportErrorsWithLegacySemantics: ours and theirs
+// differ for the types of methods of jsontext only.
+type reportCase struct {
+	name         string
+	in           string
+	ours, theirs func() any
+	opts         legacySet
+	extra        []json.Options
+	stdExtra     []stdjson.Options
+}
+
+func reportCases() []reportCase {
+	same := func(f func() any) (func() any, func() any) { return f, f }
+	type R1 struct{ A, B int }
+	type R2 struct {
+		A, B int
+		C    []int
+	}
+	type nested struct {
+		A struct{ B int }
+		C int
+	}
+	type rejected struct{ A int }
+	type ambiguous struct{ Aa, AA int }
+	type withReader struct{ R io.Reader }
+	type withChan struct {
+		C chan int
+		N int
+	}
+	type withDuration struct{ D time.Duration }
+	type withArray struct{ A [2]int }
+	type withBytes struct{ B []byte }
+	type withMethods struct {
+		J reportUnmarshalJSON
+		T reportUnmarshalText
+		N int
+	}
+	type withArrayAfter struct {
+		A [2]int
+		B int
+	}
+	type withPointers struct {
+		P *int
+		Q **int
+		R []*[2]int
+		N int
+	}
+	type withEmbeddedMap struct {
+		A int
+		X map[string]int `json:",embed"`
+		C int
+	}
+	type stringTags struct {
+		B bool           `json:",string"`
+		M map[string]int `json:",string"`
+		T time.Time      `json:",string"`
+		I int            `json:",string"`
+	}
+	cases := []reportCase{}
+	var v1Text bool
+	add := func(name, in string, f func() any, opts legacySet) {
+		o, t := same(f)
+		c := reportCase{name: name, in: in, ours: o, theirs: t, opts: opts}
+		if v1Text {
+			// the options of jsontext of DefaultOptionsV1, by which the structs are decoded as v1 decodes them
+			c.name += " as v1"
+			c.extra = []json.Options{jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true)}
+			c.stdExtra = []stdjson.Options{stdjsontext.AllowDuplicateNames(true), stdjsontext.AllowInvalidUTF8(true)}
+		}
+		cases = append(cases, c)
+	}
+	report := reportErrorsLegacy
+	// the options of jsontext of DefaultOptionsV1 with every option and with ReportErrorsWithLegacySemantics alone
+	for i, set := range []legacySet{report, allLegacy, allLegacy, report} {
+		v1Text = i >= 2
+		add("kinds", `{"A":"x","B":"y","C":[1,"z",3]}`, func() any { return new(R2) }, set)
+		add("int8 range", `{"A":300,"B":2}`, func() any { return new(struct{ A int8; B int }) }, set)
+		add("slice", `[1,"x",3]`, func() any { return new([]int) }, set)
+		add("map values", `{"a":"x","b":2}`, func() any { return new(map[string]int) }, set)
+		add("map keys", `{"x":1,"2":2}`, func() any { return new(map[int]int) }, set)
+		add("fraction", `{"A":1.5,"B":2}`, func() any { return new(R1) }, set)
+		add("negative uint", `-1`, func() any { return new(uint) }, set)
+		add("float32 range", `1e100`, func() any { return new(float32) }, set)
+		add("nested", `{"A":{"B":"x"},"C":2}`, func() any { return new(nested) }, set)
+		add("nested object", `{"A":{"B":{"q":1}},"C":2}`, func() any { return new(nested) }, set)
+		add("cut", `{"A":1,`, func() any { return new(R1) }, set)
+		add("after", `{"A":1} x`, func() any { return new(R1) }, set)
+		add("empty", ``, func() any { return new(R1) }, set)
+		add("literal", `{"A":tru}`, func() any { return new(R1) }, set)
+		add("invalid character", `{"A":1,"B":x}`, func() any { return new(R1) }, set)
+		add("duplicate", `{"A":1,"A":2}`, func() any { return new(R1) }, set)
+		add("invalid UTF-8", "\"\xff\"", func() any { return new(string) }, set)
+		add("not a pointer", `1`, func() any { return 1 }, set)
+		add("nil pointer", `1`, func() any { return (*int)(nil) }, set)
+		add("nil", `{`, func() any { return nil }, set)
+		add("ambiguous", `{"aA":1}`, func() any { return new(ambiguous) }, set)
+		add("nil field", `{"X":1,"Y":2}`, func() any { return new(reportNilField) }, set)
+		add("nil interface", `{"R":1}`, func() any { return new(withReader) }, set)
+		add("methods", `{"J":1,"T":"bad","N":3}`, func() any { return new(withMethods) }, set)
+		add("text keys", `{"ok":1,"bad":2,"z":3}`, func() any { return new(map[reportUnmarshalText]int) }, set)
+		add("conflict", `{"x":1,"C":2}`, func() any { return new(reportConflict) }, set)
+		add("malformed", `{"a":1,"B":2}`, func() any { return new(reportMalformed) }, set)
+		add("string tags", `{"B":true,"M":{"a":1},"T":"2020-01-02T03:04:05Z","I":"7"}`, func() any { return new(stringTags) }, set)
+		add("chan", `{"C":1,"N":2}`, func() any { return new(withChan) }, set)
+		add("chan null", `{"C":null,"N":2}`, func() any { return new(withChan) }, set)
+		add("duration", `{"D":1}`, func() any { return new(withDuration) }, set)
+		add("array length", `{"A":[1,2,3]}`, func() any { return new(withArray) }, set)
+		add("base64", `{"B":"!!"}`, func() any { return new(withBytes) }, set)
+		add("any range", `{"a":1e400}`, func() any { return new(any) }, set)
+		add("from", `[1,2]`, nil, set)
+		add("array elements", `[1,"x",3]`, func() any { return new([3]int) }, set)
+		add("any range in a slice", `[{"a":1e400,"b":1},2]`, func() any { return new([]any) }, set)
+		add("any after an error", `{"A":"x","B":{"c":1}}`, func() any { return new(struct{ A int; B any }) }, set)
+		add("nested keys", `{"M":{"x":1,"2":2},"N":3}`, func() any { return new(struct{ M map[int]int; N int }) }, set)
+		add("values of no representation", `{"a":1,"b":null}`, func() any { return new(map[string]chan int) }, set)
+		add("embedded map", `{"A":1,"b":"x","c":2,"C":3}`, func() any { return new(withEmbeddedMap) }, set)
+		add("names twice in any", `{"a":{"x":1},"a":{"y":1e400},"b":[{"c":1,"c":2}]}`, func() any { return new(any) }, set)
+		add("names twice in any after an error", `{"X":"x","A":{"q":1,"q":2}}`, func() any { return new(struct{ X int; A any }) }, set)
+		add("names twice in any of a merged kind", `{"A":{"q":[1],"q":{"s":1e400}},"X":"x"}`, func() any { return new(struct{ X int; A any }) }, set)
+		add("names twice in any of a merged array", `{"A":{"q":{"s":1},"q":[1e400]},"X":"x"}`, func() any { return new(struct{ X int; A any }) }, set)
+		add("names twice in any of another kind", `{"A":{"q":[1],"q":{"s":1},"r":2},"X":"x"}`, func() any { return new(struct{ X int; A any }) }, set)
+		add("names twice in any in an array", `{"A":[{"q":[1],"q":{"s":1}},3],"X":"x"}`, func() any { return new(struct{ X int; A any }) }, set)
+		add("empty array length", `{"A":[],"B":1}`, func() any { return new(withArrayAfter) }, set)
+		add("empty array length last", `{"B":1,"A":[]}`, func() any { return new(withArrayAfter) }, set)
+		add("empty array length in an array", `[[],[1,2]]`, func() any { return new([][2]int) }, set)
+		add("empty array length in a map", `{"k":[],"j":[1,2]}`, func() any { return new(map[string][2]int) }, set)
+		add("pointers of failed values", `{"P":"x","Q":"y","R":[[1,2,3]],"N":2}`, func() any { return new(withPointers) }, set)
+		add("set pointer of a failed value", `{"P":"x","N":2}`, func() any {
+			six := 6
+			return &withPointers{P: &six}
+		}, set)
+	}
+	v1Text = false
+	for i := range cases {
+		if cases[i].ours == nil {
+			cases[i].ours = func() any { return new([]reportUnmarshalFrom) }
+			cases[i].theirs = func() any { return new([]reportStdUnmarshalFrom) }
+		}
+	}
+	// values which fail in the values held by an interface value, which they are merged into
+	merged := func() any {
+		var v any = map[string]any{"a": nil, "c": 3}
+		return &v
+	}
+	mergedOther := func() any {
+		var v any = map[string]any{"q": []any{1.0}}
+		return &v
+	}
+	cases = append(cases, reportCase{name: "merged any of another kind", in: `{"q":{"s":1},"r":2}`, ours: mergedOther,
+		theirs: mergedOther, opts: report})
+	cases = append(cases, reportCase{name: "merged any", in: `{"a":[1e400,2],"b":{"x":1e400,"y":2},"d":1}`, ours: merged,
+		theirs: merged, opts: report})
+	errFunc := errors.New("func failed")
+	cases = append(cases, reportCase{name: "merged any of a function", in: `{"a":[1,2],"b":{"x":1,"y":2},"d":1}`,
+		ours: merged, theirs: merged, opts: report,
+		extra: []json.Options{json.WithUnmarshalers(json.UnmarshalFunc(func(b []byte, v *float64) error {
+			if string(b) == "1" {
+				return errFunc
+			}
+			*v = 9
+			return nil
+		}))},
+		stdExtra: []stdjson.Options{stdjson.WithUnmarshalers(stdjson.UnmarshalFunc(func(b []byte, v *float64) error {
+			if string(b) == "1" {
+				return errFunc
+			}
+			*v = 9
+			return nil
+		}))}})
+	o, t := same(func() any { return new(rejected) })
+	cases = append(cases, reportCase{name: "unknown", in: `{"B":1,"A":2}`, ours: o, theirs: t, opts: report,
+		extra: []json.Options{json.RejectUnknownMembers(true)}, stdExtra: []stdjson.Options{stdjson.RejectUnknownMembers(true)}})
+	folded, stdFolded := []json.Options{json.MatchCaseInsensitiveNames(true)}, []stdjson.Options{stdjson.MatchCaseInsensitiveNames(true)}
+	o, t = same(func() any { return new(ambiguous) })
+	cases = append(cases, reportCase{name: "ambiguous folded", in: `{"aA":1}`, ours: o, theirs: t, opts: report,
+		extra: folded, stdExtra: stdFolded})
+	o, t = same(func() any { return new(R2) })
+	cases = append(cases, reportCase{name: "kinds folded", in: `{"A":"x","b":"y","C":[1,"z",3]}`, ours: o, theirs: t,
+		opts: report, extra: folded, stdExtra: stdFolded})
+	o, t = same(func() any { return new(R1) })
+	cases = append(cases, reportCase{name: "duplicate folded", in: `{"A":"x","a":2}`, ours: o, theirs: t, opts: report,
+		extra: folded, stdExtra: stdFolded})
+	return cases
+}
+
+// sameOutputs reports whether the outputs of ours and of encoding/json are the same: by reflect.DeepEqual for outputs
+// of one type, which follows the pointers, and else by their Go syntax, in which the names of the types for
+// encoding/json are the ones for ours.
+func sameOutputs(ours, theirs any) bool {
+	if reflect.TypeOf(ours) == reflect.TypeOf(theirs) {
+		return reflect.DeepEqual(ours, theirs)
+	}
+	return fmt.Sprintf("%#v", valueOf(ours)) == strings.ReplaceAll(fmt.Sprintf("%#v", valueOf(theirs)), "reportStd", "report")
+}
+
+// valueOf is the value which out points to, or out if it is not a pointer.
+func valueOf(out any) any {
+	if v := reflect.ValueOf(out); v.Kind() == reflect.Pointer && !v.IsNil() {
+		return v.Elem().Interface()
+	}
+	return out
+}
+
+// With ReportErrorsWithLegacySemantics, Unmarshal, UnmarshalRead and UnmarshalDecode report the errors of encoding/json,
+// as encoding/json/v2 reports them with the option of encoding/json, and decode on after the errors of the values.
+func TestUnmarshalReportErrorsMatchesStd(t *testing.T) {
+	describeStd := func(err error) string {
+		return strings.ReplaceAll(describeLegacyError(err), "reportStd", "report")
+	}
+	for _, c := range reportCases() {
+		opts, stdOpts := append(c.opts.ours(), c.extra...), append(c.opts.std(), c.stdExtra...)
+		ours, theirs := c.ours(), c.theirs()
+		err := json.Unmarshal([]byte(c.in), ours, opts...)
+		stdErr := stdjson.Unmarshal([]byte(c.in), theirs, stdOpts...)
+		if g, w := describeLegacyError(err), describeStd(stdErr); g != w {
+			t.Errorf("%s, options %b: Unmarshal:\n got %s\nwant %s", c.name, c.opts, g, w)
+		} else if !sameOutputs(ours, theirs) {
+			t.Errorf("%s, options %b: Unmarshal value:\n got %#v\nwant %#v", c.name, c.opts, valueOf(ours), valueOf(theirs))
+		}
+		for _, n := range readSizes {
+			ours, theirs := c.ours(), c.theirs()
+			err := json.UnmarshalRead(newChunkReader(c.in, n), ours, opts...)
+			stdErr := stdjson.UnmarshalRead(newChunkReader(c.in, n), theirs, stdOpts...)
+			if g, w := describeLegacyError(err), describeStd(stdErr); g != w {
+				t.Errorf("%s, options %b, reads of %d: UnmarshalRead:\n got %s\nwant %s", c.name, c.opts, n, g, w)
+			}
+			ours, theirs = c.ours(), c.theirs()
+			err = json.UnmarshalDecode(jsontext.NewDecoder(newChunkReader(c.in, n)), ours, opts...)
+			stdErr = stdjson.UnmarshalDecode(stdjsontext.NewDecoder(newChunkReader(c.in, n)), theirs, stdOpts...)
+			if g, w := describeLegacyError(err), describeStd(stdErr); g != w {
+				t.Errorf("%s, options %b, reads of %d: UnmarshalDecode:\n got %s\nwant %s", c.name, c.opts, n, g, w)
+			}
+		}
+	}
+}
+
+// With ReportErrorsWithLegacySemantics, the errors of UnmarshalDecode of the values of an array or an object, which a
+// decoder reads one after another, have the paths of the values in it, as encoding/json/v2 reports them.
+func TestUnmarshalDecodeReportErrorsInValuesMatchesStd(t *testing.T) {
+	type R struct{ A, B int }
+	for _, in := range []string{`[{"A":"x"},{"B":1},"q",3]`, `{"a":{"A":"x"},"b/c":{"B":"y"},"d~":"q"}`} {
+		for _, n := range readSizes {
+			dec := jsontext.NewDecoder(newChunkReader(in, n))
+			stdDec := stdjsontext.NewDecoder(newChunkReader(in, n))
+			if _, err := dec.ReadToken(); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := stdDec.ReadToken(); err != nil {
+				t.Fatal(err)
+			}
+			for i := 0; dec.PeekKind() != ']' && dec.PeekKind() != '}'; i++ {
+				if in[0] == '{' {
+					// the name of the member
+					if _, err := dec.ReadToken(); err != nil {
+						t.Fatal(err)
+					}
+					if _, err := stdDec.ReadToken(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				var ours, theirs R
+				err := json.UnmarshalDecode(dec, &ours, reportErrorsLegacy.ours()...)
+				stdErr := stdjson.UnmarshalDecode(stdDec, &theirs, reportErrorsLegacy.std()...)
+				if g, w := describeLegacyError(err), describeLegacyError(stdErr); g != w || ours != theirs {
+					t.Errorf("%s, reads of %d, value %d:\n got %s, %+v\nwant %s, %+v", in, n, i, g, ours, w, theirs)
+				}
+			}
+		}
 	}
 }

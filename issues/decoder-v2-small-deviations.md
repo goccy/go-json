@@ -17,6 +17,22 @@
   encoding/json/v2 reads the number in the JSON string ( `{"N":"1"}` into `struct{ N json.Number "json:\",string\"" }`
   is `"1"` in encoding/json/v2, the error of the option in go-json; recorded 2026-10-28, found in the review of
   `StringifyWithLegacySemantics` ).
+- With `ReportErrorsWithLegacySemantics` and without `StringifyWithLegacySemantics`, a field of an interface type of
+  the `string` option is decoded without the option: encoding/json decodes the value which the interface value holds
+  by it ( a JSON string `"1"` into the `*int` which it holds; recorded 2026-10-28, found in the work on
+  `ReportErrorsWithLegacySemantics` ). The decoders of the values which interface values hold are the ones of their
+  types, which have no option of a field.
+- With `ReportErrorsWithLegacySemantics` and `StringifyWithLegacySemantics`, the cause of the `UnmarshalTypeError` of a
+  value of the `string` option whose JSON string holds no JSON string ( `{"S":"x","N":1}` into
+  `struct{ S *string "json:\",string\""; N int }` ): its `SyntaxError` is at the offset 1 in go-json, 0 in
+  encoding/json/v2, with the same message ( recorded 2026-10-28, found in the review of
+  `ReportErrorsWithLegacySemantics` ).
+- With `ReportErrorsWithLegacySemantics`, a member of no field of a struct whose embedded `jsontext.Value` holds a value
+  which is not an object: encoding/json/v2 panics, as it skips the rest of the object where the value of the member is
+  not read yet ( `SkipValueRemainder` of `newUnmarshalErrorAfterWithSkipping`, Go 1.27.3; `{"A":1,"b":2,"C":3}` into
+  a struct of `A`, `C` and the embedded value `1` ); go-json reports the error of the member, as encoding/json/v2
+  reports it without the option, and decodes on after its value ( recorded 2026-10-28, found in the work on
+  `ReportErrorsWithLegacySemantics` ).
 - No value where a value of a type which has no representation is ( a `chan`, a `func`, a `complex128`, a
   `time.Duration` of no format ): go-json reports what it finds there, encoding/json/v2 the `SemanticError` of the
   type, which it reports before it reads anything. The input is empty or white space only ( `Unmarshal` and
@@ -67,11 +83,10 @@
   - an element of a slice which is decoded again, within its capacity, keeps what it held where
     the decoding of a scalar into it fails ( `[1e400]` or `[1.5]` into `[]float64{3}` or
     `[]int{3}`: go-json `[3]`, encoding/json/v2 `[0]` ); encoding/json/v2 zeroes the element
-    first. The decodes which succeed are the same.
-  - a pointer which is set is set to nil where the decoding of the value it points to fails
-    ( `1.5` into a `**int` whose `*int` is set, `{"P":1.5}` into `struct{ P *int }` whose `P` is
-    set: go-json nil, encoding/json/v2 keeps the pointer ).
-  - a nil pointer to a type which has no representation is left nil where encoding/json/v2
-    allocates the value before it fails ( `{"P":1}` into `struct{ P *time.Duration }`: go-json
-    nil, encoding/json/v2 `&0`; recorded 2026-10-28, found in the review of
-    `FormatDurationAsNano` ).
+    first. The decodes which succeed are the same. With `ReportErrorsWithLegacySemantics` and without
+    `MergeWithLegacySemantics`, which decode on, the element is left in the result ( `[1,"x",3]` into
+    `[]int{9,9,9,9}`: go-json `[1 9 3]`, encoding/json/v2 `[1 0 3]` ).
+  - the element of a slice whose decoding fails is not in the slice of `UnmarshalRead` with small reads, which
+    decodes the elements one after another ( `{"S":[1,"x"]}` into `struct{ S []*int }` in reads of 1 or 7 bytes:
+    go-json `[&1]`, `Unmarshal` and encoding/json/v2 `[&1 &0]`; recorded 2026-10-28, found in the review of
+    `ReportErrorsWithLegacySemantics` ).

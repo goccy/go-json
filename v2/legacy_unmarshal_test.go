@@ -2,11 +2,14 @@ package json_test
 
 import (
 	stdjsonv1 "encoding/json"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	gojson "github.com/goccy/go-json"
+	"github.com/goccy/go-json/jsontext"
 	json "github.com/goccy/go-json/v2"
 )
 
@@ -126,6 +129,124 @@ func TestUnmarshalCallMethodsWithLegacySemantics(t *testing.T) {
 		{"key", `{"a":"b"}`, legacy, newMap, map[legacyLitKey]legacyLitKey{"text": "json"}},
 		{"key by default", `{"a":"b"}`, nil, newMap, map[legacyLitKey]legacyLitKey{"json": "json"}},
 	})
+}
+
+// legacyLitSyntaxJSON is an int whose UnmarshalJSON fails with a syntax error, which stops the decoding.
+type legacyLitSyntaxJSON int
+
+func (*legacyLitSyntaxJSON) UnmarshalJSON([]byte) error {
+	return &jsontext.SyntacticError{Err: errLegacyLitMethod}
+}
+
+// legacyLitFailingJSON is an int whose UnmarshalJSON fails.
+type legacyLitFailingJSON int
+
+var errLegacyLitMethod = errors.New("method failed")
+
+func (*legacyLitFailingJSON) UnmarshalJSON([]byte) error { return errLegacyLitMethod }
+
+// With ReportErrorsWithLegacySemantics, Unmarshal, UnmarshalRead and UnmarshalDecode check the input first, decode on
+// after the error of a value, and report the first one, as the errors of encoding/json.
+func TestUnmarshalReportErrorsWithLegacySemantics(t *testing.T) {
+	legacy := gojson.ReportErrorsWithLegacySemantics(true)
+	type kinds struct {
+		A, B int
+		C    []int
+	}
+	unmarshals := map[string]func(in string, out any, opts ...json.Options) error{
+		"Unmarshal": func(in string, out any, opts ...json.Options) error { return json.Unmarshal([]byte(in), out, opts...) },
+		"UnmarshalRead": func(in string, out any, opts ...json.Options) error {
+			return json.UnmarshalRead(strings.NewReader(in), out, opts...)
+		},
+		"UnmarshalDecode": func(in string, out any, opts ...json.Options) error {
+			return json.UnmarshalDecode(jsontext.NewDecoder(strings.NewReader(in)), out, opts...)
+		},
+	}
+	var of kinds
+	err := json.UnmarshalOf([]byte(`{"A":"x","B":"y","C":[1,"z",3]}`), &of, legacy)
+	var ofErr *gojson.UnmarshalTypeError
+	if !errors.As(err, &ofErr) || ofErr.Field != "A" || !reflect.DeepEqual(of.C, []int{1, 0, 3}) {
+		t.Errorf("UnmarshalOf of kinds: got %v, %+v, want the error of A and C decoded", err, of)
+	}
+	var nilErr *gojson.InvalidUnmarshalError
+	if err := json.UnmarshalOf([]byte(`1`), (*int)(nil), legacy); !errors.As(err, &nilErr) {
+		t.Errorf("UnmarshalOf into nil: got %v, want an InvalidUnmarshalError", err)
+	}
+	if err := json.UnmarshalReadOf(strings.NewReader(`1`), (*int)(nil), legacy); !errors.As(err, &nilErr) {
+		t.Errorf("UnmarshalReadOf into nil: got %v, want an InvalidUnmarshalError", err)
+	}
+	for name, unmarshal := range unmarshals {
+		var v kinds
+		err := unmarshal(`{"A":"x","B":"y","C":[1,"z",3]}`, &v, legacy)
+		var typeErr *gojson.UnmarshalTypeError
+		if !errors.As(err, &typeErr) || typeErr.Value != "string" || typeErr.Offset != 8 || typeErr.Struct != "kinds" ||
+			typeErr.Field != "A" || !reflect.DeepEqual(v.C, []int{1, 0, 3}) {
+			t.Errorf("%s of kinds: got %v, %+v, want the error of A and C decoded", name, err, v)
+		}
+		v = kinds{A: 9}
+		var syntaxErr *gojson.SyntaxError
+		if err := unmarshal(`{"A":1,`, &v, legacy); !errors.As(err, &syntaxErr) || v.A != 9 {
+			t.Errorf("%s of a cut input: got %v, %+v, want a SyntaxError and the value unchanged", name, err, v)
+		}
+		var invalidErr *gojson.InvalidUnmarshalError
+		if err := unmarshal(`1`, v, legacy); !errors.As(err, &invalidErr) {
+			t.Errorf("%s into a value: got %v, want an InvalidUnmarshalError", name, err)
+		}
+		var withArray struct{ A [2]int }
+		if err := unmarshal(`{"A":[1,2,3]}`, &withArray, legacy); !errors.As(err, &typeErr) || typeErr.Offset != 12 ||
+			typeErr.Field != "A" {
+			t.Errorf("%s of an array too long: got %v, want the error of the array after it", name, err)
+		}
+		var methods struct {
+			J legacyLitFailingJSON
+			N int
+		}
+		if err := unmarshal(`{"J":1,"N":3}`, &methods, legacy); err != errLegacyLitMethod || methods.N != 3 {
+			t.Errorf("%s of a method: got %v, %+v, want the error of the method and N decoded", name, err, methods)
+		}
+		var syntax struct {
+			J legacyLitSyntaxJSON
+			N int
+		}
+		if err := unmarshal(`{"J":1,"N":3}`, &syntax, legacy); !errors.As(err, &syntaxErr) || syntax.N != 0 {
+			t.Errorf("%s of a method of a syntax error: got %v, %+v, want a SyntaxError and N not decoded", name, err, syntax)
+		}
+		var unknown struct{ A int }
+		if err := unmarshal(`{"B":1,"A":2}`, &unknown, legacy, json.RejectUnknownMembers(true)); err == nil ||
+			err.Error() != `json: unknown field "B"` || unknown.A != 2 {
+			t.Errorf("%s of an unknown member: got %v, %+v, want the error of the name and A decoded", name, err, unknown)
+		}
+		var withChan struct {
+			C chan int
+			N int
+		}
+		if err := unmarshal(`{"C":null,"N":2}`, &withChan, legacy); err != nil || withChan.N != 2 {
+			t.Errorf("%s of a null channel: got %v, %+v", name, err, withChan)
+		}
+		var conflict struct {
+			A int `json:"x"`
+			B int `json:"x"`
+			C int
+		}
+		if err := unmarshal(`{"x":1,"C":2}`, &conflict, legacy); err != nil || conflict.C != 2 || conflict.A != 0 {
+			t.Errorf("%s of conflicting names: got %v, %+v", name, err, conflict)
+		}
+		var keys map[int]int
+		if err := unmarshal(`{"x":1,"2":2}`, &keys, legacy); !errors.As(err, &typeErr) || typeErr.Value != "number x" ||
+			keys[2] != 2 {
+			t.Errorf("%s of a key: got %v, %v, want the error of the key and the next entry", name, err, keys)
+		}
+		// encoding/json/v2 panics for it with the option ( see issues/decoder-v2-small-deviations.md )
+		embedded := struct {
+			A int
+			X jsontext.Value `json:",embed"`
+			C int
+		}{X: jsontext.Value("1")}
+		if err := unmarshal(`{"A":1,"b":[2],"C":3}`, &embedded, legacy); !errors.As(err, &typeErr) || typeErr.Field != "b" ||
+			embedded.C != 3 || string(embedded.X) != "1" {
+			t.Errorf("%s of a member into an embedded value which is not an object: got %v, %+v, want its error and C decoded", name, err, embedded)
+		}
+	}
 }
 
 func TestUnmarshalArrayFromAnyLength(t *testing.T) {

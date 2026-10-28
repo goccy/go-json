@@ -303,13 +303,21 @@ func (d *sliceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][
 				}
 				if found {
 					if child != nil {
-						oldPath := ctx.Option.Path.node
+						node := ctx.Option.Path.node
 						ctx.Option.Path.node = child
 						paths, c, err := d.valueDecoder.DecodePath(ctx, cursor, depth)
+						ctx.Option.Path.node = node
+						if _, mismatch := err.(*errors.PathError); mismatch {
+							if _, all := node.(*PathIndexAllNode); all {
+								// the rest of the path after [*] does not fit the element, so it selects nothing
+								// in it
+								paths = nil
+								c, err = skipValue(buf, cursor, depth)
+							}
+						}
 						if err != nil {
 							return nil, 0, err
 						}
-						ctx.Option.Path.node = oldPath
 						ret = append(ret, paths...)
 						cursor = c
 					} else {

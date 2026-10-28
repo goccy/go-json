@@ -93,7 +93,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	ctx.Buf = src
 	ctx.Option.Flags = 0
 	ctx.Option.Flags |= decoder.PathOption
-	ctx.Option.Path = path.path
+	ctx.SetPath(path.path)
 	for _, optFunc := range optFuncs {
 		optFunc(ctx.Option)
 	}

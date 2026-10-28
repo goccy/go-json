@@ -23,6 +23,8 @@ Priority 2: first after priority 1
 - [decoder-float32-rounding.md](decoder-float32-rounding.md)
 - [decoder-valid-long-strings.md](decoder-valid-long-strings.md)
 - [encoder-sorted-map-speed.md](encoder-sorted-map-speed.md)
+- [path-cast-by-go-field-names.md](path-cast-by-go-field-names.md)
+- [path-recursive-rest-rereads.md](path-recursive-rest-rereads.md)
 
 Priority 3
 
@@ -44,6 +46,7 @@ Priority 3
 - [encoder-report-gaps-vs-sonic.md](encoder-report-gaps-vs-sonic.md)
 - [selection-api.md](selection-api.md)
 - [selection-promoted-field-key.md](selection-promoted-field-key.md)
+- [path-small-deviations.md](path-small-deviations.md)
 
 Priority 4
 

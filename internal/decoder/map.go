@@ -302,31 +302,49 @@ func (d *mapDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]b
 			return nil, 0, errors.ErrExpected("colon after object key", cursor)
 		}
 		cursor++
+		node := ctx.Option.Path.node
 		child, found, err := ctx.Option.Path.Field(string(key))
 		if err != nil {
 			return nil, 0, err
 		}
-		if found {
-			if child != nil {
-				oldPath := ctx.Option.Path.node
-				ctx.Option.Path.node = child
-				paths, c, err := d.valueDecoder.DecodePath(ctx, cursor, depth)
-				if err != nil {
-					return nil, 0, err
-				}
-				ctx.Option.Path.node = oldPath
-				ret = append(ret, paths...)
-				cursor = c
-			} else {
-				start := cursor
-				end, err := skipValue(buf, cursor, depth)
-				if err != nil {
-					return nil, 0, err
-				}
-				ret = append(ret, buf[start:end])
-				cursor = end
+		// .. selects its name in the value too, at any depth: the value is searched with it
+		_, recursive := node.(*PathRecursiveNode)
+		start := cursor
+		if found && child != nil {
+			ctx.Option.Path.node = child
+			paths, c, err := d.valueDecoder.DecodePath(ctx, cursor, depth)
+			ctx.Option.Path.node = node
+			if _, mismatch := err.(*errors.PathError); mismatch && recursive {
+				// the rest of the path after .. does not fit the value, so it selects nothing in it
+				paths = nil
+				c, err = skipValue(buf, cursor, depth)
 			}
-		} else {
+			if err != nil {
+				return nil, 0, err
+			}
+			ret = append(ret, paths...)
+			cursor = c
+		}
+		switch {
+		case recursive:
+			paths, c, err := d.valueDecoder.DecodePath(ctx, start, depth)
+			if err != nil {
+				return nil, 0, err
+			}
+			if found && child == nil {
+				// the value is selected too, which the same pass ends
+				ret = append(ret, buf[start:c])
+			}
+			ret = append(ret, paths...)
+			cursor = c
+		case found && child == nil:
+			end, err := skipValue(buf, cursor, depth)
+			if err != nil {
+				return nil, 0, err
+			}
+			ret = append(ret, buf[start:end])
+			cursor = end
+		case !found:
 			c, err := skipValue(buf, cursor, depth)
 			if err != nil {
 				return nil, 0, err

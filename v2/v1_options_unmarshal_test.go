@@ -146,19 +146,19 @@ func TestUnmarshalCallMethodsWithLegacySemantics(t *testing.T) {
 	})
 }
 
-// v1LitSyntaxJSON is an int whose UnmarshalJSON fails with a syntax error, which stops the decoding.
-type v1LitSyntaxJSON int
+// v1SyntaxJSON is an int whose UnmarshalJSON fails with a syntax error, which stops the decoding.
+type v1SyntaxJSON int
 
-func (*v1LitSyntaxJSON) UnmarshalJSON([]byte) error {
-	return &jsontext.SyntacticError{Err: errV1LitMethod}
+func (*v1SyntaxJSON) UnmarshalJSON([]byte) error {
+	return &jsontext.SyntacticError{Err: errV1Method}
 }
 
-// v1LitFailingJSON is an int whose UnmarshalJSON fails.
-type v1LitFailingJSON int
+// v1FailingJSON is an int whose UnmarshalJSON fails.
+type v1FailingJSON int
 
-var errV1LitMethod = errors.New("method failed")
+var errV1Method = errors.New("method failed")
 
-func (*v1LitFailingJSON) UnmarshalJSON([]byte) error { return errV1LitMethod }
+func (*v1FailingJSON) UnmarshalJSON([]byte) error { return errV1Method }
 
 // With ReportErrorsWithLegacySemantics, Unmarshal, UnmarshalRead and UnmarshalDecode check the input first, decode on
 // after the error of a value, and report the first one, as the errors of encoding/json.
@@ -223,14 +223,14 @@ func TestUnmarshalReportErrorsWithLegacySemantics(t *testing.T) {
 			t.Errorf("%s of an array too long: got %v, want the error of the array after it", u.name, err)
 		}
 		var methods struct {
-			J v1LitFailingJSON
+			J v1FailingJSON
 			N int
 		}
-		if err := unmarshal(`{"J":1,"N":3}`, &methods); err != errV1LitMethod || methods.N != 3 {
+		if err := unmarshal(`{"J":1,"N":3}`, &methods); err != errV1Method || methods.N != 3 {
 			t.Errorf("%s of a method: got %v, %+v, want the error of the method and N decoded", u.name, err, methods)
 		}
 		var syntax struct {
-			J v1LitSyntaxJSON
+			J v1SyntaxJSON
 			N int
 		}
 		if err := unmarshal(`{"J":1,"N":3}`, &syntax); !errors.As(err, &syntaxErr) || syntax.N != 0 {
@@ -248,11 +248,7 @@ func TestUnmarshalReportErrorsWithLegacySemantics(t *testing.T) {
 		if err := unmarshal(`{"C":null,"N":2}`, &withChan); err != nil || withChan.N != 2 {
 			t.Errorf("%s of a null channel: got %v, %+v", u.name, err, withChan)
 		}
-		var conflict struct {
-			A int `json:"x"`
-			B int `json:"x"`
-			C int
-		}
+		var conflict reportConflict
 		if err := unmarshal(`{"x":1,"C":2}`, &conflict); err != nil || conflict.C != 2 || conflict.A != 0 {
 			t.Errorf("%s of conflicting names: got %v, %+v", u.name, err, conflict)
 		}

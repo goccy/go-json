@@ -73,14 +73,14 @@ func TestStringOptionOfPointerCycleMatchesStd(t *testing.T) {
 }
 
 // cyclePointerFuncs has fields of the `string` option of pointers to a pointer of a cycle, which a function writes,
-// and doublePointerFunc one of a pointer to a pointer which a function writes.
+// and doublePointer one of a pointer to a pointer.
 type cyclePointerFuncs struct {
 	P  *cyclePointer  `json:",string"`
 	PP **cyclePointer `json:",string"`
 	N  int
 }
 
-type doublePointerFunc struct {
+type doublePointer struct {
 	D **int `json:",string"`
 	N int
 }
@@ -112,7 +112,7 @@ func TestStringOptionOfFuncsOfPointersMatchesStd(t *testing.T) {
 			ours   json.Options
 			theirs stdjson.Options
 		}{{ours, theirs}, {oursOfFields, theirsOfFields}} {
-			for _, v := range []any{cyclePointerFuncs{P: &c, PP: &q, N: 1}, doublePointerFunc{D: &pn, N: 1}, cycleString{N: 1}} {
+			for _, v := range []any{cyclePointerFuncs{P: &c, PP: &q, N: 1}, doublePointer{D: &pn, N: 1}, cycleString{N: 1}} {
 				want, wantErr := stdjson.Marshal(v, append(set.std(), funcs.theirs)...)
 				got, err := json.Marshal(v, append(set.ours(), funcs.ours)...)
 				if g, w := describeV1Error(err), describeV1Error(wantErr); g != w || err == nil && string(got) != string(want) {
@@ -123,20 +123,14 @@ func TestStringOptionOfFuncsOfPointersMatchesStd(t *testing.T) {
 	}
 }
 
-// doublePointerField has a field of the `string` option of a pointer to a pointer.
-type doublePointerField struct {
-	F **int `json:",string"`
-	N int
-}
-
 // A pointer to a pointer of the `string` option, which a function of its type declines, is decoded without the option
 // with ReportErrorsWithLegacySemantics and StringifyWithLegacySemantics, as encoding/json/v2 decodes it.
 func TestStringOptionOfDecliningFuncOfPointersMatchesStd(t *testing.T) {
 	ours := json.WithUnmarshalers(json.UnmarshalFromFunc(func(*jsontext.Decoder, ***int) error { return errors.ErrUnsupported }))
 	theirs := stdjson.WithUnmarshalers(stdjson.UnmarshalFromFunc(func(*stdjsontext.Decoder, ***int) error { return errors.ErrUnsupported }))
 	for _, set := range []v1OptionSet{reportErrorsWithLegacySemantics | stringifyWithLegacySemantics, allV1Options} {
-		for _, in := range []string{`{"F":1,"N":1}`, `{"F":"1","N":1}`, `{"F":null,"N":1}`} {
-			var got, want doublePointerField
+		for _, in := range []string{`{"D":1,"N":1}`, `{"D":"1","N":1}`, `{"D":null,"N":1}`} {
+			var got, want doublePointer
 			err := json.Unmarshal([]byte(in), &got, append(set.ours(), ours)...)
 			stdErr := stdjson.Unmarshal([]byte(in), &want, append(set.std(), theirs)...)
 			if g, w := describeV1Error(err), describeV1Error(stdErr); g != w || !reflect.DeepEqual(got, want) {

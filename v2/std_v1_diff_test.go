@@ -69,16 +69,6 @@ type v1Methods struct {
 	L  []v1PtrJSON
 }
 
-// v1Text has a MarshalText which fails for 0.
-type v1Text int
-
-func (t v1Text) MarshalText() ([]byte, error) {
-	if t == 0 {
-		return nil, errors.New("v1Text failed")
-	}
-	return []byte(fmt.Sprint("t", int(t))), nil
-}
-
 // v1Value is a value of the marshaling of the comparison, and the known difference of the root package, if it has
 // one.
 type v1Value struct {
@@ -100,11 +90,7 @@ func v1Values() []v1Value {
 		[]v1PtrJSON{{5}}, map[string]v1PtrJSON{"k": {6}},
 		[]v1Byte{1, 2}, [2]v1Byte{3, 4},
 		math.NaN(), math.Inf(1), make(chan int), func() {}, complex(1, 2),
-		struct {
-			A int `json:"x"`
-			B int `json:"x"`
-			C int
-		}{1, 2, 3},
+		reportConflict{1, 2, 3},
 	}
 	var all []v1Value
 	for _, v := range values {

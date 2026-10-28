@@ -3,6 +3,7 @@ package json_test
 import (
 	"encoding"
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -237,22 +238,35 @@ func TestMarshalCallMethodsWithLegacySemantics(t *testing.T) {
 	})
 }
 
-// reportErrText is a struct whose MarshalText fails, of a value receiver.
-type reportErrText struct{ X int }
+// v1Text has a MarshalText of a value receiver, which fails for 0.
+type v1Text int
 
-func (reportErrText) MarshalText() ([]byte, error) { return nil, errors.New("text failed") }
+func (t v1Text) MarshalText() ([]byte, error) {
+	if t == 0 {
+		return nil, errors.New("v1Text failed")
+	}
+	return []byte(fmt.Sprint("t", int(t))), nil
+}
+
+// reportConflict is a struct of two fields of the same name, a definition which is an error of encoding/json/v2 and
+// which encoding/json ignores.
+type reportConflict struct {
+	A int `json:"x"`
+	B int `json:"x"`
+	C int
+}
 
 // reportConstKey is an int whose MarshalText names every key of a map alike.
 type reportConstKey int
 
 func (reportConstKey) MarshalText() ([]byte, error) { return []byte("k"), nil }
 
-// v1LitFailingWriter is a writer which fails.
-type v1LitFailingWriter struct{}
+// v1FailingWriter is a writer which fails.
+type v1FailingWriter struct{}
 
-var errV1LitWrite = errors.New("write failed")
+var errV1Write = errors.New("write failed")
 
-func (v1LitFailingWriter) Write([]byte) (int, error) { return 0, errV1LitWrite }
+func (v1FailingWriter) Write([]byte) (int, error) { return 0, errV1Write }
 
 // With ReportErrorsWithLegacySemantics, the errors of marshaling are the ones of encoding/json, and the errors of the
 // definitions of structs and the `string` option of the values it doesn't apply to are not errors.
@@ -276,7 +290,7 @@ func TestMarshalReportErrorsWithLegacySemantics(t *testing.T) {
 		}
 	}
 	var marshalerErr *gojson.MarshalerError
-	if err := marshal([]any{reportErrText{}}); !errors.As(err, &marshalerErr) || marshalerErr.Type != reflect.TypeFor[*reportErrText]() ||
+	if err := marshal([]any{v1Text(0)}); !errors.As(err, &marshalerErr) || marshalerErr.Type != reflect.TypeFor[*v1Text]() ||
 		!strings.Contains(err.Error(), "error calling MarshalText for type") {
 		t.Errorf("MarshalText: got %v, want a MarshalerError of MarshalText of the pointer", err)
 	}
@@ -293,24 +307,16 @@ func TestMarshalReportErrorsWithLegacySemantics(t *testing.T) {
 		t.Errorf("time key out of range: got %v, want a MarshalerError of MarshalJSON of *time.Time", err)
 	}
 	// MarshalEncode writes to the writer after the whole value is marshaled, as MarshalWrite does
-	if err := json.MarshalEncode(jsontext.NewEncoder(v1LitFailingWriter{}), 1, reportErrors); err != errV1LitWrite {
+	if err := json.MarshalEncode(jsontext.NewEncoder(v1FailingWriter{}), 1, reportErrors); err != errV1Write {
 		t.Errorf("MarshalEncode to a failing writer: got %v, want its error", err)
 	}
-	if err := json.MarshalWrite(v1LitFailingWriter{}, 1, reportErrors); err != errV1LitWrite {
+	if err := json.MarshalWrite(v1FailingWriter{}, 1, reportErrors); err != errV1Write {
 		t.Errorf("MarshalWrite to a failing writer: got %v, want its error", err)
 	}
 	opts := []json.Options{reportErrors}
 	runV1MarshalCases(t, []v1MarshalCase{
-		{"conflicting names", struct {
-			A int `json:"x"`
-			B int `json:"x"`
-			C int
-		}{}, opts, `{"C":0}`},
-		{"conflicting names by default", struct {
-			A int `json:"x"`
-			B int `json:"x"`
-			C int
-		}{}, nil, ""},
+		{"conflicting names", reportConflict{}, opts, `{"C":0}`},
+		{"conflicting names by default", reportConflict{}, nil, ""},
 		{"string option of a bool", struct {
 			B bool `json:",string"`
 		}{}, opts, `{"B":false}`},

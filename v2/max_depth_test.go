@@ -79,8 +79,8 @@ type maxDepthDeclined [1]struct {
 	Next []maxDepthDeclined
 }
 
-// maxDepthAddressable is maxDepthDeclined of a field of v1PtrMarshaler, whose values in the slices are written
-// by their default representations, addressable, with CallMethodsWithLegacySemantics.
+// maxDepthAddressable is maxDepthDeclined of a field of v1PtrMarshaler: the struct in an element of the slice is
+// addressable, whose value is written by its default representation with CallMethodsWithLegacySemantics.
 type maxDepthAddressable [1]struct {
 	V    v1PtrMarshaler
 	Next []maxDepthAddressable

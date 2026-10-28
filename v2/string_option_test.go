@@ -127,8 +127,9 @@ func (v stringOptionDuration) MarshalJSONTo(e *jsontext.Encoder) error {
 	return json.MarshalEncode(e, time.Duration(v))
 }
 
-// A value of the `string` option of a type which has no representation fails as the type, whatever its options are,
-// as encoding/json/v2 reports it: a SemanticError of the type, of no cause, not the error of the option.
+// A value of the `string` option of a type which has no representation fails as the type, as encoding/json/v2
+// reports it: a SemanticError of the type, of no cause, not the error of the option ( with the options of
+// encoding/json: see TestStringOptionOfNoRepresentationMatchesStd ).
 func TestStringOptionOfNoRepresentation(t *testing.T) {
 	for _, v := range []any{
 		struct {

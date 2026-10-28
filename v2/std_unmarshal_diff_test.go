@@ -428,7 +428,8 @@ func TestUnmarshalLeavesWhatElementsPointTo(t *testing.T) {
 	}
 }
 
-// describeUnmarshalError describes an error of either package by its type and its fields, with the type of the cause
+// describeUnmarshalError describes an error of either package, of unmarshaling or of marshaling, by its type and its
+// fields, with the type of the cause
 // of a SemanticError, and the texts of the causes with one modal verb ( see stableErrorText ).
 func describeUnmarshalError(err error) string {
 	var (

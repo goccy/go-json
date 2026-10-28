@@ -18,6 +18,7 @@ import (
 	"time"
 
 	gojson "github.com/goccy/go-json"
+	"github.com/goccy/go-json/internal/textcoder"
 	"github.com/goccy/go-json/jsontext"
 	json "github.com/goccy/go-json/v2"
 )
@@ -42,13 +43,15 @@ const (
 	stringifyWithLegacySemantics
 	omitEmptyWithLegacySemantics
 
-	// allV1Options is every option, as DefaultOptionsV1 sets them: a bit of each pair.
-	allV1Options v1OptionSet = 1<<len(v1OptionPairs) - 1
+	// v1OptionCount is the number of the options above.
+	v1OptionCount = iota
+	// allV1Options is every option, as DefaultOptionsV1 sets them.
+	allV1Options v1OptionSet = 1<<v1OptionCount - 1
 )
 
-// Every constant is the bit of a pair: a constant past the last pair makes this one negative, which a v1OptionSet
-// can't hold, and which doesn't compile.
-const _ = allV1Options - (omitEmptyWithLegacySemantics<<1 - 1)
+// every option has a pair: the length of the array type is 0 then, and it is another type, or a negative constant,
+// otherwise.
+var _ [0]struct{} = [len(v1OptionPairs) - v1OptionCount]struct{}{}
 
 // v1OptionPairs are the options of the root package and of encoding/json, by the bits of v1OptionSet.
 var v1OptionPairs = [...]struct {
@@ -330,15 +333,6 @@ func (*v1RecText) MarshalText() ([]byte, error) { return []byte("t"), nil }
 // v1RecPlain is a slice of itself of no method, whose cycle is the error of its type.
 type v1RecPlain []v1RecPlain
 
-// v1RecPair is an array of a struct of v1PtrMarshaler and of a slice of the array: the struct in an element of
-// the slice is addressable.
-type v1RecPair [1]v1RecPairElem
-
-type v1RecPairElem struct {
-	V    v1PtrMarshaler
-	Next []v1RecPair
-}
-
 // v1StringCallPtr has a field of the `string` option of a pointer to v1PtrMarshaler, whose method is called
 // for the value it points to, which is addressable.
 type v1StringCallPtr struct {
@@ -419,8 +413,7 @@ func TestCallMethodsWithLegacySemanticsMatchesStd(t *testing.T) {
 	}
 }
 
-// v1LargeCall is a struct of many fields, whose code is shared by its values ( see sharedStructFieldCount ),
-// addressable or not.
+// v1LargeCall is a struct of many fields of v1SharedCall.
 type v1LargeCall struct {
 	F00 int
 	F01 int
@@ -463,6 +456,18 @@ type v1LargeCall struct {
 	F38 int
 	F39 int
 	V   v1PtrMarshaler
+}
+
+// v1SharedCall has more fields than sharedStructFieldCount of the encoder, with the ones of the structs in it: a value
+// which has it again is written by a jump to one code of it, addressable or not ( see v1SharedCalls ).
+type v1SharedCall struct{ A, B, C, D v1LargeCall }
+
+// v1SharedCalls has v1SharedCall addressable or not, as v1SharedCalls is or not, then addressable, through the
+// pointer, and not, in the map.
+type v1SharedCalls struct {
+	X v1SharedCall
+	P *v1SharedCall
+	M map[string]v1SharedCall
 }
 
 // v1EmptyText is a struct whose method writes an empty JSON string: never empty by its Go value.
@@ -609,7 +614,8 @@ func v1DiffValues() []any {
 			I: v1PtrMarshaler{}, N: v1Node{Next: &v1Node{}}},
 		&v1CallHolder{P: &v1PtrMarshaler{}, S: []v1PtrMarshaler{{}}, M: map[string]v1PtrMarshaler{"a": {}},
 			I: &v1PtrMarshaler{}, N: v1Node{Next: &v1Node{}}},
-		[]any{v1LargeCall{}, &v1LargeCall{}, []v1LargeCall{{}}, map[string]v1LargeCall{"a": {}}},
+		v1SharedCalls{P: &v1SharedCall{}, M: map[string]v1SharedCall{"a": {}}},
+		&v1SharedCalls{P: &v1SharedCall{}, M: map[string]v1SharedCall{"a": {}}},
 		v1CallKeys{V: map[v1ValueText]int{{}: 1}, S: map[v1StringText]int{"s": 1}, J: map[v1IntJSON]int{3: 1},
 			P: map[*v1PtrText]int{{}: 1}, PV: map[*v1ValueText]int{{}: 1}, M: (*v1PtrMarshaler)(nil), T: (*net.IPNet)(nil)},
 		v1CallKeys{P: map[*v1PtrText]int{nil: 1}, M: &v1PtrMarshaler{}},
@@ -625,8 +631,8 @@ func v1DiffValues() []any {
 		struct{ F *v1PtrSlice }{&ps}, []*v1PtrSlice{&ps}, &ps, struct{ F *v1PtrMap }{},
 		v1RecSlice{v1RecSlice{}, nil}, &v1RecSlice{v1RecSlice{}}, map[string]v1RecSlice{"a": {nil}},
 		v1RecArray{&v1RecArray{}}, v1RecMap{"a": {v1RecMap{}}}, &v1RecMap{"a": {nil}},
-		v1RecText{v1RecText{}, nil}, cyclic, v1RecPair{{Next: []v1RecPair{{{}}}}},
-		&v1RecPair{{Next: []v1RecPair{{{}}}}},
+		v1RecText{v1RecText{}, nil}, cyclic, maxDepthAddressable{{Next: []maxDepthAddressable{{{}}}}},
+		&maxDepthAddressable{{Next: []maxDepthAddressable{{{}}}}},
 		[]v1StringCall{{}}, v1EmbeddedCall{}, &v1EmbeddedCall{},
 		v1DiffStringify{}, v1DiffStringify{B: true, S: "x", I: -5, U: 7, F: 1.5, PB: new(bool), PS: new(string), PI: new(int),
 			E: "e", EB: true},
@@ -897,18 +903,21 @@ func TestStringOptionOfNoRepresentationMatchesStd(t *testing.T) {
 	ch := make(chan int)
 	for _, set := range []v1OptionSet{0, stringifyWithLegacySemantics} {
 		for _, v := range []any{C{}, P{}, P{F: &ch}, X{}} {
-			_, err := json.Marshal(v, set.ours()...)
-			_, stdErr := stdjson.Marshal(v, set.std()...)
-			if g, w := describeUnmarshalError(err), describeUnmarshalError(stdErr); g != w {
-				t.Errorf("Marshal %T, options %v:\n got %s\nwant %s", v, set, g, w)
+			got, err := json.Marshal(v, set.ours()...)
+			want, stdErr := stdjson.Marshal(v, set.std()...)
+			// the output of a call which succeeds: encoding/json/v2 returns what it wrote before an error
+			if g, w := describeUnmarshalError(err), describeUnmarshalError(stdErr); g != w || err == nil && string(got) != string(want) {
+				t.Errorf("Marshal %T, options %v:\n got %s %s\nwant %s %s", v, set, got, g, want, w)
 			}
 		}
 		for _, in := range []string{`{"F":"1"}`, `{"F":1}`, `{"F":null}`} {
 			for _, newOut := range []func() any{outOf(C{}), outOf(P{}), outOf(X{})} {
-				err := json.Unmarshal([]byte(in), newOut(), set.ours()...)
-				stdErr := stdjson.Unmarshal([]byte(in), newOut(), set.std()...)
-				if g, w := describeUnmarshalError(err), describeUnmarshalError(stdErr); g != w {
-					t.Errorf("Unmarshal %s into %T, options %v:\n got %s\nwant %s", in, newOut(), set, g, w)
+				ours, theirs := newOut(), newOut()
+				err := json.Unmarshal([]byte(in), ours, set.ours()...)
+				stdErr := stdjson.Unmarshal([]byte(in), theirs, set.std()...)
+				if g, w := describeUnmarshalError(err), describeUnmarshalError(stdErr); g != w || !reflect.DeepEqual(ours, theirs) {
+					t.Errorf("Unmarshal %s into %T, options %v:\n got %s %+v\nwant %s %+v", in, ours, set, g, valueOf(ours), w,
+						valueOf(theirs))
 				}
 			}
 		}
@@ -969,7 +978,7 @@ func namedAsOurs(s string) string {
 	return strings.ReplaceAll(s, "reportStd", "report")
 }
 
-// reportErrJSON and reportErrAppend are types whose methods of marshaling fail, of value receivers, as reportErrText.
+// reportErrJSON and reportErrAppend are types whose methods of marshaling fail, of value receivers, as v1Text.
 type reportErrJSON struct{ X int }
 
 func (reportErrJSON) MarshalJSON() ([]byte, error) { return nil, errors.New("json failed") }
@@ -1076,11 +1085,6 @@ type reportStdToNestedField struct {
 
 // reportStructErrors are structs whose definitions are errors of encoding/json/v2, which encoding/json ignores.
 type (
-	reportConflict struct {
-		A int `json:"x"`
-		B int `json:"x"`
-		C int
-	}
 	reportMalformed struct {
 		A int `json:"a,omitempty,"`
 		B int
@@ -1113,8 +1117,8 @@ func v1ReportValues() []any {
 		reportStringTags{I: &heldSlice, J: &heldStruct}, reportStringTags{I: reportPtrNumJSON{1}, J: &reportPtrNumJSON{2}},
 		reportStringTags{I: map[string]int{"a": 1}, J: &map[string]any{"b": []int{2}}},
 		map[time.Time]int{outOfRFC3339: 1}, map[time.Time]int{time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC): 1},
-		reportErrJSON{}, &reportErrJSON{}, reportErrText{}, reportErrAppend{}, reportBadJSON{}, reportPtrErrJSON{},
-		&reportPtrErrJSON{}, []reportPtrErrJSON{{}}, map[reportErrText]int{{}: 1}, map[string]reportErrText{"a": {}},
+		reportErrJSON{}, &reportErrJSON{}, v1Text(0), reportErrAppend{}, reportBadJSON{}, reportPtrErrJSON{},
+		&reportPtrErrJSON{}, []reportPtrErrJSON{{}}, map[v1Text]int{0: 1}, map[string]v1Text{"a": 0},
 		outOfRFC3339,
 		"\xff", map[string]int{"\xff": 1}, map[[2]int]int{{1, 2}: 1}, map[struct{ A int }]int{{1}: 1},
 	}
@@ -1476,21 +1480,26 @@ func TestUnmarshalReportErrorsMatchesStd(t *testing.T) {
 			stdErr := stdjson.UnmarshalRead(newChunkReader(c.in, n), theirs, stdOpts...)
 			if g, w := describeV1Error(err), namedAsOurs(describeV1Error(stdErr)); g != w {
 				t.Errorf("%s, options %v, reads of %d: UnmarshalRead:\n got %s\nwant %s", c.name, c.opts, n, g, w)
+			} else if !sameOutputs(ours, theirs) {
+				t.Errorf("%s, options %v, reads of %d: UnmarshalRead value:\n got %#v\nwant %#v", c.name, c.opts, n,
+					valueOf(ours), valueOf(theirs))
 			}
 			ours, theirs = c.ours(), c.theirs()
 			err = json.UnmarshalDecode(jsontext.NewDecoder(newChunkReader(c.in, n)), ours, opts...)
 			stdErr = stdjson.UnmarshalDecode(stdjsontext.NewDecoder(newChunkReader(c.in, n)), theirs, stdOpts...)
 			if g, w := describeV1Error(err), namedAsOurs(describeV1Error(stdErr)); g != w {
 				t.Errorf("%s, options %v, reads of %d: UnmarshalDecode:\n got %s\nwant %s", c.name, c.opts, n, g, w)
+			} else if !sameOutputs(ours, theirs) {
+				t.Errorf("%s, options %v, reads of %d: UnmarshalDecode value:\n got %#v\nwant %#v", c.name, c.opts, n,
+					valueOf(ours), valueOf(theirs))
 			}
 		}
 	}
 }
 
 // firstDecoderRead is the most bytes which the first read of a jsontext.Decoder over a reader reads: its first buffer of
-// 4096 bytes ( see makeRoom of jsontext/decode.go ), less the room which it leaves after the input
-// ( textcoder.InputRoom ).
-const firstDecoderRead = 4096 - 64
+// 4096 bytes ( see makeRoom of jsontext/decode.go ), less the room which it leaves after the input.
+const firstDecoderRead = 4096 - textcoder.InputRoom
 
 // With ReportErrorsWithLegacySemantics, the syntax error of an escape at the end of the first read of a decoder, which
 // reads its input in parts, is the one of the whole input, as Unmarshal of encoding/json/v2 reports it, also for
@@ -1535,7 +1544,8 @@ func TestUnmarshalDecodeReportErrorsInValuesMatchesStd(t *testing.T) {
 			if _, err := stdDec.ReadToken(); err != nil {
 				t.Fatal(err)
 			}
-			for i := 0; dec.PeekKind() != ']' && dec.PeekKind() != '}'; i++ {
+			// a decoder which failed peeks no kind
+			for i := 0; dec.PeekKind() != ']' && dec.PeekKind() != '}' && dec.PeekKind() != 0; i++ {
 				if in[0] == '{' {
 					// the name of the member
 					if _, err := dec.ReadToken(); err != nil {

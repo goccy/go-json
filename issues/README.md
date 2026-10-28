@@ -47,6 +47,7 @@ Priority 3
 Priority 4
 
 - [decoder-redundant-skip-white-space.md](decoder-redundant-skip-white-space.md)
+- [decoder-float-pow10-of-one.md](decoder-float-pow10-of-one.md)
 - [decoder-compile-embedded-chains.md](decoder-compile-embedded-chains.md)
 - [decoder-v2-error-before-colon.md](decoder-v2-error-before-colon.md)
 - [decoder-v2-small-deviations.md](decoder-v2-small-deviations.md)

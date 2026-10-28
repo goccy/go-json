@@ -10,7 +10,8 @@ const MaxUint64Digits = 19
 
 // ParseDigits reads the digits at cursor, which starts a number after its sign, in a terminated buffer, and
 // returns their value, the position after them and their number. A number which starts with 0 has no other
-// digit: the digit after it, if any, is not read. The value is exact for up to MaxUint64Digits digits.
+// digit: the digit after it, if any, is not read. The value is exact for up to MaxUint64Digits digits; the value of
+// more may wrap around, and be any value, 0 too, which only their number tells.
 func ParseDigits(buf []byte, cursor int64) (uint64, int64, int) {
 	if buf[cursor] == '0' {
 		return 0, cursor + 1, 1
@@ -78,6 +79,10 @@ var float64pow10 = [...]float64{
 // position after the number. It returns false for a number which is not decided so, or anything which is not a
 // number by the grammar, which the caller parses as it did before.
 func ParseFloatTerminated(buf []byte, cursor int64) (float64, int64, bool) {
+	// the start of the number, which significantDigits reads again in the guard after the exponent; a call before
+	// it, in the branch of the fraction, which can derive the start, made the parsing of numbers of a few digits
+	// slower
+	begin := cursor
 	neg := buf[cursor] == '-'
 	if neg {
 		cursor++
@@ -85,24 +90,21 @@ func ParseFloatTerminated(buf []byte, cursor int64) (float64, int64, bool) {
 	if buf[cursor]-'0' > 9 {
 		return 0, 0, false
 	}
+	// The digits are counted by their positions, not by the value of the mantissa, which may wrap around past
+	// MaxUint64Digits digits and be 0 after any digit past them. Their number counts the 0 of an integer part 0 and
+	// the zeros of its fraction before the first digit which is not zero, which are not digits of the mantissa: a
+	// number of more than MaxUint64Digits digits counts its digits again without them ( significantDigits ).
 	mantissa, cursor, digits := ParseDigits(buf, cursor)
 	exp := 0
 	if buf[cursor] == '.' {
 		cursor++
 		start := cursor
-		if mantissa == 0 {
-			// the zeros before the first digit which is not zero are not digits of the mantissa
-			digits = 0
-		}
 		for {
 			d := buf[cursor] - '0'
 			if d > 9 {
 				break
 			}
 			mantissa = mantissa*10 + uint64(d)
-			if mantissa != 0 {
-				digits++
-			}
 			cursor++
 		}
 		fraction := int(cursor - start)
@@ -110,6 +112,7 @@ func ParseFloatTerminated(buf []byte, cursor int64) (float64, int64, bool) {
 			return 0, 0, false
 		}
 		exp = -fraction
+		digits += fraction
 	}
 	if c := buf[cursor]; c == 'e' || c == 'E' {
 		cursor++
@@ -141,7 +144,7 @@ func ParseFloatTerminated(buf []byte, cursor int64) (float64, int64, bool) {
 		}
 		exp += e
 	}
-	if digits > MaxUint64Digits {
+	if digits > MaxUint64Digits && significantDigits(buf, begin) > MaxUint64Digits {
 		return 0, 0, false
 	}
 	var f float64
@@ -162,6 +165,43 @@ func ParseFloatTerminated(buf []byte, cursor int64) (float64, int64, bool) {
 		f = -f
 	}
 	return f, cursor, true
+}
+
+// significantDigits is the number of the digits of the mantissa of the number at start, which ParseFloatTerminated
+// read: the digits of its integer part and its fraction from the first one which is not zero. It is a function of
+// its own, which is not inlined, so that the numbers of a few digits, which don't need it, are parsed without a jump
+// over it.
+//
+//go:noinline
+func significantDigits(buf []byte, start int64) int {
+	if buf[start] == '-' {
+		start++
+	}
+	digits := 0
+	if buf[start] == '0' {
+		// the integer part starts with 0 only if it is 0, which is not a digit of the mantissa, nor are the zeros of
+		// the fraction before its first digit which is not zero
+		start++
+		if buf[start] == '.' {
+			start++
+		}
+		for buf[start] == '0' {
+			start++
+		}
+	} else {
+		for buf[start]-'0' <= 9 {
+			start++
+			digits++
+		}
+		if buf[start] == '.' {
+			start++
+		}
+	}
+	for buf[start]-'0' <= 9 {
+		start++
+		digits++
+	}
+	return digits
 }
 
 // maxParsedLen is the longest number which ParseFloat parses: a longer one has more digits than a mantissa of

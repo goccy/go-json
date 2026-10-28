@@ -279,13 +279,18 @@ func TestUnmarshalDecodeMemory(t *testing.T) {
 		}
 		return dec
 	}
-	// the type is compiled before, which is cached
+	// The GC is run before the decoding which compiles the type and pools the state of the decoding, not before the
+	// measured one. A GC moves the pooled state aside and drops the per-P arrays of the pools; the decoding after it
+	// allocates the arrays again, by the number of Ps, and the state too when it runs on another P than the one which
+	// pooled it, as it may after waiting for the GC: neither by the input, but more than the bound with many Ps. The
+	// measured decoding takes the state which the one before pooled, unless the goroutine moved to another P since:
+	// the decoding then allocates the state alone, which is within the bound.
+	runtime.GC()
 	if err := json.UnmarshalDecode(newDecoder(), new([]struct{}), jsontext.AllowDuplicateNames(true)); err != nil {
 		t.Fatal(err)
 	}
 	dec := newDecoder()
 	var before, after runtime.MemStats
-	runtime.GC()
 	runtime.ReadMemStats(&before)
 	var skipped []struct{}
 	if err := json.UnmarshalDecode(dec, &skipped, jsontext.AllowDuplicateNames(true)); err != nil {

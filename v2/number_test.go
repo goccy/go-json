@@ -6,6 +6,8 @@ import (
 	"errors"
 	"math"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -68,6 +70,27 @@ func TestMarshalDurationKey(t *testing.T) {
 	}
 	if got, err := Marshal(map[time.Duration]int{}); err != nil || string(got) != "{}" {
 		t.Errorf("an empty map: got %s %v, want {}", got, err)
+	}
+}
+
+// A number whose digits make the mantissa of the parser wrap around to 0 has the float of strconv.ParseFloat, not
+// the one of the digits after the wrap.
+func TestUnmarshalDigitsPastUint64(t *testing.T) {
+	for _, n := range []string{
+		"18446744073709551616.5", "1844674407370955161.6", "-1844674407370955161.6e3", "0.1844674407370955161600",
+		"1" + strings.Repeat("0", 64) + ".5",
+	} {
+		want, err := strconv.ParseFloat(n, 64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var v struct {
+			F float64
+			A any
+		}
+		if err := Unmarshal([]byte(`{"F":`+n+`,"A":`+n+`}`), &v); err != nil || math.Float64bits(v.F) != math.Float64bits(want) || v.A != want {
+			t.Errorf("Unmarshal of %s: decoded %v and %v, %v; want %v", n, v.F, v.A, err, want)
+		}
 	}
 }
 

@@ -113,7 +113,7 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 	if len(opts) > 0 {
 		cfg = beginCallOf(ctx, opts)
 		if cfg.Has(options.ReportErrorsWithLegacySemantics) {
-			err := unmarshalWithV1Errors(ctx, buf, e.typ, e.ptr, cfg)
+			err := unmarshalWithV1Errors(ctx, buf, nil, e.typ, e.ptr, cfg)
 			endCall(ctx)
 			ctx.Option.V2 = 0
 			decoder.ReleaseRuntimeContext(ctx)
@@ -173,7 +173,7 @@ func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 	}
 	var err error
 	if cfg.Has(options.ReportErrorsWithLegacySemantics) {
-		err = unmarshalWithV1Errors(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
+		err = unmarshalWithV1Errors(ctx, buf, nil, iruntime.TypePtr(ptrType), p, cfg)
 	} else {
 		err = decodeInput(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
 	}
@@ -382,15 +382,24 @@ func inputError(ctx *decoder.RuntimeContext, buf []byte, cursor int64, err error
 	return unmarshalError(&errorInput{buf: buf[:len(buf)-1]}, err, cfg)
 }
 
-// unmarshalWithV1Errors decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type
-// typ, by the options of cfg, which have ReportErrorsWithLegacySemantics, as encoding/json decodes it: an output which
-// is not a non-nil pointer is an InvalidUnmarshalError; the input is checked first, so that a syntax error changes
-// nothing, and is a SyntaxError; the decoding goes on after the error of a value ( see
-// decoder.RuntimeContext.RecordV1Error ), and the first one is reported, as a type error of encoding/json.
-func unmarshalWithV1Errors(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer, cfg *options.Config) error {
+// unmarshalWithV1Errors decodes buf, the input of ctx followed by a nul byte, or, if s is not nil, the whole input of
+// the stream s, into the value at p, of the pointer type typ, by the options of cfg, which have
+// ReportErrorsWithLegacySemantics, as encoding/json decodes it: an output which is not a non-nil pointer is an
+// InvalidUnmarshalError, before the input is read; the input is checked first, so that a syntax error changes
+// nothing, and is a SyntaxError, and an error of the reader is returned as it is; the decoding goes on after the error
+// of a value ( see decoder.RuntimeContext.RecordV1Error ), and the first one is reported, as a type error of
+// encoding/json.
+func unmarshalWithV1Errors(ctx *decoder.RuntimeContext, buf []byte, s *decoder.Stream, typ, p unsafe.Pointer, cfg *options.Config) error {
 	dec, err := outputDecoder(ctx, typ, p)
 	if err != nil {
 		return v1OutputError(err)
+	}
+	if s != nil {
+		in, err := s.ReadAllV2()
+		if err != nil {
+			return err
+		}
+		buf = ctx.SetInput(in)
 	}
 	if err := v1InputError(buf[:len(buf)-1], cfg); err != nil {
 		return err

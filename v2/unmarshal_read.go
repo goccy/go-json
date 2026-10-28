@@ -60,12 +60,8 @@ func unmarshalStream(s *decoder.Stream, typ, p unsafe.Pointer, opts []Options) e
 	}
 	var err error
 	if cfg.Has(options.ReportErrorsWithLegacySemantics) {
-		// the whole input, which encoding/json reads and checks before it decodes the value: an error of the reader is
-		// returned as it is
-		var in []byte
-		if in, err = s.ReadAllV2(); err == nil {
-			err = unmarshalWithV1Errors(ctx, ctx.SetInput(in), typ, p, cfg)
-		}
+		// the whole input, which encoding/json reads and checks before it decodes the value
+		err = unmarshalWithV1Errors(ctx, nil, s, typ, p, cfg)
 	} else {
 		err = decodeStream(s, typ, p, cfg)
 	}

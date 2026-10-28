@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	gojson "github.com/goccy/go-json"
@@ -179,6 +180,13 @@ func TestUnmarshalReportErrorsWithLegacySemantics(t *testing.T) {
 	}
 	if err := json.UnmarshalReadOf(strings.NewReader(`1`), (*int)(nil), reportErrors); !errors.As(err, &nilErr) {
 		t.Errorf("UnmarshalReadOf into nil: got %v, want an InvalidUnmarshalError", err)
+	}
+	// the output is checked before the input is read, as encoding/json checks it: a reader which fails is not read
+	for _, out := range []any{nil, 1, (*int)(nil)} {
+		in := iotest.ErrReader(errors.New("read failed"))
+		if err := json.UnmarshalRead(in, out, reportErrors); !errors.As(err, &nilErr) {
+			t.Errorf("UnmarshalRead of a failing reader into %T: got %v, want an InvalidUnmarshalError", out, err)
+		}
 	}
 	for _, u := range unmarshalFuncs {
 		unmarshal := func(in string, out any, opts ...json.Options) error {

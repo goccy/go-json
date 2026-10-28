@@ -134,13 +134,14 @@ func TestUnmarshalReadMemory(t *testing.T) {
 			})
 		}, []json.Options{gojson.StringifyWithLegacySemantics(true)}},
 	} {
-		// the type is compiled before, which is cached
+		// the type is compiled before, which is cached, after the GC, which the measured decoding would allocate the
+		// pooled state and the arrays of the pools again after ( see TestUnmarshalDecodeMemory )
+		runtime.GC()
 		if err := json.UnmarshalRead(strings.NewReader(c.in), c.newValue(), c.opts...); err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
 		v := c.newValue()
 		var before, after runtime.MemStats
-		runtime.GC()
 		runtime.ReadMemStats(&before)
 		if err := json.UnmarshalRead(strings.NewReader(c.in), v, c.opts...); err != nil {
 			t.Fatalf("%s: %v", c.name, err)

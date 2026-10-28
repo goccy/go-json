@@ -359,24 +359,36 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode, addressable bool) (C
 func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) (Code, bool) {
 	elem := typ
 	ptrNum := 0
-	for elem.Kind() == reflect.Ptr && !c.v2HasMethod(elem) {
+	// the walk ends where it comes back to a pointer which it passed, in pointers to pointers without an end, as type
+	// P *P, which hold null or themselves
+	var passed []reflect.Type
+	for elem.Kind() == reflect.Ptr && !c.v2HasMethod(elem) && !slices.Contains(passed, elem) {
+		passed = append(passed, elem)
 		elem = elem.Elem()
 		ptrNum++
 	}
 	stringify, reportErrors := c.legacy&modeStringifyLegacy != 0, c.legacy&modeReportErrorsLegacy != 0
 	// the value which a pointer points to is addressable
 	addressable = addressable || ptrNum > 0
+	// with StringifyWithLegacySemantics, a pointer to a pointer, as a pointer of a cycle of pointers is, which no
+	// function of the type of the field writes, whatever functions its pointers have, as encoding/json/v2 reads the type
+	// of the field
+	ptrToPtr := typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Ptr && !c.v2HasMethod(typ)
 	var code Code
 	switch {
-	case stringify && ptrNum > 1 && reportErrors:
+	case stringify && ptrToPtr && reportErrors:
 		return nil, false
-	case stringify && ptrNum > 1:
+	case stringify && ptrToPtr:
 		return c.appendFuncCode(typ, appendError(typ, errInvalidStringTag)), true
 	case c.v2HasMethodAt(elem, addressable) && elem != timeTimeType:
 		if c.stringTag {
 			return nil, true
 		}
 		code = c.appendFuncCode(elem, appendStringTag(elem, addressable))
+	case elem.Kind() == reflect.Ptr:
+		// a pointer of a cycle of pointers, which the walk came back to: the option doesn't apply to it, as
+		// encoding/json/v2 writes null at the end of the pointers
+		return nil, false
 	case isNumberKind(elem.Kind()) && (elem != timeDurationType || c.legacy&modeDurationAsNano != 0) ||
 		elem == jsonNumberType:
 		return nil, true

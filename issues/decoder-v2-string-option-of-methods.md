@@ -25,3 +25,7 @@ json.Unmarshal([]byte(`{"X":6}`), &v)   // encoding/json/v2: an error; go-json: 
 ```
 
 The encoder gives the option to `MarshalJSONTo` as encoding/json/v2 does.
+
+A function of `UnmarshalFromFunc` which decodes by `UnmarshalDecode` is given no option either ( `{"F":"1"}` into
+`struct{ F *int "json:\",string\"" }` with a function of `*int` which decodes into its value: encoding/json/v2 1,
+go-json the error of a JSON string; found in the review of `ReportErrorsWithLegacySemantics`, 2026-10-28 ).

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/bits"
 	"reflect"
+	"slices"
 	"strings"
 	"unicode/utf8"
 	"unsafe"
@@ -185,13 +186,23 @@ func (c *compiler) stringTagCompiler() *compiler {
 // StringifyWithLegacySemantics to a bool and a string, through one pointer only. The value which an interface value
 // holds, which encoding/json decodes by the option without StringifyWithLegacySemantics, is decoded without it.
 func (c *compiler) legacyStringTag(typ reflect.Type) bool {
-	elem, ptrNum := typ, 0
+	elem := typ
+	// the walk ends where it comes back to a pointer which it passed, in pointers to pointers without an end, as type
+	// P *P, which the option doesn't apply to
+	var passed []reflect.Type
 	for elem.Kind() == reflect.Pointer && len(c.funcs.funcsOf(elem)) == 0 {
-		elem, ptrNum = elem.Elem(), ptrNum+1
+		if slices.Contains(passed, elem) {
+			return false
+		}
+		passed = append(passed, elem)
+		elem = elem.Elem()
 	}
 	stringify := c.legacy&V2StringifyLegacy != 0
 	switch {
-	case elem == timeType, stringify && ptrNum > 1:
+	case elem == timeType, stringify && typ.Kind() == reflect.Pointer && typ.Elem().Kind() == reflect.Pointer:
+		// a pointer to a pointer, whatever functions the pointers have: the functions are given no option ( see
+		// issues/decoder-v2-string-option-of-methods.md ), and the value which one declines is decoded without it,
+		// as encoding/json/v2 decodes it
 		return false
 	case len(c.funcs.funcsOf(elem)) > 0 || v2MethodOf(elem, methodUnmarshalJSONFrom) != noMethod:
 		return true

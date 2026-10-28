@@ -564,8 +564,10 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		// the error before the value is read, as encoding/json/v2 reports it, whatever the value is
 		return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: s.cursor, NoKind: true, Err: d.err}, from)
 	case *v2StringifiedPtrDecoder:
-		if _, invalid := d.ptr.(*v2InvalidDecoder); invalid && s.buf[s.cursor] != 'n' {
-			// a pointer to a pointer of the `string` option, which fails before its value is read
+		// by the decoder of the pointer: an object or an array element by element, which is not the JSON string
+		// "null", and any value but null of a pointer to a pointer, which fails before the value is read
+		c := s.buf[s.cursor]
+		if _, invalid := d.ptr.(*v2InvalidDecoder); c == '{' || c == '[' || invalid && c != 'n' {
 			return s.decodeNestedV2(d.ptr, p, depth, from)
 		}
 	case *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, v2StringDecoder, *v2InterfaceDecoder:

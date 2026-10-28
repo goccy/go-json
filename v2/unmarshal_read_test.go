@@ -126,6 +126,13 @@ func TestUnmarshalReadMemory(t *testing.T) {
 		{"counted by a method of a number through a pointer", `{"records":` + readRecords + `}`, func() any {
 			return new(struct{ Records *readCount })
 		}, nil},
+		// a pointer of the `string` option, whose value the decoder of the pointer decodes, with
+		// StringifyWithLegacySemantics
+		{"counted by a method through a pointer of the string option", `{"records":` + readRecords + `}`, func() any {
+			return new(struct {
+				Records *readCounter `json:"records,string"`
+			})
+		}, []json.Options{gojson.StringifyWithLegacySemantics(true)}},
 	} {
 		// the type is compiled before, which is cached
 		if err := json.UnmarshalRead(strings.NewReader(c.in), c.newValue(), c.opts...); err != nil {

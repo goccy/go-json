@@ -65,6 +65,10 @@
   the ones of the other names; encoding/json wraps it in a `MarshalerError` of the method, as it writes the name in its
   call. The kind of a function, `MarshalFunc` or `MarshalToFunc`, is not known where the names are checked (recorded
   2026-10-28).
+- v2 with `ReportErrorsWithLegacySemantics`: a `jsontext.SyntacticError` which a method or a function returned is a
+  `SyntaxError` at its offset plus one, as the ones of the output, which encoding/json reports after the text of the
+  error; encoding/json reports it at its own offset, as only the errors which its jsontext makes with the option are
+  after their text (recorded 2026-10-28, found in the review of `ReportErrorsWithLegacySemantics`).
 - Recorded 2026-09-21 as needing a change of the VM:
   - an `omitempty` field whose type has `MarshalText` is written when it is the zero value;
   - a nil map whose type has a marshaler is written as `null` instead of calling the marshaler;

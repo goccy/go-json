@@ -1155,6 +1155,36 @@ type reportStringTags struct {
 	St struct{ X int } `json:",string"`
 }
 
+// reportPtrNumJSON is a struct whose MarshalJSON is of its pointer, which a value held by an interface value doesn't
+// have.
+type reportPtrNumJSON struct{ X int }
+
+func (*reportPtrNumJSON) MarshalJSON() ([]byte, error) { return []byte(`{"p":1}`), nil }
+
+// reportToNested is a type whose MarshalJSONTo writes values in an array, and reportStdToNested the one for
+// encoding/json; reportToNestedField and reportStdToNestedField have a field of the `string` option of them.
+type reportToNested struct{}
+
+func (reportToNested) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, []any{1, map[string]int{"a": 2}, struct{ Y int }{3}})
+}
+
+type reportStdToNested struct{}
+
+func (reportStdToNested) MarshalJSONTo(enc *stdjsontext.Encoder) error {
+	return stdjson.MarshalEncode(enc, []any{1, map[string]int{"a": 2}, struct{ Y int }{3}})
+}
+
+type reportToNestedField struct {
+	F reportToNested `json:",string"`
+	I any            `json:",string"`
+}
+
+type reportStdToNestedField struct {
+	F reportStdToNested `json:",string"`
+	I any               `json:",string"`
+}
+
 // reportStructErrors are structs whose definitions are errors of encoding/json/v2, which encoding/json ignores.
 type (
 	reportConflict struct {
@@ -1181,12 +1211,17 @@ func legacyReportValues() []any {
 	sl := []any{nil}
 	sl[0] = sl
 	pp := new(*int)
+	var heldSlice, heldStruct any = []int{1}, struct{ X int }{4}
 	return []any{
 		struct{ C chan int }{}, []any{make(chan int)}, complex(1, 2), map[string]func(){"a": nil},
 		math.NaN(), math.Inf(1), struct{ F float32 }{float32(math.Inf(-1))}, reportFloat(math.NaN()),
 		map[float64]int{math.Inf(1): 1}, map[any]int{math.Inf(-1): 1}, n, m, sl, time.Duration(5), struct{ D time.Duration }{3},
 		reportConflict{}, reportMalformed{A: 1, B: 2}, reportUnexportedTag{B: 1},
-		reportStringTags{I: 1, J: true, PP: pp, PB: new(bool)},
+		reportStringTags{I: 1, J: true, PP: pp, PB: new(bool)}, reportStringTags{I: []int{1}, J: map[string]int{"a": 1}},
+		reportStringTags{I: struct{ X int }{1}, J: &[]int{2}}, reportStringTags{I: new(int), J: reportFloat(1.5)},
+		reportStringTags{I: &heldSlice, J: &heldStruct}, reportStringTags{I: reportPtrNumJSON{1}, J: &reportPtrNumJSON{2}},
+		reportStringTags{I: map[string]int{"a": 1}, J: &map[string]any{"b": []int{2}}},
+		map[time.Time]int{time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC): 1}, map[time.Time]int{time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC): 1},
 		reportErrJSON{}, &reportErrJSON{}, reportErrText{}, reportErrAppend{}, reportBadJSON{}, reportPtrErrJSON{},
 		&reportPtrErrJSON{}, []reportPtrErrJSON{{}}, map[reportErrText]int{{}: 1}, map[string]reportErrText{"a": {}},
 		time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -1206,7 +1241,8 @@ func TestMarshalReportErrorsMatchesStd(t *testing.T) {
 		pairs = append(pairs, pair{fmt.Sprintf("%d:%T", i, v), v, v})
 	}
 	pairs = append(pairs, pair{"wrapped", reportWrapJSON{}, reportStdWrapJSON{}}, pair{"to", reportErrTo{}, reportStdErrTo{}},
-		pair{"nested", reportNestedTo{}, reportStdNestedTo{}}, pair{"nested in a slice", []reportNestedTo{{}}, []reportStdNestedTo{{}}})
+		pair{"nested", reportNestedTo{}, reportStdNestedTo{}}, pair{"nested in a slice", []reportNestedTo{{}}, []reportStdNestedTo{{}}},
+		pair{"nested of the string option", reportToNestedField{I: reportToNested{}}, reportStdToNestedField{I: reportStdToNested{}}})
 	for _, set := range []legacySet{reportErrorsLegacy, reportErrorsLegacy | stringifyLegacy, reportErrorsLegacy | callMethodsLegacy, allLegacy} {
 		for _, p := range pairs {
 			// the types of encoding/json of a pair are named as the ones of the root package
@@ -1238,6 +1274,8 @@ func TestMarshalReportErrorsMatchesStd(t *testing.T) {
 // the values, of the names of the functions.
 func TestMarshalReportErrorsOfFuncsMatchesStd(t *testing.T) {
 	legacy, stdLegacy := gojson.ReportErrorsWithLegacySemantics(true), stdjsonv1.ReportErrorsWithLegacySemantics(true)
+	// the calls of the functions which decline, which are called once for a value
+	var calls, stdCalls int
 	for _, c := range []struct {
 		name    string
 		v       any
@@ -1254,11 +1292,23 @@ func TestMarshalReportErrorsOfFuncsMatchesStd(t *testing.T) {
 			stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, int) error { return errors.New("t") }))},
 		{"to func of an interface", []any{reportErrJSON{}}, json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, stdjsonv1.Marshaler) error { return errors.New("ti") })),
 			stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, stdjsonv1.Marshaler) error { return errors.New("ti") }))},
+		{"declining to func of the string option", reportStringTags{I: []int{1}, J: struct{ X int }{2}},
+			json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, []int) error { calls++; return errors.ErrUnsupported })),
+			stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, []int) error { stdCalls++; return errors.ErrUnsupported }))},
+		{"declining to func of any of the string option", reportStringTags{I: []int{1}, J: struct{ X int }{2}},
+			json.WithMarshalers(json.MarshalToFunc(func(*jsontext.Encoder, any) error { return errors.ErrUnsupported })),
+			stdjson.WithMarshalers(stdjson.MarshalToFunc(func(*stdjsontext.Encoder, any) error { return errors.ErrUnsupported }))},
+		{"to func writing values of the string option", reportStringTags{I: []int{1}},
+			json.WithMarshalers(json.MarshalToFunc(func(enc *jsontext.Encoder, _ []int) error { return json.MarshalEncode(enc, []any{[]uint{1}, 2}) })),
+			stdjson.WithMarshalers(stdjson.MarshalToFunc(func(enc *stdjsontext.Encoder, _ []int) error { return stdjson.MarshalEncode(enc, []any{[]uint{1}, 2}) }))},
 	} {
-		_, err := json.Marshal(c.v, legacy, c.opts)
-		_, stdErr := stdjson.Marshal(c.v, stdLegacy, c.stdOpts)
-		if g, w := describeLegacyError(err), describeLegacyError(stdErr); g != w {
-			t.Errorf("%s:\n got %s\nwant %s", c.name, g, w)
+		got, err := json.Marshal(c.v, legacy, c.opts)
+		want, stdErr := stdjson.Marshal(c.v, stdLegacy, c.stdOpts)
+		if g, w := describeLegacyError(err), describeLegacyError(stdErr); g != w || err == nil && string(got) != string(want) {
+			t.Errorf("%s:\n got %s %s\nwant %s %s", c.name, got, g, want, w)
 		}
+	}
+	if calls != stdCalls {
+		t.Errorf("calls of the declining function: got %d, want %d", calls, stdCalls)
 	}
 }

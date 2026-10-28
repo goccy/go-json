@@ -143,6 +143,10 @@ func keyMethodOf(ctx *RuntimeContext, t reflect.Type, after int, addressable boo
 // the method after or by its kind.
 func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after int, addressable bool) ([]byte, error) {
 	t := v.Type()
+	if t == timeTimeType {
+		// written as a value of time.Time is, as encoding/json/v2 writes a time, not by its methods
+		return appendTime(ctx, b, v.Addr().UnsafePointer())
+	}
 	switch keyMethodOf(ctx, t, after, addressable) {
 	case methodMarshalJSONTo:
 		// the encoder, at the place of a name, takes a string only.

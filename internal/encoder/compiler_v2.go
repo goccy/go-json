@@ -63,9 +63,16 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		// method writes.
 		return nil, false
 	case c.stringTag:
-		// the value of the option, whose code is the one of a field of the option
-		if code, _ := c.stringTagCode(typ, addressable); code != nil {
+		// the value of the option, whose code is the one of a field of the option: a value which it doesn't apply to
+		// is written without it, and so are the values in it, as the option applies to the value of its depth only
+		code, applies := c.stringTagCode(typ, addressable)
+		switch {
+		case code != nil:
 			return code, true
+		case !applies && isDefault:
+			return c.appendFuncCode(typ, appendWithoutStringTag(typ, c.v2DefaultAfter, addressable)), true
+		case !applies:
+			return c.appendFuncCode(typ, appendWithoutStringTag(typ, allMethods, addressable)), true
 		}
 	}
 	switch {
@@ -383,8 +390,7 @@ func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) (Code, bool
 		// the error of the type, which has no representation whatever its options are
 		code = c.appendFuncCode(elem, appendError(elem, nil))
 	case reportErrors && elem.Kind() == reflect.Interface && !stringify:
-		// the option of the value it holds, as the one of a value which a method writes: the code of the interface
-		// in the compile mode of the option writes it
+		// the option of the value it holds: the code of the interface in the compile mode of the option writes it
 		if c.stringTag {
 			return nil, true
 		}
@@ -428,13 +434,27 @@ func appendStringifiedString(typ reflect.Type) AppendFunc {
 }
 
 // appendStringTag returns the function which appends a value of typ, addressable or not, which a method or a function
-// writes, in the compile mode of the `string` option, whose options they are given, as the value written after them
-// is.
+// writes, or which an interface value of typ holds, in the compile mode of the `string` option, whose options a
+// method or a function is given, as the value written after them is ( see stringTagCode ).
 func appendStringTag(typ reflect.Type, addressable bool) AppendFunc {
 	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 		flags := ctx.Option.Flag
-		ctx.Option.Flag |= StringTagOption | StringifyNumbersOption
+		ctx.Option.Flag |= StringTagOption
 		out, err := appendDefault(ctx, b, typ, p, allMethods, addressable)
+		ctx.Option.Flag = flags
+		return out, err
+	}
+}
+
+// appendWithoutStringTag returns the function which appends a value of typ, addressable or not, after the method
+// after ( see appendDefault ), in the compile mode of the `string` option, which doesn't apply to it, without the
+// option: the values in an object or an array are written as without it, as encoding/json writes them with
+// ReportErrorsWithLegacySemantics.
+func appendWithoutStringTag(typ reflect.Type, after int, addressable bool) AppendFunc {
+	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		flags := ctx.Option.Flag
+		ctx.Option.Flag &^= StringTagOption
+		out, err := appendDefault(ctx, b, typ, p, after, addressable)
 		ctx.Option.Flag = flags
 		return out, err
 	}

@@ -56,7 +56,7 @@ const (
 	modeV2                                           // V2Option
 	modeStringifyNumbers                             // StringifyNumbersOption, with V2Option
 	modeOmitZeroStructFields                         // OmitZeroStructFieldsOption, with V2Option
-	modeStringTag                                    // StringTagOption, with modeStringifyNumbers
+	modeStringTag                                    // StringTagOption, whose numbers are written as modeStringifyNumbers writes them
 
 	// compileModes are the modes of cachedOpcodeSets: the ones without the options of encoding/json below.
 	compileModes = 32
@@ -384,7 +384,7 @@ func newCompiler(mode compileMode) *Compiler {
 		structTypeToCode:     map[uintptr]*StructCode{},
 		optimizeFieldOrder:   mode&modeOptimizeFieldOrder != 0,
 		v2:                   mode&modeV2 != 0,
-		stringifyNumbers:     mode&modeStringifyNumbers != 0,
+		stringifyNumbers:     mode&(modeStringifyNumbers|modeStringTag) != 0,
 		omitZeroStructFields: mode&modeOmitZeroStructFields != 0,
 		stringTag:            mode&modeStringTag != 0,
 		legacy:               mode & legacyModes,
@@ -870,7 +870,9 @@ func (c *Compiler) listElemCode(typ reflect.Type, addressable bool) (Code, error
 		return c.marshalJSONCode(typ)
 	case !c.v2 && !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType):
 		return &MarshalTextCode{typ: reflect.PointerTo(typ)}, nil
-	case typ.Kind() == reflect.Map && !(c.v2 && c.hasMarshaler(typ, addressable)):
+	case typ.Kind() == reflect.Map && !(c.v2 && (c.hasMarshaler(typ, addressable) || c.stringTag)):
+		// a map which a marshaler writes, or the value of the `string` option, whose code writes it ( see
+		// v2Code ), is given by its address
 		return c.pointerCode(reflect.PointerTo(typ), addressable)
 	default:
 		// isPtr was originally used to indicate whether the type of top level is pointer.
@@ -1005,8 +1007,9 @@ func (c *Compiler) mapValueCode(typ reflect.Type) (Code, error) {
 		return code, nil
 	}
 	switch {
-	case typ.Kind() == reflect.Map && !c.hasMarshaler(typ, false):
-		// a map which has a marshaler is encoded by the marshaler, not as a map.
+	case typ.Kind() == reflect.Map && !c.hasMarshaler(typ, false) && !c.stringTag:
+		// a map which has a marshaler is encoded by the marshaler, not as a map, and so is the value of the
+		// `string` option by its code ( see v2Code ), which is given its address.
 		return c.pointerCode(reflect.PointerTo(typ), false)
 	default:
 		code, err := c.typeToCodeWithPtr(typ, false)

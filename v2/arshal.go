@@ -469,7 +469,7 @@ func optionFlags(c *options.Config) encoder.OptionFlag {
 		flags |= encoder.OmitZeroStructFieldsOption
 	}
 	if c.Has(options.StringTag) {
-		flags |= encoder.StringTagOption | encoder.StringifyNumbersOption
+		flags |= encoder.StringTagOption
 	}
 	if !c.Has(options.AllowInvalidUTF8) {
 		flags |= encoder.RejectInvalidUTF8Option

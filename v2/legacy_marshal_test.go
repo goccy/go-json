@@ -284,6 +284,10 @@ func TestMarshalReportErrorsWithLegacySemantics(t *testing.T) {
 	if err := marshal(map[legacyLitConstKey]int{1: 1, 2: 2}); !errors.As(err, &syntaxErr) {
 		t.Errorf("duplicate names of a method: got %v, want a SyntaxError", err)
 	}
+	if err := marshal(map[time.Time]int{time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC): 1}); !errors.As(err, &marshalerErr) ||
+		marshalerErr.Type.String() != "*time.Time" || !strings.Contains(err.Error(), "error calling MarshalJSON for type") {
+		t.Errorf("time key out of range: got %v, want a MarshalerError of MarshalJSON of *time.Time", err)
+	}
 	if err := json.MarshalEncode(jsontext.NewEncoder(legacyLitFailingWriter{}), make([]int, 10000), legacy); err != errLegacyLitWrite {
 		t.Errorf("MarshalEncode to a failing writer: got %v, want its error", err)
 	}
@@ -310,6 +314,12 @@ func TestMarshalReportErrorsWithLegacySemantics(t *testing.T) {
 		{"string option of an interface with StringifyWithLegacySemantics", struct {
 			I any `json:",string"`
 		}{1}, []json.Options{legacy, gojson.StringifyWithLegacySemantics(true)}, `{"I":1}`},
+		{"string option of an interface of an array", struct {
+			I any `json:",string"`
+		}{[]any{1, &[]int{2}}}, []json.Options{legacy}, `{"I":[1,[2]]}`},
+		{"string option of an interface of a pointer", struct {
+			I any `json:",string"`
+		}{new(int)}, []json.Options{legacy}, `{"I":"0"}`},
 		{"string option of a bool by default", struct {
 			B bool `json:",string"`
 		}{}, nil, ""},

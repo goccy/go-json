@@ -33,6 +33,8 @@ Priority 3
 - [decoder-code-unmarshal-debt.md](decoder-code-unmarshal-debt.md)
 - [decoder-tests-judged-by-time.md](decoder-tests-judged-by-time.md)
 - [decoder-v2-read-memory-method-cases.md](decoder-v2-read-memory-method-cases.md)
+- [decoder-v2-read-report-errors-whole-reader.md](decoder-v2-read-report-errors-whole-reader.md)
+- [v2-report-errors-misuse-edges.md](v2-report-errors-misuse-edges.md)
 - [decoder-v2-string-option-of-methods.md](decoder-v2-string-option-of-methods.md)
 - [encoder-v2-indent-offsets.md](encoder-v2-indent-offsets.md)
 - [encoder-map-key-types.md](encoder-map-key-types.md)

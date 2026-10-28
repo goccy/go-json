@@ -122,7 +122,7 @@ type fallbackNames struct {
 	fb     *fallback
 	before []byte
 	// flags are the options of the encoding, of which MatchCaseInsensitiveNamesOption and
-	// CaseSensitiveDelimiterOption match the names, and others is whether the names of the fallback are kept.
+	// MatchCaseSensitiveDelimiterOption match the names, and others is whether the names of the fallback are kept.
 	flags  OptionFlag
 	others bool
 	// written are the fields whose members are written, read from before when a name is the one of a field, and
@@ -142,7 +142,7 @@ func (n *fallbackNames) insertName(name []byte) bool {
 	if insensitive := n.flags&MatchCaseInsensitiveNamesOption != 0; fb.caseIgnore || insensitive {
 		for _, f := range fb.folded[string(jsonfields.FoldName(name))] {
 			if (f.Casing&jsonfields.CaseIgnore != 0 || (insensitive && f.Casing&jsonfields.CaseStrict == 0)) &&
-				(n.flags&CaseSensitiveDelimiterOption == 0 || strings.EqualFold(string(name), f.Name)) {
+				(n.flags&MatchCaseSensitiveDelimiterOption == 0 || strings.EqualFold(string(name), f.Name)) {
 				return n.insertField(f)
 			}
 		}

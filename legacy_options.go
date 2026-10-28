@@ -2,18 +2,15 @@ package json
 
 import "github.com/goccy/go-json/internal/options"
 
-// The options of the semantics of this package, the ones of encoding/json, for the functions of
-// github.com/goccy/go-json/v2, as encoding/json gives them for the ones of encoding/json/v2: each option makes one
-// behavior of the v2 semantics the one of encoding/json, alone or with the others, and DefaultOptionsV1 makes them
-// all the ones of encoding/json.
+// Options are the options of github.com/goccy/go-json/v2 and github.com/goccy/go-json/jsontext, which
+// DefaultOptionsV1 and the options of the semantics of this package below, the ones of encoding/json, such as
+// FormatDurationAsNano, make, as encoding/json makes them for encoding/json/v2: each of them makes one behavior of the
+// v2 semantics the one of this package, alone or with the others, and DefaultOptionsV1 makes them all the ones of this
+// package. They are not EncodeOptionFunc and DecodeOptionFunc, which are the options of the functions of this
+// package. It is the same type as the Options of those packages.
 //
 //	jsonv2.Marshal(v, json.DefaultOptionsV1())         // as json.Marshal(v)
 //	jsonv2.Unmarshal(b, &v, json.FormatDurationAsNano(true))
-
-// Options are the options of github.com/goccy/go-json/v2 and github.com/goccy/go-json/jsontext, which
-// DefaultOptionsV1 and the options of the semantics of encoding/json below, such as FormatDurationAsNano, make: not
-// EncodeOptionFunc and DecodeOptionFunc, which are the options of the functions of this package. It is the same
-// type as the Options of those packages.
 type Options = options.Options
 
 // DefaultOptionsV1 sets every option whose default differs between this package and github.com/goccy/go-json/v2 to
@@ -61,8 +58,8 @@ func FormatByteArrayAsArray(v bool) Options { return options.BoolOf(options.Form
 // handles them:
 //
 //   - A slice or an array of a named type of bytes is a JSON string of the base64 of its bytes, as a []byte is,
-//     rather than a JSON array of its elements; but when marshaling, it is still a JSON array of its elements if
-//     the type of the bytes has a method of marshaling.
+//     rather than a JSON array of its elements; but it is still a JSON array of its elements when marshaling if the
+//     type of the bytes has a method of marshaling, and an array is one with FormatByteArrayAsArray.
 //   - When unmarshaling, a JSON array is read into a slice or an array of bytes element by element, as into any
 //     other slice or array, where it is an error by default.
 //
@@ -146,9 +143,11 @@ func ReportErrorsWithLegacySemantics(v bool) Options {
 	return options.BoolOf(options.ReportErrorsWithLegacySemantics, v)
 }
 
-// StringifyWithLegacySemantics specifies that the string option of a field applies as in this package: also to a
-// bool and a string, and to a pointer to one, whose JSON value is written in a JSON string, and a number in a JSON
-// string is read by the syntax of Go numbers, of which the JSON numbers are a part. A quoted null is a null.
+// StringifyWithLegacySemantics specifies that the string option of a field applies as in this package:
+//
+//   - It applies to a bool and a string too, and to a pointer to one, whose JSON value is in a JSON string.
+//   - When unmarshaling, a number in a JSON string is read by the syntax of Go numbers, of which the JSON numbers
+//     are a part, and a JSON string of null is a JSON null.
 //
 // This affects marshaling and unmarshaling. It is true by default in this package.
 func StringifyWithLegacySemantics(v bool) Options {

@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"encoding"
 	"encoding/json"
 	stderrors "errors"
 	"reflect"
@@ -12,9 +11,10 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-// The methods of marshaling of the semantics of encoding/json/v2. A value is always addressable for them: the
-// method of the pointer to a type is called for a value of the type, at its address. The first of them which a
-// type has writes its value: MarshalJSONTo, MarshalJSON, AppendText, MarshalText.
+// The methods of marshaling of the semantics of encoding/json/v2. The method of the pointer to a type is called for
+// a value of the type, at its address, as a value is addressable for them, but for a value which is not addressable
+// with CallMethodsWithLegacySemantics ( see v2MethodOfAt ). The first of them which a type has writes its value:
+// MarshalJSONTo, MarshalJSON, AppendText, MarshalText.
 
 // V2Hooks are what the v2 json package gives the encoder: the functions which take jsontext, which the encoder
 // doesn't import.
@@ -81,8 +81,14 @@ func v2MethodOf(typ reflect.Type, after int) int {
 // a pointer receiver is not called for a value which is not addressable, as encoding/json doesn't call it, and the
 // method after it or the kind writes the value.
 func (c *Compiler) v2MethodOfAt(typ reflect.Type, after int, addressable bool) int {
+	return methodOfAt(typ, after, addressable || c.v1Options&modeCallMethodsWithLegacySemantics == 0)
+}
+
+// methodOfAt is v2MethodOf of a value which is addressable or not: a method of a pointer receiver is passed over for
+// a value which is not, for the method after it.
+func methodOfAt(typ reflect.Type, after int, addressable bool) int {
 	m := v2MethodOf(typ, after)
-	for !addressable && m != noMethod && c.legacy&modeCallMethodsLegacy != 0 && !typ.Implements(marshalerTypeOf(m)) {
+	for !addressable && m != noMethod && !typ.Implements(marshalerTypeOf(m)) {
 		m = v2MethodOf(typ, m)
 	}
 	return m
@@ -111,11 +117,11 @@ func v2MethodOfInterface(typ reflect.Type) int {
 	return noMethod
 }
 
-// appendLegacyInterface returns the function which appends the value of the interface type typ at p, of the method
+// appendV1Interface returns the function which appends the value of the interface type typ at p, of the method
 // of marshaling m, with CallMethodsWithLegacySemantics: a nil pointer which it holds is written by the method, called
 // for the nil pointer, as encoding/json calls it, if the method is of the pointer; any other value as the one of an
 // interface{}.
-func appendLegacyInterface(typ reflect.Type, m int) AppendFunc {
+func appendV1Interface(typ reflect.Type, m int) AppendFunc {
 	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 		v := reflect.NewAt(typ, p).Elem()
 		if v.IsNil() {
@@ -123,8 +129,8 @@ func appendLegacyInterface(typ reflect.Type, m int) AppendFunc {
 		}
 		held := v.Elem()
 		if held.Kind() != reflect.Pointer || !held.IsNil() || held.Type().Elem().Implements(marshalerTypeOf(m)) {
-			// a value, or a nil pointer whose method is of the value it points to, which can't be called for it: written
-			// as any other
+			// a value, or a nil pointer whose method is of the value it points to, which can't be called for it:
+			// written as any other
 			value := held.Interface()
 			return appendValueOf(ctx, b, emptyInterfaceType, unsafe.Pointer(&value))
 		}
@@ -135,15 +141,8 @@ func appendLegacyInterface(typ reflect.Type, m int) AppendFunc {
 		case methodMarshalJSON:
 			raw, err := recv.(json.Marshaler).MarshalJSON()
 			return appendV2Raw(ctx, held.Type(), b, raw, err)
-		case methodAppendText:
-			return appendMethodText(ctx, b, held.Type(), errors.MethodAppendText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
-				return recv.(textAppender).AppendText(dst)
-			})
 		}
-		return appendMethodText(ctx, b, held.Type(), errors.MethodMarshalText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
-			text, err := recv.(encoding.TextMarshaler).MarshalText()
-			return append(dst, text...), err
-		})
+		return appendTextOf(ctx, b, held.Type(), m, recv)
 	}
 }
 
@@ -311,7 +310,7 @@ var defaultCodeSets sync.Map // map[defaultKey]*OpcodeSet
 // alike, by the opcodes of a value given by itself.
 func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Pointer, after int, addressable bool) ([]byte, error) {
 	mode := ctx.compileMode()
-	key := defaultKey{typ: typ, mode: mode, after: after, addressable: addressable && mode&modeCallMethodsLegacy != 0}
+	key := defaultKey{typ: typ, mode: mode, after: after, addressable: addressable && mode&modeCallMethodsWithLegacySemantics != 0}
 	var funcs *MarshalFuncs
 	cache := &defaultCodeSets
 	if ctx.Option.Flag&MarshalFuncsOption != 0 {

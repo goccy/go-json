@@ -76,18 +76,10 @@ type Stream struct {
 	elements *bracketIndex
 }
 
-// ReadAllV2 returns the input of the stream which is left, what its buffer holds after the cursor and what its reader
-// gives up to the end, and the error of the reader if it fails.
+// ReadAllV2 returns the whole input of the stream, which has read nothing yet, up to the end of its reader, and the
+// error of the reader if it fails.
 func (s *Stream) ReadAllV2() ([]byte, error) {
-	var in []byte
-	if s.cursor < s.length {
-		in = append(in, s.buf[s.cursor:s.length]...)
-	}
-	if s.readErr != nil {
-		return in, s.readErr
-	}
-	rest, err := io.ReadAll(s.r)
-	return append(in, rest...), err
+	return io.ReadAll(s.r)
 }
 
 func NewStream(r io.Reader) *Stream {

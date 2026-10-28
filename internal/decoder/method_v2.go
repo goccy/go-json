@@ -44,7 +44,7 @@ var V2Hooks struct {
 	Lend func(ctx *RuntimeContext)
 	// AppendUnquote is jsontext.AppendUnquote, which reads a JSON string in a JSON string of the `string` option with
 	// StringifyWithLegacySemantics, and whose error is the one of the value.
-	AppendUnquote func(dst, src []byte) ([]byte, error)
+	AppendUnquote func(dst []byte, src string) ([]byte, error)
 }
 
 // v2MethodOf returns the first method of unmarshaling from first on which decodes a value of the type, or noMethod.
@@ -162,7 +162,7 @@ func (d *v2UnmarshalTextDecoder) Decode(ctx *RuntimeContext, cursor, depth int64
 	}
 	switch ctx.Buf[start] {
 	case 'n':
-		if ctx.Option.V2&V2MergeLegacy == 0 {
+		if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 			d.zero.zero(p)
 		}
 		return end, nil
@@ -193,7 +193,7 @@ func (d v2TimeDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	}
 	switch ctx.Buf[start] {
 	case 'n':
-		if ctx.Option.V2&V2MergeLegacy == 0 {
+		if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 			*(*time.Time)(p) = time.Time{}
 		}
 		return end, nil
@@ -205,7 +205,7 @@ func (d v2TimeDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 	if err := t.UnmarshalText(text); err != nil {
 		return 0, &errors.UnmarshalError{GoType: timeType, Start: start, Err: err, Method: errors.UnmarshalTextMethod}
 	}
-	if ctx.Option.V2&V2LooseRFC3339 == 0 {
+	if ctx.Option.V2&V2ParseTimeWithLooseRFC3339 == 0 {
 		// what RFC 3339 doesn't allow, unless ParseTimeWithLooseRFC3339
 		if err := strictRFC3339Error(text); err != nil {
 			return 0, &errors.UnmarshalError{GoType: timeType, Start: start, Err: err, Method: errors.UnmarshalTextMethod}

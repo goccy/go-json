@@ -25,7 +25,7 @@ func init() {
 		m, _ := reflect.NewAt(typ, p).Interface().(UnmarshalerFrom)
 		return unmarshalFrom(ctx, cursor, depth, typ, fromMethod{m})
 	}
-	decoder.V2Hooks.AppendUnquote = jsontext.AppendUnquote[[]byte]
+	decoder.V2Hooks.AppendUnquote = jsontext.AppendUnquote[string]
 	decoder.V2Hooks.SkipStreamValue = func(s *decoder.Stream, depth int64) error {
 		_, err := unmarshalFrom(s.Context(), 0, depth, nil, fromSkip{})
 		return err

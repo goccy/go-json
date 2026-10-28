@@ -50,10 +50,10 @@ type RuntimeContext struct {
 	// pool and of the streams of v2, which pools keep too, have them: a Decoder has a context of its own, which it
 	// would allocate with them for every stream.
 	recentDecoders *[recentDecoderSets]recentDecoderSet
-	// recentLegacy are the options of encoding/json which change the decoders ( see v2LegacyDecoders ) that the
+	// recentV1Options are the options of encoding/json which change the decoders ( see v1DecoderOptions ) that the
 	// decoders of v2 of recentDecoders were compiled for: their keys have no room for them, so the recent decoders are
 	// emptied when a decoding has others ( see SetV2Flags ).
-	recentLegacy V2Flags
+	recentV1Options V2Flags
 	// v2 is the state of the calls of the v2 json package which use the context, which is kept with it once a call
 	// made it ( see V2Call ).
 	v2 *V2Call

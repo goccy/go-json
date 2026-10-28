@@ -43,11 +43,11 @@ type compiler struct {
 	// `string` option ( see compiler.stringTagCompiler ).
 	stringifyNumbers bool
 	stringTag        bool
-	// legacy are the options of encoding/json which the decoders of v2 are compiled for ( see v2LegacyDecoders ).
-	legacy V2Flags
-	// keyNames is set for the decoders of the keys of a map, which the methods of JSON don't decode with
+	// v1Options are the options of encoding/json which the decoders of v2 are compiled for ( see v1DecoderOptions ).
+	v1Options V2Flags
+	// mapKeys is set for the decoders of the keys of a map, which the methods of JSON don't decode with
 	// CallMethodsWithLegacySemantics ( see compileV2 ): the type of a key doesn't tell it is one.
-	keyNames bool
+	mapKeys bool
 	// funcs are the functions of unmarshaling which the decoders of v2 are compiled for, or nil.
 	funcs *UnmarshalFuncs
 }

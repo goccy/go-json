@@ -35,20 +35,21 @@ const (
 	// V2RejectUnknownMembers makes a name of an object which is the name of no field of a struct an error, unless
 	// the struct has an embedded fallback.
 	V2RejectUnknownMembers
-	// The options of the semantics of encoding/json which the v2 json package applies when unmarshaling ( see the
-	// options of the root package ), in the order of their properties in internal/options, from
-	// ParseBytesWithLooseRFC4648, so that they are copied at once.
-	V2LooseBase64
-	V2LooseRFC3339
-	V2ArrayAnyLength
-	V2CaseSensitiveDelimiter
-	V2MergeLegacy
-	V2CallMethodsLegacy
-	V2ByteArrayAsArray
-	V2BytesLegacy
-	V2DurationAsNano
-	V2ReportErrorsLegacy
-	V2StringifyLegacy
+	// The options of the semantics of encoding/json which the v2 json package applies when unmarshaling, named by the
+	// options of the root package, whose documentation they follow, in the order of their properties in
+	// internal/options, from ParseBytesWithLooseRFC4648, so that they are copied at once ( see unmarshalFlags of the
+	// v2 json package ).
+	V2ParseBytesWithLooseRFC4648
+	V2ParseTimeWithLooseRFC3339
+	V2UnmarshalArrayFromAnyLength
+	V2MergeWithLegacySemantics
+	V2MatchCaseSensitiveDelimiter
+	V2CallMethodsWithLegacySemantics
+	V2FormatByteArrayAsArray
+	V2FormatBytesWithLegacySemantics
+	V2FormatDurationAsNano
+	V2ReportErrorsWithLegacySemantics
+	V2StringifyWithLegacySemantics
 )
 
 // The options of the text which v1 accepts and encoding/json/v2 rejects by default, names twice in an object and

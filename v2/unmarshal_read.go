@@ -64,7 +64,7 @@ func unmarshalStream(s *decoder.Stream, typ, p unsafe.Pointer, opts []Options) e
 		// returned as it is
 		var in []byte
 		if in, err = s.ReadAllV2(); err == nil {
-			err = legacyUnmarshal(ctx, ctx.SetInput(in), 0, typ, p, cfg, nil)
+			err = unmarshalWithV1Errors(ctx, ctx.SetInput(in), typ, p, cfg)
 		}
 	} else {
 		err = decodeStream(s, typ, p, cfg)

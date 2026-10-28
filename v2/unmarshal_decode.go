@@ -1,7 +1,6 @@
 package json
 
 import (
-	"errors"
 	"io"
 	"reflect"
 	"runtime"
@@ -156,7 +155,7 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 		}
 	}
 	if cfg.Has(options.ReportErrorsWithLegacySemantics) && !name {
-		return decodeLegacy(in, typ, p, cfg)
+		return unmarshalDecodeWithV1Errors(in, typ, p, cfg)
 	}
 	var err error
 	switch st, attached := outer.(*fromState); {
@@ -172,11 +171,11 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 	return err
 }
 
-// decodeLegacy decodes the next value of the decoder into the value at p, of the pointer type typ, by the options of
-// cfg, which have ReportErrorsWithLegacySemantics, as encoding/json decodes it: the whole value is read, which the
-// decoder checks by the options of the call, and decoded as Unmarshal decodes it ( see legacyUnmarshal ). The end of
-// the input is io.EOF.
-func decodeLegacy(in *jsontext.Decoder, typ, p unsafe.Pointer, cfg *options.Config) error {
+// unmarshalDecodeWithV1Errors decodes the next value of the decoder into the value at p, of the pointer type typ, by
+// the options of cfg, which have ReportErrorsWithLegacySemantics, as encoding/json decodes it: the whole value is read,
+// which the decoder checks by the options of the call, and decoded as Unmarshal decodes it ( see
+// unmarshalWithV1Errors ). The end of the input is io.EOF.
+func unmarshalDecodeWithV1Errors(in *jsontext.Decoder, typ, p unsafe.Pointer, cfg *options.Config) error {
 	ctx := decoder.TakeRuntimeContext()
 	setCall(ctx, cfg)
 	defer func() {
@@ -184,22 +183,19 @@ func decodeLegacy(in *jsontext.Decoder, typ, p unsafe.Pointer, cfg *options.Conf
 		ctx.Option.V2 = 0
 		decoder.ReleaseRuntimeContext(ctx)
 	}()
-	if _, err := outputDecoder(ctx, typ, p); err != nil {
+	dec, err := outputDecoder(ctx, typ, p)
+	if err != nil {
 		// an output which is not a non-nil pointer, before the value is read
-		return legacyOutputError(err)
+		return v1OutputError(err)
 	}
 	restore := textcoder.ConfigureDecoder(unsafe.Pointer(in), cfg)
 	v, err := in.ReadValue()
 	restore()
-	switch {
-	case err == io.EOF:
-		return err
-	case textcoder.IsIOError(err):
-		return errors.Unwrap(err)
-	case err != nil:
-		return legacySyntaxError(err)
+	if err != nil {
+		return v1FatalError(err, 0)
 	}
-	return legacyUnmarshal(ctx, ctx.SetInput(v), in.InputOffset()-int64(len(v)), typ, p, cfg, in)
+	ctx.SetInput(v)
+	return decodeWithV1Errors(ctx, dec, in.InputOffset()-int64(len(v)), typ, p, in)
 }
 
 // decodeName decodes the name of an object which is the next value of the decoder, which reads it, into the value at

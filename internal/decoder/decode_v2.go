@@ -58,33 +58,34 @@ func IsArrayLengthError(err error) bool {
 // cachedV2Decoders are the decoders of v2, without and with StringifyNumbers.
 var cachedV2Decoders [2]runtime.TypeCache[Decoder]
 
-// v2LegacyDecoders are the options of encoding/json which change the decoders of a type: a decoding with one of them
-// takes its decoders from legacyDecoders, apart from the tables shared by every goroutine, which have no room for
+// v1DecoderOptions are the options of encoding/json which change the decoders of a type: a decoding with one of them
+// takes its decoders from v1OptionDecoders, apart from the tables shared by every goroutine, which have no room for
 // them, as few programs use them, and from the recent decoders of its context, which are the ones of its options
 // ( see SetV2Flags ).
-const v2LegacyDecoders = V2CallMethodsLegacy | V2ByteArrayAsArray | V2BytesLegacy | V2DurationAsNano |
-	V2ReportErrorsLegacy | V2StringifyLegacy
+const v1DecoderOptions = V2CallMethodsWithLegacySemantics | V2FormatByteArrayAsArray |
+	V2FormatBytesWithLegacySemantics | V2FormatDurationAsNano | V2ReportErrorsWithLegacySemantics |
+	V2StringifyWithLegacySemantics
 
 // flagsKey is what the decoders of a type for options are cached by in a sync.Map: the type, and the options of
-// v2LegacyDecoders, with V2StringifyNumbers. The decoders of the options of encoding/json ( see legacyDecoders ) and
+// v1DecoderOptions, with V2StringifyNumbers. The decoders of the options of encoding/json ( see v1OptionDecoders ) and
 // the ones of the functions of unmarshaling ( see UnmarshalFuncs ) are.
 type flagsKey struct {
 	typeptr uintptr
 	flags   V2Flags
 }
 
-// legacyDecoders are the decoders of v2 of the options of encoding/json ( see v2LegacyDecoders ).
-var legacyDecoders sync.Map // map[flagsKey]Decoder
+// v1OptionDecoders are the decoders of v2 of the options of encoding/json ( see v1DecoderOptions ).
+var v1OptionDecoders sync.Map // map[flagsKey]Decoder
 
 // decoderIn returns the decoder of the pointer type typ for the options flags from m, compiling it for the functions
 // funcs, or none, if the type is new.
 func decoderIn(m *sync.Map, typ unsafe.Pointer, flags V2Flags, funcs *UnmarshalFuncs) (Decoder, error) {
-	key := flagsKey{typeptr: uintptr(typ), flags: flags & (v2LegacyDecoders | V2StringifyNumbers)}
+	key := flagsKey{typeptr: uintptr(typ), flags: flags & (v1DecoderOptions | V2StringifyNumbers)}
 	if v, ok := m.Load(key); ok {
 		return v.(Decoder), nil
 	}
 	c := newCompiler(true)
-	c.stringifyNumbers, c.legacy, c.funcs = flags&V2StringifyNumbers != 0, flags&v2LegacyDecoders, funcs
+	c.stringifyNumbers, c.v1Options, c.funcs = flags&V2StringifyNumbers != 0, flags&v1DecoderOptions, funcs
 	dec, err := compileHead(runtime.TypeOfPtr(typ), c)
 	if err != nil {
 		return nil, err
@@ -94,10 +95,10 @@ func decoderIn(m *sync.Map, typ unsafe.Pointer, flags V2Flags, funcs *UnmarshalF
 }
 
 // CompileToGetDecoderV2 returns the decoder of the type for the semantics of encoding/json/v2 and the options flags,
-// of which StringifyNumbers and the ones of v2LegacyDecoders change the decoders, compiling it if the type is new.
+// of which StringifyNumbers and the ones of v1DecoderOptions change the decoders, compiling it if the type is new.
 func CompileToGetDecoderV2(typ unsafe.Pointer, flags V2Flags) (Decoder, error) {
-	if flags&v2LegacyDecoders != 0 {
-		return decoderIn(&legacyDecoders, typ, flags, nil)
+	if flags&v1DecoderOptions != 0 {
+		return decoderIn(&v1OptionDecoders, typ, flags, nil)
 	}
 	stringifyNumbers := flags&V2StringifyNumbers != 0
 	cache := &cachedV2Decoders[0]
@@ -160,23 +161,22 @@ func (ctx *RuntimeContext) DecoderOfV2(typ unsafe.Pointer) (Decoder, error) {
 
 // SetV2Flags sets the options of v2 of ctx for a decoding, which every setting of them before a decoding is made by, as
 // the others clear them after one: the recent decoders are emptied if they were compiled for other options of
-// encoding/json which change the decoders, which their keys have no room for ( see recentLegacy ), once for the call
-// rather than in every DecoderOfV2. It is a function, as a method
-// of RuntimeContext moves the data after the type of the context, which moved unrelated benchmarks by 2%.
+// encoding/json which change the decoders, which their keys have no room for ( see recentV1Options ), once for the call
+// rather than in every DecoderOfV2, by a call of its own, so that SetV2Flags is inlined into the callers.
 func SetV2Flags(ctx *RuntimeContext, flags V2Flags) {
 	ctx.Option.V2 = flags
-	if legacy := flags & v2LegacyDecoders; legacy != ctx.recentLegacy {
-		emptyRecentDecoders(ctx, legacy)
+	if v1Options := flags & v1DecoderOptions; v1Options != ctx.recentV1Options {
+		emptyRecentDecoders(ctx, v1Options)
 	}
 }
 
-// emptyRecentDecoders empties the recent decoders of ctx, if it has them, which are compiled for the options of
-// encoding/json legacy from now on.
-func emptyRecentDecoders(ctx *RuntimeContext, legacy V2Flags) {
+// emptyRecentDecoders empties the recent decoders of ctx, if it has them, which are compiled for the options
+// v1Options of encoding/json from now on.
+func emptyRecentDecoders(ctx *RuntimeContext, v1Options V2Flags) {
 	if ctx.recentDecoders != nil {
 		*ctx.recentDecoders = [recentDecoderSets]recentDecoderSet{}
 	}
-	ctx.recentLegacy = legacy
+	ctx.recentV1Options = v1Options
 }
 
 // compileV2 returns the decoder of a value of typ by the semantics of v2.
@@ -187,7 +187,7 @@ func (c *compiler) compileV2(typ reflect.Type, structName, fieldName string) (De
 	// the first method which decodes a value: with CallMethodsWithLegacySemantics, a key of a map is decoded by
 	// UnmarshalText or its kind, as encoding/json doesn't call UnmarshalJSONFrom and UnmarshalJSON for a key
 	first := methodUnmarshalJSONFrom
-	if c.keyNames && c.legacy&V2CallMethodsLegacy != 0 {
+	if c.mapKeys && c.v1Options&V2CallMethodsWithLegacySemantics != 0 {
 		first = methodUnmarshalText
 	}
 	if funcs := c.funcs.funcsOf(typ); len(funcs) > 0 {
@@ -219,7 +219,7 @@ func (c *compiler) compileNextV2(dec Decoder, next *Decoder, typ reflect.Type, f
 // leaves it to the decoder of the methods after it.
 func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fieldName string) (Decoder, error) {
 	switch {
-	case typ == timeDurationType && c.legacy&V2DurationAsNano == 0:
+	case typ == timeDurationType && c.v1Options&V2FormatDurationAsNano == 0:
 		// a time.Duration has no representation, but its nanoseconds as an int64 with FormatDurationAsNano, which
 		// its kind gives
 		return &v2InvalidDecoder{typ: typ, err: errNoDefaultRepresentation}, nil
@@ -238,11 +238,11 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 	case methodUnmarshalText:
 		return &v2UnmarshalTextDecoder{typ: typ, ptrType: runtime.TypePtr(reflect.PointerTo(typ)), zero: newZeroer(typ)}, nil
 	}
-	stringify := c.stringTag && c.legacy&V2StringifyLegacy != 0
+	stringify := c.stringTag && c.v1Options&V2StringifyWithLegacySemantics != 0
 	if c.stringTag && typ.Kind() != reflect.Ptr && !isNumberKind(typ.Kind()) && !hasNoRepresentation(typ.Kind()) {
 		if stringify && typ != jsonNumberType && (typ.Kind() == reflect.Bool || typ.Kind() == reflect.String) {
 			// the option applies to a bool and a string too with StringifyWithLegacySemantics
-			return &v2StringifiedDecoder{typ: typ, kind: typ.Kind(), str: v2StringDecoder{newStringDecoder("", "")}}, nil
+			return &v2StringifiedDecoder{typ: typ}, nil
 		}
 		// the option applies to a number, through pointers
 		return &v2InvalidDecoder{typ: typ, err: errInvalidStringTag}, nil
@@ -254,12 +254,12 @@ func (c *compiler) compileDefaultV2(typ reflect.Type, first int, structName, fie
 		}
 		return compilePtr(typ, structName, fieldName, c)
 	case reflect.Slice:
-		if IsV2Bytes(typ, c.legacy) {
+		if IsV2Bytes(typ, c.v1Options) {
 			return c.compileBytesV2(typ, structName, fieldName)
 		}
 		return compileSlice(typ, structName, fieldName, c)
 	case reflect.Array:
-		if IsV2Bytes(typ, c.legacy) {
+		if IsV2Bytes(typ, c.v1Options) {
 			return c.compileBytesV2(typ, structName, fieldName)
 		}
 		return c.compileArrayV2(typ, structName, fieldName)
@@ -304,17 +304,17 @@ func hasNoRepresentation(kind reflect.Kind) bool {
 // type with FormatBytesWithLegacySemantics, which is otherwise a JSON array of its values.
 func IsV2Bytes(typ reflect.Type, flags V2Flags) bool {
 	elem := typ.Elem()
-	if elem.Kind() != reflect.Uint8 || typ.Kind() == reflect.Array && flags&V2ByteArrayAsArray != 0 {
+	if elem.Kind() != reflect.Uint8 || typ.Kind() == reflect.Array && flags&V2FormatByteArrayAsArray != 0 {
 		return false
 	}
-	return elem.PkgPath() == "" || flags&V2BytesLegacy != 0
+	return elem.PkgPath() == "" || flags&V2FormatBytesWithLegacySemantics != 0
 }
 
 // compileBytesV2 returns the decoder of typ, a slice or an array of bytes ( see IsV2Bytes ), which a JSON array is
 // decoded into element by element with FormatBytesWithLegacySemantics, as into any other slice or array.
 func (c *compiler) compileBytesV2(typ reflect.Type, structName, fieldName string) (Decoder, error) {
 	d := newV2BytesDecoder(typ)
-	if c.legacy&V2BytesLegacy == 0 {
+	if c.v1Options&V2FormatBytesWithLegacySemantics == 0 {
 		return d, nil
 	}
 	var elements Decoder
@@ -327,7 +327,7 @@ func (c *compiler) compileBytesV2(typ reflect.Type, structName, fieldName string
 	if err != nil {
 		return nil, err
 	}
-	return &v2LegacyBytesDecoder{bytes: d, elements: elements}, nil
+	return &v2FormatBytesWithLegacySemanticsDecoder{bytes: d, elements: elements}, nil
 }
 
 // V2TypeError returns the type error which a decoder of v1 recorded, as the error of v2 ( see v2Error ), or nil if
@@ -456,7 +456,7 @@ func (d v2StringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		var ok bool
 		if s, next, ok, err = d.decodeStringValue(ctx, start); err == nil && ok {
 			err = replacedRuneError(ctx, s, start, next)
-		} else if err == nil && buf[start] == 'n' && ctx.Option.V2&V2MergeLegacy != 0 {
+		} else if err == nil && buf[start] == 'n' && ctx.Option.V2&V2MergeWithLegacySemantics != 0 {
 			// null, which leaves the string as it is with MergeWithLegacySemantics
 			return next, nil
 		}
@@ -596,7 +596,7 @@ func (d *v2StringNumberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64,
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		if ctx.Option.V2&V2MergeLegacy == 0 {
+		if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 			clear(unsafe.Slice((*byte)(p), d.typ.Size()))
 		}
 		return cursor + 4, nil
@@ -610,12 +610,12 @@ func (d *v2StringNumberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64,
 	}
 	// with StringifyWithLegacySemantics, the number is read by the syntax of Go numbers, of which the JSON numbers are
 	// a part, and a quoted null is null, as v1 reads them: the option is looked at for a number of no JSON number only
-	if !jsonnum.IsValid(num) && ctx.Option.V2&V2StringifyLegacy == 0 {
+	if !jsonnum.IsValid(num) && ctx.Option.V2&V2StringifyWithLegacySemantics == 0 {
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, End: next, HasValue: true, Err: strconv.ErrSyntax}
 	}
 	if err := setNumber(p, d.kind, num); err != nil {
-		if ctx.Option.V2&V2StringifyLegacy != 0 && string(num) == "null" {
-			if ctx.Option.V2&V2MergeLegacy == 0 {
+		if ctx.Option.V2&V2StringifyWithLegacySemantics != 0 && string(num) == "null" {
+			if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 				clear(unsafe.Slice((*byte)(p), d.typ.Size()))
 			}
 			return next, nil
@@ -629,9 +629,7 @@ func (d *v2StringNumberDecoder) Decode(ctx *RuntimeContext, cursor, depth int64,
 // StringifyWithLegacySemantics: the JSON string "true" or "false" of a bool, and the JSON string of a JSON string of a
 // string. null and the JSON string "null" are the zero value.
 type v2StringifiedDecoder struct {
-	typ  reflect.Type
-	kind reflect.Kind
-	str  v2StringDecoder
+	typ reflect.Type
 }
 
 func (d *v2StringifiedDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -649,19 +647,19 @@ func (d *v2StringifiedDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		return ctx.skipTypeError(cursor, depth, d.typ)
 	}
 	var s string
-	end, err := d.str.Decode(ctx, cursor, depth, unsafe.Pointer(&s))
+	end, err := v2StringDecoder{skipStringDecoder}.Decode(ctx, cursor, depth, unsafe.Pointer(&s))
 	if err != nil {
 		return 0, err
 	}
 	switch {
 	case s == "null":
 		d.zero(ctx, p)
-	case d.kind == reflect.Bool && (s == "true" || s == "false"):
+	case d.typ.Kind() == reflect.Bool && (s == "true" || s == "false"):
 		*(*bool)(p) = s == "true"
-	case d.kind == reflect.Bool:
+	case d.typ.Kind() == reflect.Bool:
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, End: end, HasValue: true, Err: strconv.ErrSyntax}
 	default:
-		text, err := V2Hooks.AppendUnquote(nil, []byte(s))
+		text, err := V2Hooks.AppendUnquote(nil, s)
 		if err != nil {
 			return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, Err: err}
 		}
@@ -672,10 +670,10 @@ func (d *v2StringifiedDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 
 // zero sets the bool or the string at p to its zero value for null, but with MergeWithLegacySemantics.
 func (d *v2StringifiedDecoder) zero(ctx *RuntimeContext, p unsafe.Pointer) {
-	if ctx.Option.V2&V2MergeLegacy != 0 {
+	if ctx.Option.V2&V2MergeWithLegacySemantics != 0 {
 		return
 	}
-	if d.kind == reflect.Bool {
+	if d.typ.Kind() == reflect.Bool {
 		*(*bool)(p) = false
 	} else {
 		*(*string)(p) = ""
@@ -689,7 +687,7 @@ func (d *v2StringifiedDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int
 // compileStringifiedPtrV2 returns the decoder of a pointer of a field of the `string` option with
 // StringifyWithLegacySemantics ( see v2StringifiedPtrDecoder ).
 func (c *compiler) compileStringifiedPtrV2(typ reflect.Type, structName, fieldName string) (Decoder, error) {
-	d := &v2StringifiedPtrDecoder{str: v2StringDecoder{newStringDecoder("", "")}}
+	d := &v2StringifiedPtrDecoder{}
 	if typ.Elem().Kind() == reflect.Ptr {
 		// the option applies to one pointer only: a pointer to a pointer is its error, before the value is read
 		d.ptr = &v2InvalidDecoder{typ: typ, err: errInvalidStringTag}
@@ -706,7 +704,6 @@ func (c *compiler) compileStringifiedPtrV2(typ reflect.Type, structName, fieldNa
 // decoded. A pointer to a pointer is the error of the option, of ptr.
 type v2StringifiedPtrDecoder struct {
 	ptr Decoder
-	str v2StringDecoder
 }
 
 func (d *v2StringifiedPtrDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
@@ -734,7 +731,7 @@ func (d *v2StringifiedPtrDecoder) Decode(ctx *RuntimeContext, cursor, depth int6
 // isNull reports whether the JSON string at cursor, of escapes, is "null".
 func (d *v2StringifiedPtrDecoder) isNull(ctx *RuntimeContext, cursor, depth int64) bool {
 	var s string
-	_, err := d.str.Decode(ctx, cursor, depth, unsafe.Pointer(&s))
+	_, err := v2StringDecoder{skipStringDecoder}.Decode(ctx, cursor, depth, unsafe.Pointer(&s))
 	return err == nil && s == "null"
 }
 
@@ -822,7 +819,9 @@ func intBits(kind reflect.Kind) int {
 }
 
 // v2InvalidDecoder is the decoder of a type which no JSON value is decoded into by v2, null included: its error,
-// whose cause is err, is the one of the type, before the value is read.
+// whose cause is err, is the one of the type, before the value is read. err is nil for a type which has no
+// representation ( see hasNoRepresentation ), which fails after its value with ReportErrorsWithLegacySemantics, as
+// encoding/json reads it, but for null, which is decoded into nothing.
 type v2InvalidDecoder struct {
 	typ reflect.Type
 	err error
@@ -830,9 +829,7 @@ type v2InvalidDecoder struct {
 
 func (d *v2InvalidDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(ctx.Buf, cursor)
-	if d.err == nil && ctx.Option.V2&V2ReportErrorsLegacy != 0 {
-		// with ReportErrorsWithLegacySemantics, a type of no representation fails after its value, as encoding/json
-		// reads it, but for null, which is decoded into nothing
+	if d.err == nil && ctx.Option.V2&V2ReportErrorsWithLegacySemantics != 0 {
 		if ctx.Buf[cursor] == 'n' {
 			return cursor + 4, validateNull(ctx.Buf, cursor)
 		}
@@ -912,7 +909,7 @@ func newV2SliceDecoder(d *sliceDecoder) *v2SliceDecoder {
 
 func (d *v2SliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(ctx.Buf, cursor)
-	if d.zero && ctx.Buf[cursor] == '[' && (*sliceHeader)(p).cap > 0 && ctx.Option.V2&V2MergeLegacy == 0 {
+	if d.zero && ctx.Buf[cursor] == '[' && (*sliceHeader)(p).cap > 0 && ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 		s := valueAt(d.slicePtrType, p)
 		s.Slice(0, s.Cap()).Clear()
 	}
@@ -949,7 +946,7 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		if ctx.Option.V2&V2MergeLegacy == 0 {
+		if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 			d.array.zero(p)
 		}
 		return cursor + 4, nil
@@ -965,7 +962,7 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 	idx := 0
 	var lengthErr error
 	// an element is decoded into its zero value, but into the element with MergeWithLegacySemantics
-	zeroElems := ctx.Option.V2&V2MergeLegacy == 0
+	zeroElems := ctx.Option.V2&V2MergeWithLegacySemantics == 0
 	if buf[cursor] != ']' {
 		for {
 			if idx < d.alen {
@@ -986,9 +983,7 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 					return 0, err
 				}
 				cursor = c
-				if ctx.Option.V2&V2ArrayAnyLength == 0 {
-					lengthErr = errArrayOverflow
-				}
+				lengthErr = errArrayOverflow
 			}
 			idx++
 			cursor = skipWhiteSpace(buf, cursor)
@@ -1003,11 +998,9 @@ func (d *v2ArrayDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 	}
 	for ; idx < d.alen; idx++ {
 		d.elem.zero(unsafe.Add(p, uintptr(idx)*d.elem.size))
-		if ctx.Option.V2&V2ArrayAnyLength == 0 {
-			lengthErr = errArrayUnderflow
-		}
+		lengthErr = errArrayUnderflow
 	}
-	if lengthErr != nil {
+	if lengthErr != nil && ctx.Option.V2&V2UnmarshalArrayFromAnyLength == 0 {
 		// the error of the length is at the end of the array, which tells it
 		return 0, &errors.UnmarshalError{GoType: d.typ, Start: cursor, Err: lengthErr}
 	}
@@ -1047,7 +1040,7 @@ func (d *v2BytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		}
 		if d.alen < 0 {
 			*(*[]byte)(p) = nil
-		} else if ctx.Option.V2&V2MergeLegacy == 0 {
+		} else if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 			clear(unsafe.Slice((*byte)(p), d.alen))
 		}
 		return cursor + 4, nil
@@ -1066,7 +1059,7 @@ func (d *v2BytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 		dst = unsafe.Slice((*byte)(p), d.alen)[:0]
 	}
 	b, err := base64.StdEncoding.AppendDecode(dst, text)
-	if err == nil && len(text) != base64.StdEncoding.EncodedLen(len(b)) && ctx.Option.V2&V2LooseBase64 == 0 {
+	if err == nil && len(text) != base64.StdEncoding.EncodedLen(len(b)) && ctx.Option.V2&V2ParseBytesWithLooseRFC4648 == 0 {
 		// the decoding skips a line feed and a carriage return, which RFC 4648 doesn't allow, unless
 		// ParseBytesWithLooseRFC4648
 		i := bytes.IndexAny(text, "\r\n")
@@ -1075,7 +1068,7 @@ func (d *v2BytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsa
 	if err == nil && d.alen >= 0 {
 		dst = dst[:d.alen]
 		clear(dst[copy(dst, b):])
-		if len(b) != d.alen && ctx.Option.V2&V2ArrayAnyLength == 0 {
+		if len(b) != d.alen && ctx.Option.V2&V2UnmarshalArrayFromAnyLength == 0 {
 			err = fmt.Errorf("decoded length of %d mismatches array length of %d", len(b), d.alen)
 		}
 	}
@@ -1095,21 +1088,21 @@ func (d *v2BytesDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([
 	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
 }
 
-// v2LegacyBytesDecoder is the decoder of a slice or an array of bytes with FormatBytesWithLegacySemantics: a JSON
-// array is decoded by the decoder of its elements, and any other value as bytes.
-type v2LegacyBytesDecoder struct {
+// v2FormatBytesWithLegacySemanticsDecoder is the decoder of a slice or an array of bytes with
+// FormatBytesWithLegacySemantics: a JSON array is decoded by the decoder of its elements, and any other value as bytes.
+type v2FormatBytesWithLegacySemanticsDecoder struct {
 	bytes    *v2BytesDecoder
 	elements Decoder
 }
 
-func (d *v2LegacyBytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+func (d *v2FormatBytesWithLegacySemanticsDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	if ctx.Buf[skipWhiteSpace(ctx.Buf, cursor)] == '[' {
 		return d.elements.Decode(ctx, cursor, depth, p)
 	}
 	return d.bytes.Decode(ctx, cursor, depth, p)
 }
 
-func (d *v2LegacyBytesDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
+func (d *v2FormatBytesWithLegacySemanticsDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
 }
 
@@ -1160,7 +1153,7 @@ func (c *compiler) newV2InterfaceDecoder(typ reflect.Type) *v2InterfaceDecoder {
 func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
-	if (*[2]unsafe.Pointer)(p)[0] != nil && ctx.Option.V2&V2MergeLegacy != 0 {
+	if (*[2]unsafe.Pointer)(p)[0] != nil && ctx.Option.V2&V2MergeWithLegacySemantics != 0 {
 		if !d.holdsPointer(p) {
 			*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
 		} else if buf[cursor] == 'n' && runtime.TypeOfPtr(heldType(p, d.empty)).Elem().Kind() == reflect.Pointer {
@@ -1193,8 +1186,8 @@ func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p 
 	next, err := d.fast.decodeEmptyInterface(ctx, cursor, depth, p)
 	// with ReportErrorsWithLegacySemantics, the type error may be the one of a value before, which the decoding went
 	// on after, which doesn't make the value decoded again and is kept
-	legacy := ctx.Option.V2&V2ReportErrorsLegacy != 0
-	if (err != nil || ctx.typeError != nil && !legacy) && ctx.Option.V2&V2AllowDuplicateNames != 0 {
+	reportErrors := ctx.Option.V2&V2ReportErrorsWithLegacySemantics != 0
+	if (err != nil || ctx.typeError != nil && !reportErrors) && ctx.Option.V2&V2AllowDuplicateNames != 0 {
 		if c := buf[cursor]; c == '{' || c == '[' {
 			// The value may have a name twice, whose second value is decoded into the first one, which v1 doesn't
 			// do, and whose error may come before the one v1 found: the value is decoded again, by the merging of
@@ -1207,7 +1200,7 @@ func (d *v2InterfaceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p 
 			return d.decodeMerging(ctx, cursor, depth, p)
 		}
 	}
-	if ctx.typeError != nil && !legacy {
+	if ctx.typeError != nil && !reportErrors {
 		// a number out of the range of a float64, which v1 records and decodes on from: it comes before any other
 		// error of the value, which is the error of the decoding, but with ReportErrorsWithLegacySemantics, which goes
 		// on after it as v1 does
@@ -1277,9 +1270,9 @@ func (d *v2InterfaceDecoder) decodeHeld(ctx *RuntimeContext, cursor, depth int64
 	return next, err
 }
 
-// holdsPointer reports whether the interface value at p, which holds a value, holds a pointer which is not nil: the only
-// value which MergeWithLegacySemantics decodes into, through the pointer, while any other is dropped before the value
-// is decoded.
+// holdsPointer reports whether the interface value at p, which holds a value, holds a pointer which is not nil: the
+// only value which MergeWithLegacySemantics decodes into, through the pointer, while any other is dropped before the
+// value is decoded.
 func (d *v2InterfaceDecoder) holdsPointer(p unsafe.Pointer) bool {
 	return runtime.TypeOfPtr(heldType(p, d.empty)).Kind() == reflect.Pointer && *interfaceData(p) != nil
 }
@@ -1386,9 +1379,10 @@ func (d *v2InterfaceDecoder) decodeObjectInto(ctx *RuntimeContext, cursor, depth
 		if buf[cursor] != ':' {
 			return 0, syntaxErrorAt(buf, cursor, whereAfterKey)
 		}
-		// the value of the name which m has, which is decoded into, but with MergeWithLegacySemantics, which replaces it
+		// the value of the name which m has, which is decoded into, but with MergeWithLegacySemantics, which replaces
+		// it
 		var value any
-		if ctx.Option.V2&V2MergeLegacy == 0 {
+		if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
 			value = m[key]
 		}
 		c, err = d.decodeElem(ctx, cursor+1, depth, unsafe.Pointer(&value))

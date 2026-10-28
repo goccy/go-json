@@ -166,25 +166,25 @@ func (e *SemanticError) Unwrap() error {
 
 // marshalError returns the error of marshaling which the encoder returned with out, the output written before it,
 // at its place in the whole output of the call st, or as encoding/json reports it with ReportErrorsWithLegacySemantics
-// ( see legacyMarshalError ).
+// ( see v1MarshalError ).
 func (st *callState) marshalError(out []byte, err error) error {
 	if st.cfg.Has(options.ReportErrorsWithLegacySemantics) {
-		return st.legacyMarshalError(out, err)
+		return st.v1MarshalError(out, err)
 	}
 	return st.v2MarshalError(out, err)
 }
 
-// legacyMarshalError is marshalError with ReportErrorsWithLegacySemantics, which reports the errors of encoding/json:
+// v1MarshalError is marshalError with ReportErrorsWithLegacySemantics, which reports the errors of encoding/json:
 // an error of a method or a function of marshaling is a MarshalerError of the pointer to the value and of the name of
 // the method, whatever the error is, as encoding/json wraps it; a value of a type which has no representation is an
 // UnsupportedTypeError, and a value which encoding/json/v2 reports another SemanticError of is an
 // UnsupportedValueError of its cause: a cycle, a float which is not finite ( which the encoder reports so itself, with
 // the float ), a time.Duration of no format, or a key which is not a string. A syntax error is a SyntaxError, at the
 // offset after the text, as encoding/json reports it.
-func (st *callState) legacyMarshalError(out []byte, err error) error {
+func (st *callState) v1MarshalError(out []byte, err error) error {
 	switch e := err.(type) {
 	case *ierrors.OutputError:
-		return st.legacyMarshalError(e.Out, e.Err)
+		return st.v1MarshalError(e.Out, e.Err)
 	case *ierrors.MethodError:
 		inner := e.Err
 		if te, ok := inner.(*ierrors.TextError); ok {
@@ -192,7 +192,7 @@ func (st *callState) legacyMarshalError(out []byte, err error) error {
 			pos, ptr := st.at(out)
 			inner = &jsontext.SyntacticError{ByteOffset: pos, JSONPointer: ptr, Err: te.Err}
 		}
-		return ierrors.ErrMarshaler(reflect.PointerTo(e.GoType), legacySyntaxError(inner), e.Kind.String())
+		return ierrors.ErrMarshaler(reflect.PointerTo(e.GoType), v1SyntaxError(inner), e.Kind.String())
 	case *ierrors.TextError:
 		if e.Err == ierrors.ErrDuplicateName && e.GoType != nil {
 			// a duplicate name, which a function or a method wrote, is a syntax error of the output as any other
@@ -203,11 +203,8 @@ func (st *callState) legacyMarshalError(out []byte, err error) error {
 	}
 	switch e := st.v2MarshalError(out, err).(type) {
 	case *SemanticError:
-		switch {
-		case e.Err == nil:
+		if e.Err == nil {
 			return &ierrors.UnsupportedTypeError{Type: e.GoType}
-		case e.Err == ierrors.ErrCycle && e.GoType != nil:
-			return &ierrors.UnsupportedValueError{Str: e.Err.Error() + " via " + e.GoType.String()}
 		}
 		cause := e.Err
 		if serr, ok := cause.(*jsontext.SyntacticError); ok {
@@ -217,17 +214,21 @@ func (st *callState) legacyMarshalError(out []byte, err error) error {
 			at.ByteOffset = offset
 			cause = &at
 		}
-		return &ierrors.UnsupportedValueError{Str: cause.Error()}
+		str := cause.Error()
+		if e.Err == ierrors.ErrCycle && e.GoType != nil {
+			str += " via " + e.GoType.String()
+		}
+		return &ierrors.UnsupportedValueError{Str: str}
 	case *jsontext.SyntacticError:
-		return legacySyntaxError(e)
+		return v1SyntaxError(e)
 	default:
 		return e
 	}
 }
 
-// legacySyntaxError returns err as encoding/json reports it, if it is a SyntacticError: a SyntaxError of its message
+// v1SyntaxError returns err as encoding/json reports it, if it is a SyntacticError: a SyntaxError of its message
 // in the words of encoding/json, at the offset after its text ( see jsonsyntax.LegacyError ).
-func legacySyntaxError(err error) error {
+func v1SyntaxError(err error) error {
 	if msg, offset, ok := jsonsyntax.LegacyError(err); ok {
 		return ierrors.ErrSyntax(msg, offset)
 	}

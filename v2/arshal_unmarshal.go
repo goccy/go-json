@@ -113,7 +113,7 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 	if len(opts) > 0 {
 		cfg = beginCallOf(ctx, opts)
 		if cfg.Has(options.ReportErrorsWithLegacySemantics) {
-			err := legacyUnmarshal(ctx, buf, 0, e.typ, e.ptr, cfg, nil)
+			err := unmarshalWithV1Errors(ctx, buf, e.typ, e.ptr, cfg)
 			endCall(ctx)
 			ctx.Option.V2 = 0
 			decoder.ReleaseRuntimeContext(ctx)
@@ -173,7 +173,7 @@ func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 	}
 	var err error
 	if cfg.Has(options.ReportErrorsWithLegacySemantics) {
-		err = legacyUnmarshal(ctx, buf, 0, iruntime.TypePtr(ptrType), p, cfg, nil)
+		err = unmarshalWithV1Errors(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
 	} else {
 		err = decodeInput(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
 	}
@@ -315,7 +315,8 @@ func unmarshalFlags(c *options.Config) decoder.V2Flags {
 	// the value is read once, so that the function stays small enough to be inlined into its callers
 	v := c.Value
 	// the options of encoding/json which change the unmarshaling, copied at once, as their flags are in the same order
-	flags := decoder.V2Semantics | decoder.V2Flags(v&legacyUnmarshaling/options.ParseBytesWithLooseRFC4648)*decoder.V2LooseBase64
+	flags := decoder.V2Semantics |
+		decoder.V2Flags(v&v1UnmarshalOptions/options.ParseBytesWithLooseRFC4648)*decoder.V2ParseBytesWithLooseRFC4648
 	if v&options.AllowInvalidUTF8 != 0 {
 		flags |= decoder.V2AllowInvalidUTF8
 	}
@@ -334,18 +335,15 @@ func unmarshalFlags(c *options.Config) decoder.V2Flags {
 	return flags
 }
 
-// legacyUnmarshaling are the options of encoding/json which change the unmarshaling: all but
+// v1UnmarshalOptions are the options of encoding/json which change the unmarshaling: all but
 // OmitEmptyWithLegacySemantics, which are adjacent properties, from ParseBytesWithLooseRFC4648, in the order of their
 // flags in the decoder.
-const legacyUnmarshaling = options.LegacyFlags &^ options.OmitEmptyWithLegacySemantics
+const v1UnmarshalOptions = options.V1OptionFlags &^ options.OmitEmptyWithLegacySemantics
 
-// the last of the options is as far from the first as its flag is: both are made by iota.
-const (
-	_ = uint(options.Flags(decoder.V2StringifyLegacy/decoder.V2LooseBase64) -
-		options.StringifyWithLegacySemantics/options.ParseBytesWithLooseRFC4648)
-	_ = uint(options.StringifyWithLegacySemantics/options.ParseBytesWithLooseRFC4648 -
-		options.Flags(decoder.V2StringifyLegacy/decoder.V2LooseBase64))
-)
+// the last of the options is as far from the first as its flag is, as both are made by iota in the same order: the
+// length of the array type is 0 then, and it is another type, or a negative constant, otherwise.
+var _ [0]struct{} = [options.StringifyWithLegacySemantics/options.ParseBytesWithLooseRFC4648 -
+	options.Flags(decoder.V2StringifyWithLegacySemantics/decoder.V2ParseBytesWithLooseRFC4648)]struct{}{}
 
 // decodeInput decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type typ,
 // by the options of cfg, which the options of ctx are made of.
@@ -384,24 +382,29 @@ func inputError(ctx *decoder.RuntimeContext, buf []byte, cursor int64, err error
 	return unmarshalError(&errorInput{buf: buf[:len(buf)-1]}, err, cfg)
 }
 
-// legacyUnmarshal decodes buf, the input of ctx followed by a nul byte, at the offset base of the whole input, into
-// the value at p, of the pointer type typ, by the options of cfg, which have ReportErrorsWithLegacySemantics, as
-// encoding/json decodes it: the input is checked first, so that a syntax error changes nothing, the decoding goes on
-// after the error of a value ( see decoder.RuntimeContext.RecordLegacyError ), and the first one is reported, as a
-// type error of encoding/json. An output which is not a non-nil pointer is an InvalidUnmarshalError, before the input
-// is read, and a syntax error a SyntaxError. in is the decoder which read the value, in the values which it is in,
-// which the paths of the errors start with, or nil.
-func legacyUnmarshal(ctx *decoder.RuntimeContext, buf []byte, base int64, typ, p unsafe.Pointer, cfg *options.Config, in *jsontext.Decoder) error {
+// unmarshalWithV1Errors decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type
+// typ, by the options of cfg, which have ReportErrorsWithLegacySemantics, as encoding/json decodes it: an output which
+// is not a non-nil pointer is an InvalidUnmarshalError; the input is checked first, so that a syntax error changes
+// nothing, and is a SyntaxError; the decoding goes on after the error of a value ( see
+// decoder.RuntimeContext.RecordV1Error ), and the first one is reported, as a type error of encoding/json.
+func unmarshalWithV1Errors(ctx *decoder.RuntimeContext, buf []byte, typ, p unsafe.Pointer, cfg *options.Config) error {
 	dec, err := outputDecoder(ctx, typ, p)
 	if err != nil {
-		return legacyOutputError(err)
+		return v1OutputError(err)
 	}
-	if err := legacyInputError(buf[:len(buf)-1], base, cfg); err != nil {
+	if err := v1InputError(buf[:len(buf)-1], cfg); err != nil {
 		return err
 	}
-	if _, err := dec.Decode(ctx, 0, 0, p); err != nil && !ctx.RecordLegacyError(err) {
+	return decodeWithV1Errors(ctx, dec, 0, typ, p, nil)
+}
+
+// decodeWithV1Errors decodes the input of ctx, a valid JSON value at the offset base of the whole input, by dec into
+// the value at p, of the pointer type typ, as unmarshalWithV1Errors decodes it after its checks. in is the decoder
+// which read the value, in the values which it is in, which the paths of the errors start with, or nil.
+func decodeWithV1Errors(ctx *decoder.RuntimeContext, dec decoder.Decoder, base int64, typ, p unsafe.Pointer, in *jsontext.Decoder) error {
+	if _, err := dec.Decode(ctx, 0, 0, p); err != nil && !ctx.RecordV1Error(err) {
 		ctx.DiscardTypeError()
-		return legacyFatalError(err, base)
+		return v1FatalError(err, base)
 	}
 	var outer []string
 	if in != nil && ctx.HasTypeError() {
@@ -414,28 +417,27 @@ func legacyUnmarshal(ctx *decoder.RuntimeContext, buf []byte, base int64, typ, p
 // nilOutputError returns the error of a nil pointer out of the pointer type typ of UnmarshalOf or UnmarshalReadOf, by
 // the options: an InvalidUnmarshalError with ReportErrorsWithLegacySemantics, as Unmarshal reports it.
 func nilOutputError(typ reflect.Type, opts []Options) error {
-	err := error(&SemanticError{action: "unmarshal", GoType: typ, Err: errNonNilReference})
 	var cfg options.Config
 	cfg.Apply(opts)
 	if cfg.Has(options.ReportErrorsWithLegacySemantics) {
-		return legacyOutputError(err)
+		return &ierrors.InvalidUnmarshalError{Type: typ}
 	}
-	return err
+	return &SemanticError{action: "unmarshal", GoType: typ, Err: errNonNilReference}
 }
 
-// legacyOutputError returns err, the error of an output which outputDecoder finds no decoder for, as encoding/json
+// v1OutputError returns err, the error of an output which outputDecoder finds no decoder for, as encoding/json
 // reports it: an InvalidUnmarshalError of an output which is not a non-nil pointer.
-func legacyOutputError(err error) error {
+func v1OutputError(err error) error {
 	if se, ok := err.(*SemanticError); ok && se.Err == errNonNilReference {
 		return &ierrors.InvalidUnmarshalError{Type: se.GoType}
 	}
 	return err
 }
 
-// legacyInputError returns the syntax error of in, a single JSON value at the offset base of the whole input, by the
-// options of cfg, as encoding/json reports it before it decodes the value, or nil: the value is read whole, as
-// encoding/json/v2 checks it with the option, and the input after it, as the call reads it.
-func legacyInputError(in []byte, base int64, cfg *options.Config) error {
+// v1InputError returns the syntax error of in, the input of a call which is a single JSON value, by the options of
+// cfg, as encoding/json reports it before it decodes the value, or nil: the value is read whole, as encoding/json/v2
+// checks it with the option, and the input after it, as the call reads it.
+func v1InputError(in []byte, cfg *options.Config) error {
 	if jsontext.Value(in).IsValid(cfg) {
 		return nil
 	}
@@ -445,19 +447,14 @@ func legacyInputError(in []byte, base int64, cfg *options.Config) error {
 		// the end of the input, or a value after the value
 		_, err = textcoder.UnmarshalPlace(in, cfg, -1, textcoder.ReadToken)
 	}
-	if serr, ok := err.(*jsontext.SyntacticError); ok {
-		at := *serr
-		at.ByteOffset += base
-		err = &at
-	}
-	return legacySyntaxError(err)
+	return v1SyntaxError(err)
 }
 
-// legacyFatalError returns err, an error which the decoding stops at with ReportErrorsWithLegacySemantics, of the input
+// v1FatalError returns err, an error which the decoding stops at with ReportErrorsWithLegacySemantics, of the input
 // at the offset base of the whole input, as encoding/json reports it: a name which another member has, which
 // encoding/json/v2 reports as a syntax error at the name, a syntax error or an error of the reader which a method or a
 // function returned, of which the error of the reader is returned as it is.
-func legacyFatalError(err error, base int64) error {
+func v1FatalError(err error, base int64) error {
 	if e, ok := err.(*ierrors.UnmarshalError); ok {
 		if e.Err == ierrors.ErrDuplicateName {
 			return ierrors.ErrSyntax(e.Err.Error(), base+e.Start)
@@ -467,7 +464,7 @@ func legacyFatalError(err error, base int64) error {
 	if textcoder.IsIOError(err) {
 		return errors.Unwrap(err)
 	}
-	return legacySyntaxError(err)
+	return v1SyntaxError(err)
 }
 
 // outputDecoder returns the decoder of the output, the value at p of the pointer type typ, which must be a non-nil

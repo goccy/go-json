@@ -765,10 +765,7 @@ func (s *Stream) decodeElementsV2(dec Decoder, p unsafe.Pointer, depth, from int
 			return true, s.decodeArrayElementsV2(d, p, depth, from)
 		}
 		typ = d.typ
-	case *v2StringifiedPtrDecoder:
-		// the pointer, or the error of a pointer to a pointer, before the value
-		return s.decodeElementsV2(d.ptr, p, depth, from)
-	case *v2LegacyBytesDecoder:
+	case *v2FormatBytesWithLegacySemanticsDecoder:
 		if c == '[' {
 			return s.decodeElementsV2(d.elements, p, depth, from)
 		}
@@ -1316,7 +1313,7 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
 			// the value of the name is decoded into, but replaced with MergeWithLegacySemantics
-			if s.Option.V2&V2MergeLegacy == 0 {
+			if s.Option.V2&V2MergeWithLegacySemantics == 0 {
 				v.Elem().Set(old)
 			} else {
 				v.Elem().SetZero()
@@ -1357,7 +1354,7 @@ func (s *Stream) nextElementV2(idx int) (int64, bool, error) {
 // decodeSliceElementsV2 decodes the array at the cursor into the slice at p, as v2SliceDecoder.Decode does, after
 // from, the total offset of the end of the token before it.
 func (s *Stream) decodeSliceElementsV2(d *v2SliceDecoder, p unsafe.Pointer, depth, from int64) error {
-	if d.zero && (*sliceHeader)(p).cap > 0 && s.Option.V2&V2MergeLegacy == 0 {
+	if d.zero && (*sliceHeader)(p).cap > 0 && s.Option.V2&V2MergeWithLegacySemantics == 0 {
 		sv := valueAt(d.slicePtrType, p)
 		sv.Slice(0, sv.Cap()).Clear()
 	}
@@ -1500,7 +1497,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 	}
 	var lengthErr error
 	// an element is decoded into its zero value, but into the element with MergeWithLegacySemantics
-	zeroElems := s.Option.V2&V2MergeLegacy == 0
+	zeroElems := s.Option.V2&V2MergeWithLegacySemantics == 0
 	for idx := 0; ; idx++ {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil {
@@ -1509,11 +1506,9 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 		if !ok {
 			for ; idx < d.alen; idx++ {
 				d.elem.zero(unsafe.Add(p, uintptr(idx)*d.elem.size))
-				if s.Option.V2&V2ArrayAnyLength == 0 {
-					lengthErr = errArrayUnderflow
-				}
+				lengthErr = errArrayUnderflow
 			}
-			if lengthErr != nil {
+			if lengthErr != nil && s.Option.V2&V2UnmarshalArrayFromAnyLength == 0 {
 				// the error of the length is at the end of the array, which tells it
 				return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: s.cursor - 1, Err: lengthErr}, step)
 			}
@@ -1528,9 +1523,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 			err = s.decodeNestedV2(d.valueDecoder, ep, depth, step)
 		} else {
 			err = s.skipValueV2(depth, step)
-			if s.Option.V2&V2ArrayAnyLength == 0 {
-				lengthErr = errArrayOverflow
-			}
+			lengthErr = errArrayOverflow
 		}
 		if err != nil {
 			return err
@@ -1544,7 +1537,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 // having read nothing, for a value which is read whole.
 func (s *Stream) decodeInterfaceElementsV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth, from int64) (bool, error) {
 	ctx := s.ctx
-	if (*[2]unsafe.Pointer)(p)[0] != nil && s.Option.V2&V2MergeLegacy != 0 && !d.holdsPointer(p) {
+	if (*[2]unsafe.Pointer)(p)[0] != nil && s.Option.V2&V2MergeWithLegacySemantics != 0 && !d.holdsPointer(p) {
 		// MergeWithLegacySemantics decodes into a pointer which the interface value holds only
 		*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
 	}
@@ -1817,7 +1810,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		// decodes a name of an object twice into its first value ( see v2InterfaceDecoder.Decode ), but with
 		// MergeWithLegacySemantics, which replaces it
 		var value any
-		if s.Option.V2&V2MergeLegacy == 0 {
+		if s.Option.V2&V2MergeWithLegacySemantics == 0 {
 			value = m[name]
 		}
 		err = s.decodeNestedV2(d, unsafe.Pointer(&value), depth, nameEnd)

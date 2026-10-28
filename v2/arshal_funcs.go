@@ -98,9 +98,9 @@ func MarshalToFunc[T any](fn func(*jsontext.Encoder, T) error) *Marshalers {
 
 // funcErrorType returns the type of the error of a function of marshaling of the type t, which is given a value of the
 // type from: t, as encoding/json/v2 reports it, or from, of which encoding/json reports the pointer with
-// ReportErrorsWithLegacySemantics ( see legacyMarshalError ).
+// ReportErrorsWithLegacySemantics ( see v1MarshalError ).
 func funcErrorType(ctx *encoder.RuntimeContext, t, from reflect.Type) reflect.Type {
-	if ctx.Option.Flag&encoder.ReportErrorsLegacyOption != 0 {
+	if ctx.Option.Flag&encoder.ReportErrorsWithLegacySemanticsOption != 0 {
 		return from
 	}
 	return t

@@ -69,10 +69,12 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		switch {
 		case code != nil:
 			return code, true
-		case !applies && isDefault:
-			return c.appendFuncCode(typ, appendWithoutStringTag(typ, c.v2DefaultAfter, addressable)), true
 		case !applies:
-			return c.appendFuncCode(typ, appendWithoutStringTag(typ, allMethods, addressable)), true
+			after := allMethods
+			if isDefault {
+				after = c.v2DefaultAfter
+			}
+			return c.appendFuncCode(typ, appendWithoutStringTag(typ, after, addressable)), true
 		}
 	}
 	switch {
@@ -85,7 +87,7 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		}
 	}
 	switch {
-	case typ == timeDurationType && c.legacy&modeDurationAsNano == 0:
+	case typ == timeDurationType && c.v1Options&modeFormatDurationAsNano == 0:
 		// a time.Duration has no representation, but its nanoseconds as an int64 with FormatDurationAsNano, which
 		// its kind gives
 		return c.appendFuncCode(typ, appendError(typ, errNoDuration)), true
@@ -97,11 +99,14 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 	}
 	switch typ.Kind() {
 	case reflect.Interface:
-		if m := v2MethodOfInterface(typ); m != noMethod && c.legacy&modeCallMethodsLegacy != 0 {
-			return c.appendFuncCode(typ, appendLegacyInterface(typ, m)), true
+		if c.v1Options&modeCallMethodsWithLegacySemantics == 0 {
+			break
+		}
+		if m := v2MethodOfInterface(typ); m != noMethod {
+			return c.appendFuncCode(typ, appendV1Interface(typ, m)), true
 		}
 	case reflect.Struct:
-		if fields := v2FieldsOf(typ); fields.Err != nil && c.legacy&modeReportErrorsLegacy == 0 {
+		if fields := v2FieldsOf(typ); fields.Err != nil && c.v1Options&modeReportErrorsWithLegacySemantics == 0 {
 			// with ReportErrorsWithLegacySemantics, the members which jsonfields found are written, as encoding/json
 			// writes them
 			return c.appendFuncCode(typ, appendError(fields.Err.GoType, fields.Err.Err)), true
@@ -114,7 +119,8 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		return c.appendFuncCode(typ, appendError(typ, nil)), true
 	case reflect.Slice:
 		if elem := typ.Elem(); elem.Kind() == reflect.Uint8 && elem.PkgPath() != "" {
-			if !v2BytesAsArray(typ, c.legacy&modeByteArrayAsArray != 0, c.legacy&modeBytesLegacy != 0) {
+			if !v2BytesAsArray(typ, c.v1Options&modeFormatByteArrayAsArray != 0,
+				c.v1Options&modeFormatBytesWithLegacySemantics != 0) {
 				// the base64 of its bytes, as of a []byte, with FormatBytesWithLegacySemantics
 				code, _ := c.bytesCode(typ, false)
 				return code, true
@@ -128,8 +134,8 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 			return code, true
 		}
 	case reflect.Array:
-		if typ.Elem().Kind() == reflect.Uint8 &&
-			!v2BytesAsArray(typ, c.legacy&modeByteArrayAsArray != 0, c.legacy&modeBytesLegacy != 0) {
+		if typ.Elem().Kind() == reflect.Uint8 && !v2BytesAsArray(typ, c.v1Options&modeFormatByteArrayAsArray != 0,
+			c.v1Options&modeFormatBytesWithLegacySemantics != 0) {
 			n := typ.Len()
 			return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 				return AppendByteSlice(ctx, b, unsafe.Slice((*byte)(p), n)), nil
@@ -140,7 +146,7 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 		// which is not addressable: a value which a method writes is written by the code of the value of the
 		// pointer, addressable, which is the code of the method.
 		if kind := typ.Elem().Kind(); (kind == reflect.Map || kind == reflect.Slice) &&
-			(c.legacy&modeCallMethodsLegacy == 0 || !c.v2HasMethod(typ.Elem())) {
+			(c.v1Options&modeCallMethodsWithLegacySemantics == 0 || !c.v2HasMethod(typ.Elem())) {
 			// A nil map or slice is {} or [], and a nil pointer is null: the opcodes of a map or a slice which a
 			// pointer is followed to can't tell the one from the other, so the value is encoded by the opcodes
 			// of its type, as a value of interface{} is, after the pointer.
@@ -154,7 +160,7 @@ func (c *Compiler) v2Code(typ reflect.Type, addressable bool) (Code, bool) {
 // rather than as the base64 string of its bytes, by the options of encoding/json which say it: a [N]byte with
 // FormatByteArrayAsArray, and a slice or an array of a named byte type, but with FormatBytesWithLegacySemantics for
 // one of a type which has no method of marshaling.
-func v2BytesAsArray(typ reflect.Type, byteArrayAsArray, legacyBytes bool) bool {
+func v2BytesAsArray(typ reflect.Type, byteArrayAsArray, formatBytesWithLegacySemantics bool) bool {
 	elem := typ.Elem()
 	switch {
 	case typ.Kind() == reflect.Array && byteArrayAsArray:
@@ -162,7 +168,7 @@ func v2BytesAsArray(typ reflect.Type, byteArrayAsArray, legacyBytes bool) bool {
 	case elem.PkgPath() == "":
 		return false
 	}
-	return !legacyBytes || v2MethodOf(elem, noMethod) != noMethod
+	return !formatBytesWithLegacySemantics || v2MethodOf(elem, noMethod) != noMethod
 }
 
 // appendFuncCode returns the code which writes a value of typ by fn, which is given the address of the value, as
@@ -288,14 +294,16 @@ func (c *Compiler) v2HiddenNames(typ reflect.Type, path []int) []string {
 var errInvalidStringTag = errors.New("invalid use of `string` tag option")
 
 // v2FieldValueCode returns the code of the value of a field of the v2 semantics, addressable if the struct is, and
-// true, if the options of its tag make it differ from the code of its type: a value which the `string` option doesn't
-// apply to fails. The options of the field are changed for its opcodes.
+// true, if the options of its tag make it differ from the code of its type. The options of the field are changed for
+// its opcodes: the `string` option is kept for a number, which the opcodes of its type write in a string, and dropped
+// for any other value, which the code of the option writes ( see stringTagCode ), or the code of its type if the
+// option doesn't apply to it.
 func (c *Compiler) v2FieldValueCode(field *StructFieldCode, addressable bool) (Code, bool) {
 	tag := *field.tag
 	field.tag = &tag
 	// with OmitEmptyWithLegacySemantics, the value is omitted if it is false, 0, nil or of no length, as v1 omits it,
 	// which the opcodes of omitempty decide by the kind of the field ( see emptyKindOf ), before it is written.
-	if tag.IsOmitEmpty && c.legacy&modeOmitEmptyLegacy == 0 {
+	if tag.IsOmitEmpty && c.v1Options&modeOmitEmptyWithLegacySemantics == 0 {
 		// the value is omitted if it would be null, "", {} or []: some kinds are known to be empty or not by the
 		// value ( the check of omitempty of v1 ), the others by what they write ( unwriteEmpty ).
 		switch kind := field.typ.Kind(); {
@@ -333,16 +341,11 @@ func (c *Compiler) v2FieldValueCode(field *StructFieldCode, addressable bool) (C
 		return nil, false
 	}
 	code, applies := c.stringTagCode(field.typ, addressable)
-	if !applies {
-		// the option is dropped, as encoding/json drops it with ReportErrorsWithLegacySemantics
-		tag.IsString = false
+	if applies && code == nil {
 		return nil, false
 	}
-	if code == nil {
-		return nil, false // a number, which is written in a string
-	}
 	tag.IsString = false
-	return code, true
+	return code, code != nil
 }
 
 // stringTagCode returns the code of a value of typ of the `string` option, addressable or not, as encoding/json/v2
@@ -367,12 +370,13 @@ func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) (Code, bool
 		elem = elem.Elem()
 		ptrNum++
 	}
-	stringify, reportErrors := c.legacy&modeStringifyLegacy != 0, c.legacy&modeReportErrorsLegacy != 0
+	stringify := c.v1Options&modeStringifyWithLegacySemantics != 0
+	reportErrors := c.v1Options&modeReportErrorsWithLegacySemantics != 0
 	// the value which a pointer points to is addressable
 	addressable = addressable || ptrNum > 0
 	// with StringifyWithLegacySemantics, a pointer to a pointer, as a pointer of a cycle of pointers is, which no
-	// function of the type of the field writes, whatever functions its pointers have, as encoding/json/v2 reads the type
-	// of the field
+	// function of the type of the field writes, whatever functions its pointers have, as encoding/json/v2 reads the
+	// type of the field
 	ptrToPtr := typ.Kind() == reflect.Ptr && typ.Elem().Kind() == reflect.Ptr && !c.v2HasMethod(typ)
 	var code Code
 	switch {
@@ -380,7 +384,8 @@ func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) (Code, bool
 		return nil, false
 	case stringify && ptrToPtr:
 		return c.appendFuncCode(typ, appendError(typ, errInvalidStringTag)), true
-	case c.v2HasMethodAt(elem, addressable) && elem != timeTimeType:
+	case c.v2HasMethodAt(elem, addressable) && elem != timeTimeType,
+		reportErrors && !stringify && elem.Kind() == reflect.Interface:
 		if c.stringTag {
 			return nil, true
 		}
@@ -389,11 +394,10 @@ func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) (Code, bool
 		// a pointer of a cycle of pointers, which the walk came back to: the option doesn't apply to it, as
 		// encoding/json/v2 writes null at the end of the pointers
 		return nil, false
-	case isNumberKind(elem.Kind()) && (elem != timeDurationType || c.legacy&modeDurationAsNano != 0) ||
-		elem == jsonNumberType:
-		return nil, true
-	case elem == timeDurationType:
+	case elem == timeDurationType && c.v1Options&modeFormatDurationAsNano == 0:
 		code = c.appendFuncCode(elem, appendError(elem, errNoDuration))
+	case isNumberKind(elem.Kind()) || elem == jsonNumberType:
+		return nil, true
 	case stringify && elem.Kind() == reflect.Bool:
 		code = c.appendFuncCode(elem, appendStringifiedBool)
 	case stringify && elem.Kind() == reflect.String:
@@ -401,12 +405,6 @@ func (c *Compiler) stringTagCode(typ reflect.Type, addressable bool) (Code, bool
 	case hasNoRepresentation(elem.Kind()):
 		// the error of the type, which has no representation whatever its options are
 		code = c.appendFuncCode(elem, appendError(elem, nil))
-	case reportErrors && elem.Kind() == reflect.Interface && !stringify:
-		// the option of the value it holds: the code of the interface in the compile mode of the option writes it
-		if c.stringTag {
-			return nil, true
-		}
-		code = c.appendFuncCode(elem, appendStringTag(elem, addressable))
 	case reportErrors:
 		return nil, false
 	default:
@@ -440,7 +438,8 @@ func appendStringifiedString(typ reflect.Type) AppendFunc {
 				return b, &ierrors.SemanticError{GoType: typ, Err: err}
 			}
 		}
-		out, _ := jsonstring.AppendQuoted(jsonstring.EscaperOf(uint(TextEscapeOption)), b, string(quoted))
+		ctx.MarshalBuf = quoted[:0]
+		out, _ := jsonstring.AppendQuoted(jsonstring.EscaperOf(uint(TextEscapeOption)), b, *(*string)(unsafe.Pointer(&quoted)))
 		return out, nil
 	}
 }

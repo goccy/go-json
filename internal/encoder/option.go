@@ -67,32 +67,36 @@ const (
 	RawRewriteOption
 	// The options of the semantics of encoding/json which the v2 json package applies when marshaling ( see the
 	// options of the root package ), in the order of their properties in internal/options, from
-	// CallMethodsWithLegacySemantics, so that they are copied at once.
-	CallMethodsLegacyOption
-	ByteArrayAsArrayOption
-	BytesLegacyOption
-	DurationAsNanoOption
-	ReportErrorsLegacyOption
-	StringifyLegacyOption
-	OmitEmptyLegacyOption
-	// CaseSensitiveDelimiterOption restricts the case-insensitive matching of the names of an embedded fallback
+	// MatchCaseSensitiveDelimiter, so that they are copied at once ( see optionFlags of the v2 json package ). The
+	// ones from CallMethodsWithLegacySemanticsOption change the opcodes of a type ( see v1OpcodeOptions ).
+	//
+	// MatchCaseSensitiveDelimiterOption restricts the case-insensitive matching of the names of an embedded fallback
 	// ( by MatchCaseInsensitiveNamesOption or case:ignore ) to strings.EqualFold: an underscore or a dash is not
 	// ignored.
-	CaseSensitiveDelimiterOption
+	MatchCaseSensitiveDelimiterOption
+	CallMethodsWithLegacySemanticsOption
+	FormatByteArrayAsArrayOption
+	FormatBytesWithLegacySemanticsOption
+	FormatDurationAsNanoOption
+	ReportErrorsWithLegacySemanticsOption
+	StringifyWithLegacySemanticsOption
+	OmitEmptyWithLegacySemanticsOption
 )
 
 // UncachedOption are the options whose opcodes are not the ones of the tables shared by every goroutine: the ones
 // of recentUncachedOption, and the options of encoding/json which change the opcodes of a type, whose opcodes are
-// kept apart ( see legacyModes ).
-const UncachedOption = recentUncachedOption | legacyOpcodeOptions
+// kept apart ( see v1OptionModes ).
+const UncachedOption = recentUncachedOption | v1OpcodeOptions
 
 // recentUncachedOption are the options whose opcodes are not the recent opcodes of a context either: a context which
 // may filter the fields, and the functions of marshaling. The recent opcodes of a context are the ones of its
 // options of encoding/json ( see SetFlags ).
 const recentUncachedOption = ContextOption | MarshalFuncsOption
 
-// legacyOpcodeOptions are the options of encoding/json which change the opcodes of a type ( see legacyModes ).
-const legacyOpcodeOptions = OmitEmptyLegacyOption<<1 - CallMethodsLegacyOption
+// v1OpcodeOptions are the options of encoding/json which change the opcodes of a type ( see v1OptionModes ): the flags
+// from CallMethodsWithLegacySemanticsOption to OmitEmptyWithLegacySemanticsOption, which the flag after the last one
+// less the first one sets.
+const v1OpcodeOptions = OmitEmptyWithLegacySemanticsOption<<1 - CallMethodsWithLegacySemanticsOption
 
 // NilMapIsEmpty is whether a nil map is written as an empty JSON object, as encoding/json/v2 does unless
 // FormatNilMapAsNull, or as null.

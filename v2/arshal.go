@@ -484,25 +484,19 @@ func optionFlags(c *options.Config) encoder.OptionFlag {
 		flags |= encoder.RawRewriteOption
 	}
 	// the options of encoding/json which change the marshaling, copied at once, as their flags are in the same order
-	flags |= encoder.OptionFlag(c.Value&legacyMarshaling/options.CallMethodsWithLegacySemantics) *
-		encoder.CallMethodsLegacyOption
-	if c.Has(options.MatchCaseSensitiveDelimiter) {
-		flags |= encoder.CaseSensitiveDelimiterOption
-	}
+	flags |= encoder.OptionFlag(c.Value&v1MarshalOptions/options.MatchCaseSensitiveDelimiter) *
+		encoder.MatchCaseSensitiveDelimiterOption
 	return flags
 }
 
-// legacyMarshaling are the options of encoding/json which change the marshaling but the matching of the names of a
-// fallback, which are adjacent properties, from CallMethodsWithLegacySemantics, in the order of their flags in the
-// encoder.
-const legacyMarshaling = options.CallMethodsWithLegacySemantics | options.FormatByteArrayAsArray |
-	options.FormatBytesWithLegacySemantics | options.FormatDurationAsNano | options.ReportErrorsWithLegacySemantics |
-	options.StringifyWithLegacySemantics | options.OmitEmptyWithLegacySemantics
+// v1MarshalOptions are the options of encoding/json which change the marshaling, MatchCaseSensitiveDelimiter by the
+// matching of the names of a fallback, which are adjacent properties, from MatchCaseSensitiveDelimiter, in the order of
+// their flags in the encoder.
+const v1MarshalOptions = options.MatchCaseSensitiveDelimiter | options.CallMethodsWithLegacySemantics |
+	options.FormatByteArrayAsArray | options.FormatBytesWithLegacySemantics | options.FormatDurationAsNano |
+	options.ReportErrorsWithLegacySemantics | options.StringifyWithLegacySemantics | options.OmitEmptyWithLegacySemantics
 
-// the last of the options is as far from the first as its flag is: both are made by iota.
-const (
-	_ = uint(options.OmitEmptyWithLegacySemantics/options.CallMethodsWithLegacySemantics -
-		options.Flags(encoder.OmitEmptyLegacyOption/encoder.CallMethodsLegacyOption))
-	_ = uint(options.Flags(encoder.OmitEmptyLegacyOption/encoder.CallMethodsLegacyOption) -
-		options.OmitEmptyWithLegacySemantics/options.CallMethodsWithLegacySemantics)
-)
+// the last of the options is as far from the first as its flag is, as both are made by iota in the same order: the
+// length of the array type is 0 then, and it is another type, or a negative constant, otherwise.
+var _ [0]struct{} = [options.OmitEmptyWithLegacySemantics/options.MatchCaseSensitiveDelimiter -
+	options.Flags(encoder.OmitEmptyWithLegacySemanticsOption/encoder.MatchCaseSensitiveDelimiterOption)]struct{}{}

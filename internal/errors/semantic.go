@@ -151,7 +151,8 @@ const (
 	// UnmarshalByKind is an error of the value of its kind, which no method read.
 	UnmarshalByKind UnmarshalMethod = iota
 	// UnmarshalJSONMethod is an error of UnmarshalJSON or of a function of UnmarshalFunc: a SemanticError it returns
-	// is within the value, after the place of the value.
+	// is within the value, after the place of the value. With ReportErrorsWithLegacySemantics, it is also the error of
+	// UnmarshalJSONFrom or of a function of UnmarshalFromFunc, which encoding/json returns as it is.
 	UnmarshalJSONMethod
 	// UnmarshalTextMethod is an error of UnmarshalText or of the time.Time of a string: a SemanticError or a
 	// SyntacticError it returns is reported as it is.

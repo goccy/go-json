@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goccy/go-json/internal/decoder"
 	"github.com/goccy/go-json/internal/encoder"
+	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/jsontext"
 )
 
@@ -20,6 +22,21 @@ type stackReader struct{}
 func (stackReader) MarshalJSONTo(e *jsontext.Encoder) error {
 	_ = e.StackPointer()
 	return e.WriteToken(jsontext.Int(1))
+}
+
+// UnmarshalRead with ReportErrorsWithLegacySemantics, which reads its input whole, keeps none of it in the stream,
+// which the pool keeps.
+func TestUnmarshalReadKeepsNoInput(t *testing.T) {
+	in := "[" + strings.Repeat("1,", 1000) + "1]"
+	var v []int8
+	if err := UnmarshalRead(strings.NewReader(in), &v, options.BoolOf(options.ReportErrorsWithLegacySemantics, true)); err != nil {
+		t.Fatal(err)
+	}
+	s := decoder.TakeStreamV2(strings.NewReader(""))
+	defer decoder.ReleaseStreamV2(s)
+	if buf := s.Context().Buf; buf != nil {
+		t.Fatalf("the stream keeps an input of %d bytes", len(buf))
+	}
 }
 
 // The state of a call of MarshalEncode keeps nothing of the output of its encoder for the pool: the names of the

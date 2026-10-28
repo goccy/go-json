@@ -149,6 +149,9 @@ func ReportErrorsWithLegacySemantics(v bool) Options {
 //   - When unmarshaling, a number in a JSON string is read by the syntax of Go numbers, of which the JSON numbers
 //     are a part, and a JSON string of null is a JSON null.
 //
+// If ReportErrorsWithLegacySemantics is false, the string option of a value which it doesn't apply to is an error,
+// rather than ignored.
+//
 // This affects marshaling and unmarshaling. It is true by default in this package.
 func StringifyWithLegacySemantics(v bool) Options {
 	return options.BoolOf(options.StringifyWithLegacySemantics, v)

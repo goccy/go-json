@@ -67,8 +67,8 @@ const v1DecoderOptions = V2CallMethodsWithLegacySemantics | V2FormatByteArrayAsA
 	V2StringifyWithLegacySemantics
 
 // flagsKey is what the decoders of a type for options are cached by in a sync.Map: the type, and the options of
-// v1DecoderOptions, with V2StringifyNumbers. The decoders of the options of encoding/json ( see v1OptionDecoders ) and
-// the ones of the functions of unmarshaling ( see UnmarshalFuncs ) are.
+// v1DecoderOptions, with V2StringifyNumbers: the decoders of the options of encoding/json ( see v1OptionDecoders ) and
+// the ones of the functions of unmarshaling ( see UnmarshalFuncs ).
 type flagsKey struct {
 	typeptr uintptr
 	flags   V2Flags

@@ -112,6 +112,8 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 	cfg := &noOptions
 	if len(opts) > 0 {
 		cfg = beginCallOf(ctx, opts)
+		// a call of its own, which ends here, so that a call without options, which most calls are, doesn't test the
+		// option
 		if cfg.Has(options.ReportErrorsWithLegacySemantics) {
 			err := unmarshalWithV1Errors(ctx, buf, nil, e.typ, e.ptr, cfg)
 			endCall(ctx)
@@ -395,11 +397,13 @@ func unmarshalWithV1Errors(ctx *decoder.RuntimeContext, buf []byte, s *decoder.S
 		return v1OutputError(err)
 	}
 	if s != nil {
-		in, err := s.ReadAllV2()
-		if err != nil {
+		var err error
+		if buf, err = s.ReadAllV2(); err != nil {
 			return err
 		}
-		buf = ctx.SetInput(in)
+		// decoded where it was read, without a copy into the context, which keeps none of it after the call
+		decoder.SetBuf(ctx, buf)
+		defer decoder.SetBuf(ctx, nil)
 	}
 	if err := v1InputError(buf[:len(buf)-1], cfg); err != nil {
 		return err
@@ -462,13 +466,17 @@ func v1InputError(in []byte, cfg *options.Config) error {
 // v1FatalError returns err, an error which the decoding stops at with ReportErrorsWithLegacySemantics, of the input
 // at the offset base of the whole input, as encoding/json reports it: a name which another member has, which
 // encoding/json/v2 reports as a syntax error at the name, a syntax error or an error of the reader which a method or a
-// function returned, of which the error of the reader is returned as it is.
+// function returned, of which the error of the reader is returned as it is, also within a token, which jsontext
+// reports as the syntax error of the token.
 func v1FatalError(err error, base int64) error {
 	if e, ok := err.(*ierrors.UnmarshalError); ok {
 		if e.Err == ierrors.ErrDuplicateName {
 			return ierrors.ErrSyntax(e.Err.Error(), base+e.Start)
 		}
 		err = e.Err
+	}
+	if serr, ok := err.(*jsontext.SyntacticError); ok && textcoder.IsIOError(serr.Err) {
+		err = serr.Err
 	}
 	if textcoder.IsIOError(err) {
 		return errors.Unwrap(err)

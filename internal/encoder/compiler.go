@@ -97,8 +97,9 @@ func (c *RuntimeContext) compileMode() compileMode {
 }
 
 // codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type plus the
-// compile mode. A type descriptor is larger than the number of the modes, so the key of a type in a mode is not
-// the key of another type in any mode.
+// compile mode without the options of encoding/json, which the recent opcodes are emptied for when they change ( see
+// SetFlags ). A type descriptor is larger than the number of the modes, so the key of a type in a mode is not the key
+// of another type in any mode.
 func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 	return typeptr + uintptr(c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1))
 }
@@ -125,9 +126,9 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 }
 
 // SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context, of its compile
-// mode. Its opcodes are not
-// filtered by a field query: a context which may filter the fields ( ContextOption ) is left to
-// CompileToGetCodeSet, which filters them, and the callers look at this table only for the other contexts.
+// mode. Its opcodes are not filtered by a field query, nor of the options of encoding/json, which have no such table:
+// a context of them ( see UncachedOption ) is left to CompileToGetCodeSet, and the callers look at this table only
+// for the other contexts.
 //
 // Which types share a set of the recent opcodes depends on where the binary has them, and three types of a set
 // encoded by turns, as the values of a map[string]interface{} are, evict each other. The VM looks such a type up in

@@ -3,6 +3,7 @@ package json_test
 import (
 	stdjsonv1 "encoding/json"
 	"errors"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -187,6 +188,13 @@ func TestUnmarshalReportErrorsWithLegacySemantics(t *testing.T) {
 		if err := json.UnmarshalRead(in, out, reportErrors); !errors.As(err, &nilErr) {
 			t.Errorf("UnmarshalRead of a failing reader into %T: got %v, want an InvalidUnmarshalError", out, err)
 		}
+	}
+	// the error of the reader within a token is returned as it is, as encoding/json returns it
+	errRead := errors.New("read failed")
+	var elems []int
+	dec := jsontext.NewDecoder(io.MultiReader(strings.NewReader(`[1,2`), iotest.ErrReader(errRead)))
+	if err := json.UnmarshalDecode(dec, &elems, reportErrors); err != errRead {
+		t.Errorf("UnmarshalDecode of a reader which fails within a number: got %v, want %v", err, errRead)
 	}
 	for _, u := range unmarshalFuncs {
 		unmarshal := func(in string, out any, opts ...json.Options) error {

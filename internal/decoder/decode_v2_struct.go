@@ -47,7 +47,8 @@ type v2StructDecoder struct {
 	// fields of the `case:ignore` option match a name so, and with it all but the ones of `case:strict` do; with
 	// V2MatchCaseSensitiveDelimiter, only the ones of the name but for the case do, as strings.EqualFold compares
 	// names, which v1 finds a name by ( see appendFoldedKey ). It is nil where no field matches the name, and
-	// ambiguousField where several do. A name is of the folded name of the field which v1 finds for it, or which
+	// ambiguousField where several do, but the first of them in the breadth-first order of the fields with
+	// V2ReportErrorsWithLegacySemantics, as encoding/json chooses it. A name is of the folded name of the field which v1 finds for it, or which
 	// foldKeys finds for it without its '_' and '-' ( see foldKey ), but with V2MatchCaseSensitiveDelimiter. foldKeys
 	// is a table as v1's of the names of the fields without their '_' and '-', v1's own if no name of a field has them.
 	// foldAlways is whether a field matches by its `case:ignore` option, without V2MatchCaseInsensitiveNames.
@@ -808,7 +809,7 @@ func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start i
 // memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was:
 // candidate is the field which v1 finds, exactly or by its folded name, which is the field if the name is its name
 // as it is. Any other name matches the field which its folded name matches ( see foldedTo ), but a name which
-// several fields match so is an error. A name of a byte which is not ASCII or of an escape must have the text which
+// several fields match so is an error, without V2ReportErrorsWithLegacySemantics. A name of a byte which is not ASCII or of an escape must have the text which
 // v2 allows.
 func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate *structFieldSet) (*structFieldSet, []byte, error) {
 	name := quoted[1 : len(quoted)-1]
@@ -848,7 +849,7 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 	}
 	if match == ambiguousField {
 		// a name which several fields match by its folded name is an error, as in encoding/json/v2, whatever their
-		// order
+		// order, without V2ReportErrorsWithLegacySemantics ( see foldedTo )
 		return nil, nil, &errors.UnmarshalError{GoType: d.typ, Err: errors.ErrAmbiguousName}
 	}
 	return match, name, nil

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"math/bits"
+	"slices"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -76,10 +77,15 @@ type Stream struct {
 	elements *bracketIndex
 }
 
-// ReadAllV2 returns the whole input of the stream, which has read nothing yet, up to the end of its reader, and the
-// error of the reader if it fails.
+// ReadAllV2 returns the whole input of the stream, which has read nothing yet, up to the end of its reader, followed
+// by a nul byte and the padding which the decoders may read after it ( see SetInput ), or the error of the reader if it
+// fails.
 func (s *Stream) ReadAllV2() ([]byte, error) {
-	return io.ReadAll(s.r)
+	in, err := io.ReadAll(s.r)
+	if err != nil {
+		return nil, err
+	}
+	return append(slices.Grow(in, 1+inputPadding), nul), nil
 }
 
 func NewStream(r io.Reader) *Stream {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"math/bits"
+	"slices"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -74,6 +75,17 @@ type Stream struct {
 	// lookups extend ( see indexAt ), made for the first such value and kept for the next ones, which allocate its
 	// entries no more, and the buffer which is reused ( see bracketIndex.buf ). It is nil until a value is decoded so.
 	elements *bracketIndex
+}
+
+// ReadAllV2 returns the whole input of the stream, which has read nothing yet, up to the end of its reader, followed
+// by a nul byte and the padding which the decoders may read after it ( see SetInput ), or the error of the reader if it
+// fails.
+func (s *Stream) ReadAllV2() ([]byte, error) {
+	in, err := io.ReadAll(s.r)
+	if err != nil {
+		return nil, err
+	}
+	return append(slices.Grow(in, 1+inputPadding), nul), nil
 }
 
 func NewStream(r io.Reader) *Stream {
@@ -709,7 +721,7 @@ func (s *Stream) typeError(typ unsafe.Pointer, end int64) error {
 	saved := s.buf[end]
 	s.buf[end] = nul
 	ctx.Buf = s.buf[:end+1]
-	err := ctx.TypeError(runtime.TypeOfPtr(typ), start, start)
+	err := ctx.TypeError(runtime.TypeOfPtr(typ), start, start, nil)
 	ctx.Buf = nil
 	s.buf[end] = saved
 	return err

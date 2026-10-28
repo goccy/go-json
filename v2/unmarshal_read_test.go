@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	gojson "github.com/goccy/go-json"
 	"github.com/goccy/go-json/jsontext"
 	json "github.com/goccy/go-json/v2"
 )
@@ -114,6 +115,10 @@ func TestUnmarshalReadMemory(t *testing.T) {
 		{"skipped", `{"skip":` + readRecords + `,"name":"x"}`, func() any { return new(struct{ Name string }) }, nil},
 		// the names of no field, which are checked for duplicates by sets of their names unless the option is set
 		{"skipped members", readRecords, func() any { return new([]struct{}) }, []json.Options{jsontext.AllowDuplicateNames(true)}},
+		// a JSON array read into bytes with FormatBytesWithLegacySemantics, whose elements past the length are skipped,
+		// as long as the records
+		{"bytes of a JSON array", `{"A":[` + strings.Repeat("1,", len(readRecords)/len("1,")) + `1]}`, func() any { return new(struct{ A [2]byte }) },
+			[]json.Options{gojson.FormatBytesWithLegacySemantics(true), gojson.UnmarshalArrayFromAnyLength(true)}},
 		{"counted by a method", `{"records":` + readRecords + `}`, func() any { return new(struct{ Records readCounter }) }, nil},
 		{"counted by a method through a pointer", `{"records":` + readRecords + `}`, func() any {
 			return new(struct{ Records *readCounter })
@@ -121,6 +126,13 @@ func TestUnmarshalReadMemory(t *testing.T) {
 		{"counted by a method of a number through a pointer", `{"records":` + readRecords + `}`, func() any {
 			return new(struct{ Records *readCount })
 		}, nil},
+		// a pointer of the `string` option, whose value the decoder of the pointer decodes, with
+		// StringifyWithLegacySemantics
+		{"counted by a method through a pointer of the string option", `{"records":` + readRecords + `}`, func() any {
+			return new(struct {
+				Records *readCounter `json:"records,string"`
+			})
+		}, []json.Options{gojson.StringifyWithLegacySemantics(true)}},
 	} {
 		// the type is compiled before, which is cached
 		if err := json.UnmarshalRead(strings.NewReader(c.in), c.newValue(), c.opts...); err != nil {

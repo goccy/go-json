@@ -19,8 +19,3 @@ from encoding/json/v2's, for every size of the reads of the reader (1, 7 and 512
   `"b"` within `/A/w` in go-json, which the method allows, and of `"c"` within `/V` in encoding/json/v2. The input
   is read again for the place of the error by the options of the call around the method. Found on master on
   2026-10-24 by the tests of the skippers of the values of no field.
-- The text which the error of a lone surrogate in the name of a member quotes: `UnmarshalDecode` of an element of
-  an array, after the `[` was read with `ReadToken`, and of each line of the input, of `{"\ud800":1}` into
-  `struct{ X, Y int }`, quotes `\ud800":1}` in go-json and the input after it too in encoding/json/v2
-  (`\ud800":1}]`, or up to the next line); the offset and the pointer are the same. A string value of a lone
-  surrogate quotes the same text in both. Found on master on 2026-10-24 by the tests of the decoding of fields.

@@ -9,6 +9,8 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
+	ierrors "github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/internal/textcoder"
 	"github.com/goccy/go-json/jsontext"
 )
@@ -23,6 +25,7 @@ func init() {
 		m, _ := reflect.NewAt(typ, p).Interface().(UnmarshalerFrom)
 		return unmarshalFrom(ctx, cursor, depth, typ, fromMethod{m})
 	}
+	decoder.V2Hooks.AppendUnquote = jsontext.AppendUnquote[string]
 	decoder.V2Hooks.SkipStreamValue = func(s *decoder.Stream, depth int64) error {
 		_, err := unmarshalFrom(s.Context(), 0, depth, nil, fromSkip{})
 		return err
@@ -183,9 +186,13 @@ func unmarshalFrom[C fromCall](ctx *decoder.RuntimeContext, cursor, depth int64,
 		}
 		err = errUnsupportedMutation
 	}
-	if _, ok := err.(*jsontext.SyntacticError); ok || textcoder.IsReadError(err) {
+	if _, ok := err.(*jsontext.SyntacticError); ok || textcoder.IsIOError(err) {
 		// a syntax error and an error of the reader, which are not wrapped, as encoding/json/v2 doesn't wrap them
 		return 0, err
+	}
+	if call.Config.Has(options.ReportErrorsWithLegacySemantics) {
+		// the error of the method, which encoding/json returns as it is, and decodes on after its value
+		return 0, &ierrors.UnmarshalError{GoType: typ, Start: cursor, Err: err, Method: ierrors.UnmarshalJSONMethod}
 	}
 	// the place of the error, where it stopped reading: the value if it read nothing, the value it read if it read
 	// one, and else the level it is in, after the last token it read.

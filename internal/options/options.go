@@ -52,7 +52,38 @@ const (
 	// option is given has it, by which MarshalEncode of the encoder encodes the value as such a value, as
 	// encoding/json/v2 has it, until an object or an array begins.
 	StringTag
+
+	maxArshalFlag
 )
+
+// The properties of marshaling and unmarshaling Go values by the semantics of encoding/json ( v1 ), which the options
+// of the root package set, as the ones of encoding/json do: the v2 json package applies each of them, alone or with
+// the others.
+const (
+	ParseBytesWithLooseRFC4648 Flags = maxArshalFlag << iota
+	ParseTimeWithLooseRFC3339
+	UnmarshalArrayFromAnyLength
+	MergeWithLegacySemantics
+	MatchCaseSensitiveDelimiter
+	CallMethodsWithLegacySemantics
+	FormatByteArrayAsArray
+	FormatBytesWithLegacySemantics
+	FormatDurationAsNano
+	ReportErrorsWithLegacySemantics
+	StringifyWithLegacySemantics
+	OmitEmptyWithLegacySemantics
+
+	maxV1OptionFlag
+)
+
+// V1OptionFlags are the properties of the semantics of encoding/json: the flags from ParseBytesWithLooseRFC4648 to
+// the last one, which the flag after it less the first one sets.
+const V1OptionFlags = maxV1OptionFlag - ParseBytesWithLooseRFC4648
+
+// DefaultV1Flags are the properties which DefaultOptionsV1 of the root package sets to true, and DefaultOptionsV2 of
+// the v2 json package to false: the ones whose defaults differ between encoding/json and encoding/json/v2.
+const DefaultV1Flags = AllowDuplicateNames | AllowInvalidUTF8 | EscapeForHTML | EscapeForJS | PreserveRawStrings |
+	Deterministic | FormatNilMapAsNull | FormatNilSliceAsNull | MatchCaseInsensitiveNames | V1OptionFlags
 
 // Config is the state of the options: the properties which were set, and their values.
 type Config struct {

@@ -9,6 +9,8 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/jsonsyntax"
+	"github.com/goccy/go-json/internal/textcoder"
 )
 
 // The type errors are the ones of encoding/json of Go 1.27, which is made of encoding/json/v2, on every version of
@@ -161,6 +163,175 @@ func (ctx *RuntimeContext) numberError(start, end int64, typ reflect.Type) (int6
 	return end, nil
 }
 
+// goOnAfter returns the position after the value at start, nested in depth objects and arrays, whose decoding failed
+// with err, which is skipped, with ReportErrorsWithLegacySemantics, which records the error and goes on after it, as
+// encoding/json does ( see RecordV1Error ). It returns err, which stops the decoding, without the option, and for
+// an error which stops it with the option too. The input is valid, as it is checked first with the option ( see
+// unmarshalWithV1Errors of the v2 json package ).
+func (ctx *RuntimeContext) goOnAfter(err error, start, depth int64) (int64, error) {
+	if ctx.Option.V2&V2ReportErrorsWithLegacySemantics == 0 || !ctx.RecordV1Error(err) {
+		return 0, err
+	}
+	return skipValue(ctx.Buf, start, depth)
+}
+
+// goOnDecoder returns dec, the decoder of the values of the elements of an array, of the fields of a struct or of the
+// values of a map, which goes on after a value whose decoding failed with ReportErrorsWithLegacySemantics, if the
+// decoders are compiled for it ( see v2GoOnDecoder ).
+func (c *compiler) goOnDecoder(dec Decoder) Decoder {
+	if c.v1Options&V2ReportErrorsWithLegacySemantics == 0 {
+		return dec
+	}
+	return &v2GoOnDecoder{dec: dec}
+}
+
+// v2GoOnDecoder decodes a value of an object or an array by dec, and goes on after it if its decoding fails, with
+// ReportErrorsWithLegacySemantics, which it is compiled for ( see goOnAfter ): the loops of the decoders of the
+// objects and the arrays, which call it, stop at an error as they do without the option, which they take no more time
+// for.
+type v2GoOnDecoder struct {
+	dec Decoder
+}
+
+func (d *v2GoOnDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
+	next, err := d.dec.Decode(ctx, cursor, depth, p)
+	if err != nil {
+		return ctx.goOnAfter(err, cursor, depth)
+	}
+	return next, nil
+}
+
+func (d *v2GoOnDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
+	return nil, 0, fmt.Errorf("json: v2 decoder does not support decode path")
+}
+
+// goOnAfterKey is goOnAfter for the key of the member of an object at start, whose decoding failed with err: it
+// returns the position after the value of the member, which is skipped with the key. It is not inlined into the loop
+// of the decoder of a map, which calls it for an error only.
+//
+//go:noinline
+func (ctx *RuntimeContext) goOnAfterKey(err error, start, depth int64) (int64, error) {
+	cursor, err := ctx.goOnAfter(err, start, depth)
+	if err != nil {
+		return 0, err
+	}
+	// the value after the colon
+	return skipValue(ctx.Buf, skipWhiteSpace(ctx.Buf, cursor)+1, depth)
+}
+
+// recordUnknownMember records the error of the member of no field of the name between start and end, decoded as name
+// if it is not nil, with RejectUnknownMembers and ReportErrorsWithLegacySemantics, if it is the first one:
+// encoding/json reports it with the name, as it is ( see unknownFieldError ), and decodes on.
+func (ctx *RuntimeContext) recordUnknownMember(start, end int64, name []byte) {
+	if ctx.typeError != nil {
+		return
+	}
+	if name == nil {
+		// the name between its quotes, which has no escape to decode
+		name = ctx.Buf[start+1 : end-1]
+	}
+	ctx.typeError = &pendingTypeError{plain: unknownFieldError(name)}
+}
+
+// RecordV1Error records err, an error of the decoding of a value with ReportErrorsWithLegacySemantics, as the
+// type error of encoding/json, if it is the first one, and reports whether the decoding goes on after it: the error
+// of a value which encoding/json/v2 reports as its SemanticError doesn't stop it, but a syntax error, an error of the
+// reader, a name which another member has, and a syntax error or an error of the reader which a method or a function
+// returned, do, as encoding/json stops at them.
+func (ctx *RuntimeContext) RecordV1Error(err error) bool {
+	e, ok := err.(*errors.UnmarshalError)
+	if !ok || e.Err == errors.ErrDuplicateName {
+		return false
+	}
+	if e.Method != errors.UnmarshalByKind {
+		if _, _, syntax := jsonsyntax.LegacyError(e.Err); syntax || textcoder.IsIOError(e.Err) {
+			return false
+		}
+	}
+	if ctx.typeError == nil {
+		ctx.typeError = ctx.v1TypeError(e)
+	}
+	return true
+}
+
+// v1TypeError returns e as the type error of encoding/json: an error of a method or a function, which it returns
+// as it is; an error before the value, at its start, of the kind of the value; an error of a number of the text of the
+// number ( "number 1.5" ), as of the string of a number of the `string` option, which has no cause; and the error of
+// any other value of its kind, after the value, or after the bracket of an object or an array. A cause which is a
+// syntax error is the SyntaxError of encoding/json.
+func (ctx *RuntimeContext) v1TypeError(e *errors.UnmarshalError) *pendingTypeError {
+	if isMethodError(e) {
+		return &pendingTypeError{start: e.Start, plain: methodCause(e)}
+	}
+	buf := ctx.Buf
+	p := &pendingTypeError{typ: e.GoType, start: e.Start, err: e.Err, kind: tokenKindOf(buf[e.Start])}
+	p.value = p.kind.String()
+	if msg, offset, ok := jsonsyntax.LegacyError(p.err); ok {
+		p.err = errors.ErrSyntax(msg, offset)
+	}
+	switch {
+	case e.NoKind:
+		p.atStart = true
+	case e.HasValue:
+		p.end = e.End
+		if e.GoType != nil && isNumberKind(e.GoType.Kind()) && (e.Err == strconv.ErrRange || e.Err == strconv.ErrSyntax) {
+			// the text of the number, without the quotes of a string of the `string` option
+			text := buf[e.Start:e.End]
+			if p.kind == stringValue {
+				text = unquotedName(text)
+			}
+			p.value, p.literal, p.err = "number "+string(text), true, nil
+		} else {
+			p.value += " " + string(buf[e.Start:e.End])
+		}
+	case p.kind != arrayValue && p.kind != objectValue:
+		p.end, _ = skipValue(buf, e.Start, 0)
+	}
+	if p.err == errNilInterface {
+		// which encoding/json reports with no cause
+		p.err = nil
+	}
+	return p
+}
+
+// tokenKindOf returns the kind of the value of the token which starts with c: an object or an array for the bracket
+// which ends it too, at which an error of the length of an array is.
+func tokenKindOf(c byte) jsonKind {
+	switch c {
+	case ']':
+		return arrayValue
+	case '}':
+		return objectValue
+	}
+	return kindOf(c)
+}
+
+// isMethodError reports whether e is the error which a method or a function of unmarshaling returned, which
+// encoding/json returns as it is: not the one of a value which UnmarshalText is given, which is not a string, nor
+// the one of a time.Time which is not a string.
+func isMethodError(e *errors.UnmarshalError) bool {
+	switch e.Method {
+	case errors.UnmarshalJSONMethod:
+		return true
+	case errors.UnmarshalTextMethod:
+		return e.Err != nil && e.Err != errNonStringValue
+	}
+	return false
+}
+
+// methodCause returns the error which a method or a function returned, of e: errors.ErrUnsupported, which UnmarshalJSON
+// and UnmarshalText must not return, is the error of the method, as encoding/json reports it.
+func methodCause(e *errors.UnmarshalError) error {
+	if !stderrors.Is(e.Err, stderrors.ErrUnsupported) {
+		return e.Err
+	}
+	name := "UnmarshalJSON"
+	if e.Method == errors.UnmarshalTextMethod {
+		name = "UnmarshalText"
+	}
+	return stderrors.New(name + " method may not return errors.ErrUnsupported")
+}
+
 // keyTypeError records the type error of the key of a map entry between start and end, the quotes of which are
 // included, which is not a number of typ: the error reports the key.
 func (ctx *RuntimeContext) keyTypeError(start, end int64, key []byte, typ reflect.Type) {
@@ -184,8 +355,9 @@ func (ctx *RuntimeContext) DiscardTypeError() {
 }
 
 // TypeError returns the first type error of the decoding of the value at base into a value of typ, or nil if the
-// decoding had none. Its offset is relative to offsetBase.
-func (ctx *RuntimeContext) TypeError(typ reflect.Type, base, offsetBase int64) error {
+// decoding had none. Its offset is relative to offsetBase. outer are the steps of the path to the value in the values
+// which it is in, which a decoder of jsontext read it in, unescaped, or nil.
+func (ctx *RuntimeContext) TypeError(typ reflect.Type, base, offsetBase int64, outer []string) error {
 	p := ctx.typeError
 	if p == nil {
 		return nil
@@ -194,7 +366,11 @@ func (ctx *RuntimeContext) TypeError(typ reflect.Type, base, offsetBase int64) e
 	if p.plain != nil {
 		return p.plain
 	}
-	return p.toError(typeErrorPath(ctx.Buf, base, p), typ, offsetBase)
+	path := typeErrorPath(ctx.Buf, base, p)
+	if outer != nil {
+		path = append(outer, path...)
+	}
+	return p.toError(path, typ, offsetBase)
 }
 
 // jsonPointerEscaper escapes a token of a JSON pointer ( RFC 6901 ).
@@ -261,6 +437,10 @@ func typeErrorPath(buf []byte, cursor int64, p *pendingTypeError) []string {
 				steps = append(steps, typeErrorStep{})
 				continue
 			}
+			if cursor == p.start {
+				// the error of the empty array, which ends here, as of its length
+				return typeErrorNames(buf, steps)
+			}
 			cursor++
 		default:
 			end, err := skipValue(buf, cursor, 0)
@@ -277,6 +457,10 @@ func typeErrorPath(buf []byte, cursor int64, p *pendingTypeError) []string {
 			cursor = skipWhiteSpace(buf, cursor)
 			step := &steps[len(steps)-1]
 			if c := buf[cursor]; c == '}' || c == ']' {
+				if cursor == p.start {
+					// the error of the object or the array which ends here, as of the length of an array
+					return typeErrorNames(buf, steps[:len(steps)-1])
+				}
 				steps = steps[:len(steps)-1]
 				cursor++
 				continue

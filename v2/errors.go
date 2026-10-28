@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	ierrors "github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/jsonsyntax"
+	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/jsontext"
 )
 
@@ -163,14 +165,90 @@ func (e *SemanticError) Unwrap() error {
 }
 
 // marshalError returns the error of marshaling which the encoder returned with out, the output written before it,
-// at its place in the whole output of the call st.
+// at its place in the whole output of the call st, or as encoding/json reports it with ReportErrorsWithLegacySemantics
+// ( see v1MarshalError ).
 func (st *callState) marshalError(out []byte, err error) error {
+	if st.cfg.Has(options.ReportErrorsWithLegacySemantics) {
+		return st.v1MarshalError(out, err)
+	}
+	return st.v2MarshalError(out, err)
+}
+
+// v1MarshalError is marshalError with ReportErrorsWithLegacySemantics, which reports the errors of encoding/json:
+// an error of a method or a function of marshaling is a MarshalerError of the pointer to the value and of the name of
+// the method, whatever the error is, as encoding/json wraps it; a value of a type which has no representation is an
+// UnsupportedTypeError, and a value which encoding/json/v2 reports another SemanticError of is an
+// UnsupportedValueError of its cause: a cycle, a float which is not finite ( which the encoder reports so itself, with
+// the float ), a time.Duration of no format, or a key which is not a string. A syntax error is a SyntaxError, at the
+// offset after the text, as encoding/json reports it.
+func (st *callState) v1MarshalError(out []byte, err error) error {
+	switch e := err.(type) {
+	case *ierrors.OutputError:
+		return st.v1MarshalError(e.Out, e.Err)
+	case *ierrors.MethodError:
+		inner := e.Err
+		if te, ok := inner.(*ierrors.TextError); ok {
+			// invalid UTF-8 of a text, at the place of its string.
+			pos, ptr := st.at(out)
+			inner = &jsontext.SyntacticError{ByteOffset: pos, JSONPointer: ptr, Err: te.Err}
+		}
+		return ierrors.ErrMarshaler(reflect.PointerTo(e.GoType), v1SyntaxError(inner), e.Kind.String())
+	case *ierrors.TextError:
+		if e.Err == ierrors.ErrDuplicateName && e.GoType != nil {
+			// a duplicate name, which a function or a method wrote, is a syntax error of the output as any other
+			plain := *e
+			plain.GoType = nil
+			err = &plain
+		}
+	}
+	switch e := st.v2MarshalError(out, err).(type) {
+	case *SemanticError:
+		if e.Err == nil {
+			return &ierrors.UnsupportedTypeError{Type: e.GoType}
+		}
+		cause := e.Err
+		if serr, ok := cause.(*jsontext.SyntacticError); ok {
+			// a name which is not a string, at the offset of encoding/json
+			_, offset, _ := jsonsyntax.LegacyError(serr)
+			at := *serr
+			at.ByteOffset = offset
+			cause = &at
+		}
+		str := cause.Error()
+		if e.Err == ierrors.ErrCycle && e.GoType != nil {
+			str += " via " + e.GoType.String()
+		}
+		return &ierrors.UnsupportedValueError{Str: str}
+	case *jsontext.SyntacticError:
+		return v1SyntaxError(e)
+	default:
+		return e
+	}
+}
+
+// v1SyntaxError returns err as encoding/json reports it, if it is a SyntacticError: a SyntaxError of its message
+// in the words of encoding/json, at the offset after its text ( see jsonsyntax.LegacyError ).
+func v1SyntaxError(err error) error {
+	if msg, offset, ok := jsonsyntax.LegacyError(err); ok {
+		return ierrors.ErrSyntax(msg, offset)
+	}
+	return err
+}
+
+// v2MarshalError is marshalError by the semantics of encoding/json/v2.
+func (st *callState) v2MarshalError(out []byte, err error) error {
 	switch e := err.(type) {
 	case *ierrors.SemanticError:
 		pos, ptr := st.at(out)
-		return &SemanticError{action: "marshal", ByteOffset: pos, JSONPointer: ptr, GoType: e.GoType, Err: e.Err}
+		inner := e.Err
+		if te, ok := inner.(*ierrors.TextError); ok {
+			// the text error of the value, as of a string of invalid UTF-8 of the `string` option, which has no place
+			// of its own
+			inner = &jsontext.SyntacticError{Err: te.Err}
+		}
+		return &SemanticError{action: "marshal", ByteOffset: pos, JSONPointer: ptr, GoType: e.GoType, Err: inner}
 	case *ierrors.OutputError:
-		return st.marshalError(e.Out, e.Err)
+		return st.v2MarshalError(e.Out, e.Err)
 	case *ierrors.MethodError:
 		return st.methodError(out, e)
 	case *ierrors.TextError:
@@ -203,11 +281,11 @@ func (st *callState) methodError(out []byte, e *ierrors.MethodError) error {
 		inner = &jsontext.SyntacticError{ByteOffset: pos, JSONPointer: ptr, Err: te.Err}
 	}
 	switch e.Kind {
-	case ierrors.MethodText:
+	case ierrors.MethodMarshalText, ierrors.MethodAppendText:
 		if serr, ok := inner.(*SemanticError); ok {
 			return serr
 		}
-	case ierrors.MethodJSON:
+	case ierrors.MethodMarshalJSON, ierrors.MethodMarshalFunc:
 		if serr, ok := inner.(*SemanticError); ok {
 			// its place is in the value which the method returned, after the place of the value.
 			at := *serr
@@ -215,7 +293,7 @@ func (st *callState) methodError(out []byte, e *ierrors.MethodError) error {
 			at.JSONPointer = ptr + serr.JSONPointer
 			return &at
 		}
-	case ierrors.MethodJSONTo:
+	case ierrors.MethodMarshalJSONTo, ierrors.MethodMarshalToFunc:
 		// the place is where the method stopped writing.
 		levels := st.levelsOf(e.Out)
 		top := levels[len(levels)-1]

@@ -433,7 +433,11 @@ func (c *MapCode) Filter(_ *FieldQuery) Code {
 }
 
 type StructCode struct {
-	typ                       reflect.Type
+	typ reflect.Type
+	// key is what the code is kept by while it is compiled and linked: the address of its type, with
+	// addressableStructMark set for an addressable struct with CallMethodsWithLegacySemantics ( see
+	// Compiler.structKey ).
+	key                       uintptr
 	fields                    []*StructFieldCode
 	isPtr                     bool
 	disableIndirectConversion bool
@@ -517,6 +521,7 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 		recursive := newRecursiveCode(ctx, c.typ, &CompiledCode{})
 		recursive.Type = runtime.TypePtr(c.typ)
 		recursive.FieldQuery = c.fieldQuery
+		c.recordRecursiveKey(ctx, recursive)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -579,8 +584,19 @@ func (c *StructCode) ToOpcode(ctx *compileContext) Opcodes {
 	}
 	ctx.decIndent()
 	markFieldRuns(codes)
-	ctx.structTypeToCodes[uintptr(runtime.TypePtr(c.typ))] = codes
+	ctx.structTypeToCodes[c.key] = codes
 	return codes
+}
+
+// recordRecursiveKey records the key of the struct of the recursive code, if it is not the address of its type ( see
+// linkRecursiveCode ).
+func (c *StructCode) recordRecursiveKey(ctx *compileContext, recursive *Opcode) {
+	if c.key&addressableStructMark != 0 {
+		if ctx.recursiveKeys == nil {
+			ctx.recursiveKeys = map[*Opcode]uintptr{}
+		}
+		ctx.recursiveKeys[recursive] = c.key
+	}
 }
 
 // fieldRunOps are, for the opcode of a field, the opcodes of a run of two and of three such fields in a row.
@@ -627,6 +643,7 @@ func (c *StructCode) ToAnonymousOpcode(ctx *compileContext) Opcodes {
 		}
 		recursive.Type = runtime.TypePtr(c.typ)
 		recursive.FieldQuery = c.fieldQuery
+		c.recordRecursiveKey(ctx, recursive)
 		ctx.incIndex()
 		*ctx.recursiveCodes = append(*ctx.recursiveCodes, recursive)
 		return Opcodes{recursive}
@@ -743,6 +760,7 @@ func (c *StructCode) Filter(query *FieldQuery) Code {
 	}
 	return &StructCode{
 		typ:                       c.typ,
+		key:                       c.key,
 		fields:                    fields,
 		isPtr:                     c.isPtr,
 		disableIndirectConversion: c.disableIndirectConversion,

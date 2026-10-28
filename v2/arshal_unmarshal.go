@@ -3,8 +3,10 @@ package json
 import (
 	"bytes"
 	"errors"
+	"io"
 	"reflect"
 	"runtime"
+	"slices"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/decoder"
@@ -110,6 +112,16 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 	cfg := &noOptions
 	if len(opts) > 0 {
 		cfg = beginCallOf(ctx, opts)
+		// a call of its own, which ends here, so that a call without options, which most calls are, doesn't test the
+		// option
+		if cfg.Has(options.ReportErrorsWithLegacySemantics) {
+			err := unmarshalWithV1Errors(ctx, buf, nil, e.typ, e.ptr, cfg)
+			endCall(ctx)
+			ctx.Option.V2 = 0
+			decoder.ReleaseRuntimeContext(ctx)
+			runtime.KeepAlive(out)
+			return err
+		}
 	} else {
 		setPlainCall(ctx)
 	}
@@ -150,7 +162,7 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 	ptrType := reflect.TypeFor[*T]()
 	if out == nil {
-		return &SemanticError{action: "unmarshal", GoType: ptrType, Err: errNonNilReference}
+		return nilOutputError(ptrType, opts)
 	}
 	ctx := decoder.TakeRuntimeContext()
 	p := reusedValue(ctx, out)
@@ -161,7 +173,12 @@ func UnmarshalOf[T any](in []byte, out *T, opts ...Options) error {
 	} else {
 		setPlainCall(ctx)
 	}
-	err := decodeInput(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
+	var err error
+	if cfg.Has(options.ReportErrorsWithLegacySemantics) {
+		err = unmarshalWithV1Errors(ctx, buf, nil, iruntime.TypePtr(ptrType), p, cfg)
+	} else {
+		err = decodeInput(ctx, buf, iruntime.TypePtr(ptrType), p, cfg)
+	}
 	endCall(ctx)
 	ctx.Option.V2 = 0
 	returnValue(p, out)
@@ -219,7 +236,7 @@ func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 		}
 	}
 	ctx.Option.Flags = 0
-	ctx.Option.V2 = unmarshalFlags(cfg)
+	decoder.SetV2Flags(ctx, unmarshalFlags(cfg))
 	call.Config, call.Funcs = cfg, nil
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
 		call.Funcs = u.funcs
@@ -230,7 +247,7 @@ func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 // setCall sets ctx for a call by the options of cfg, which clearCall drops from ctx.
 func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 	ctx.Option.Flags = 0
-	ctx.Option.V2 = unmarshalFlags(cfg)
+	decoder.SetV2Flags(ctx, unmarshalFlags(cfg))
 	call := ctx.V2Call()
 	call.Config, call.Funcs = cfg, nil
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
@@ -241,7 +258,7 @@ func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
 // setPlainCall is setCall of a call without options.
 func setPlainCall(ctx *decoder.RuntimeContext) {
 	ctx.Option.Flags = 0
-	ctx.Option.V2 = decoder.V2Semantics
+	decoder.SetV2Flags(ctx, decoder.V2Semantics)
 	call := ctx.V2Call()
 	call.Config, call.Funcs = &noOptions, nil
 }
@@ -297,24 +314,38 @@ func releaseFrom(call *decoder.V2Call) {
 
 // unmarshalFlags returns the options of the decoder for the options of a call.
 func unmarshalFlags(c *options.Config) decoder.V2Flags {
-	flags := decoder.V2Semantics
-	if c.Has(options.AllowInvalidUTF8) {
+	// the value is read once, so that the function stays small enough to be inlined into its callers
+	v := c.Value
+	// the options of encoding/json which change the unmarshaling, copied at once, as their flags are in the same order
+	flags := decoder.V2Semantics |
+		decoder.V2Flags(v&v1UnmarshalOptions/options.ParseBytesWithLooseRFC4648)*decoder.V2ParseBytesWithLooseRFC4648
+	if v&options.AllowInvalidUTF8 != 0 {
 		flags |= decoder.V2AllowInvalidUTF8
 	}
-	if c.Has(options.AllowDuplicateNames) {
+	if v&options.AllowDuplicateNames != 0 {
 		flags |= decoder.V2AllowDuplicateNames
 	}
-	if c.Has(options.StringifyNumbers) {
+	if v&options.StringifyNumbers != 0 {
 		flags |= decoder.V2StringifyNumbers
 	}
-	if c.Has(options.MatchCaseInsensitiveNames) {
+	if v&options.MatchCaseInsensitiveNames != 0 {
 		flags |= decoder.V2MatchCaseInsensitiveNames
 	}
-	if c.Has(options.RejectUnknownMembers) {
+	if v&options.RejectUnknownMembers != 0 {
 		flags |= decoder.V2RejectUnknownMembers
 	}
 	return flags
 }
+
+// v1UnmarshalOptions are the options of encoding/json which change the unmarshaling: all but
+// OmitEmptyWithLegacySemantics, which are adjacent properties, from ParseBytesWithLooseRFC4648, in the order of their
+// flags in the decoder.
+const v1UnmarshalOptions = options.V1OptionFlags &^ options.OmitEmptyWithLegacySemantics
+
+// the last of the options is as far from the first as its flag is, as both are made by iota in the same order: the
+// length of the array type is 0 then, and it is another type, or a negative constant, otherwise.
+var _ [0]struct{} = [options.StringifyWithLegacySemantics/options.ParseBytesWithLooseRFC4648 -
+	options.Flags(decoder.V2StringifyWithLegacySemantics/decoder.V2ParseBytesWithLooseRFC4648)]struct{}{}
 
 // decodeInput decodes buf, the input of ctx followed by a nul byte, into the value at p, of the pointer type typ,
 // by the options of cfg, which the options of ctx are made of.
@@ -351,6 +382,106 @@ func inputError(ctx *decoder.RuntimeContext, buf []byte, cursor int64, err error
 	}
 	ctx.DiscardTypeError()
 	return unmarshalError(&errorInput{buf: buf[:len(buf)-1]}, err, cfg)
+}
+
+// unmarshalWithV1Errors decodes buf, the input of ctx followed by a nul byte, or, if s is not nil, the whole input of
+// the stream s, into the value at p, of the pointer type typ, by the options of cfg, which have
+// ReportErrorsWithLegacySemantics, as encoding/json decodes it: an output which is not a non-nil pointer is an
+// InvalidUnmarshalError, before the input is read; the input is checked first, so that a syntax error changes
+// nothing, and is a SyntaxError, and an error of the reader is returned as it is; the decoding goes on after the error
+// of a value ( see decoder.RuntimeContext.RecordV1Error ), and the first one is reported, as a type error of
+// encoding/json.
+func unmarshalWithV1Errors(ctx *decoder.RuntimeContext, buf []byte, s *decoder.Stream, typ, p unsafe.Pointer, cfg *options.Config) error {
+	dec, err := outputDecoder(ctx, typ, p)
+	if err != nil {
+		return v1OutputError(err)
+	}
+	if s != nil {
+		var err error
+		if buf, err = s.ReadAllV2(); err != nil {
+			return err
+		}
+		// decoded where it was read, without a copy into the context, which keeps none of it after the call
+		decoder.SetBuf(ctx, buf)
+		defer decoder.SetBuf(ctx, nil)
+	}
+	if err := v1InputError(buf[:len(buf)-1], cfg); err != nil {
+		return err
+	}
+	return decodeWithV1Errors(ctx, dec, 0, typ, p, nil)
+}
+
+// decodeWithV1Errors decodes the input of ctx, a valid JSON value at the offset base of the whole input, by dec into
+// the value at p, of the pointer type typ, as unmarshalWithV1Errors decodes it after its checks. in is the decoder
+// which read the value, in the values which it is in, which the paths of the errors start with, or nil.
+func decodeWithV1Errors(ctx *decoder.RuntimeContext, dec decoder.Decoder, base int64, typ, p unsafe.Pointer, in *jsontext.Decoder) error {
+	if _, err := dec.Decode(ctx, 0, 0, p); err != nil && !ctx.RecordV1Error(err) {
+		ctx.DiscardTypeError()
+		return v1FatalError(err, base)
+	}
+	var outer []string
+	if in != nil && ctx.HasTypeError() {
+		outer = slices.Collect(in.StackPointer().Tokens())
+	}
+	// the offsets of the error are the ones of the whole input
+	return ctx.TypeError(iruntime.TypeOfPtr(typ), 0, -base, outer)
+}
+
+// nilOutputError returns the error of a nil pointer out of the pointer type typ of UnmarshalOf or UnmarshalReadOf, by
+// the options: an InvalidUnmarshalError with ReportErrorsWithLegacySemantics, as Unmarshal reports it.
+func nilOutputError(typ reflect.Type, opts []Options) error {
+	var cfg options.Config
+	cfg.Apply(opts)
+	if cfg.Has(options.ReportErrorsWithLegacySemantics) {
+		return &ierrors.InvalidUnmarshalError{Type: typ}
+	}
+	return &SemanticError{action: "unmarshal", GoType: typ, Err: errNonNilReference}
+}
+
+// v1OutputError returns err, the error of an output which outputDecoder finds no decoder for, as encoding/json
+// reports it: an InvalidUnmarshalError of an output which is not a non-nil pointer.
+func v1OutputError(err error) error {
+	if se, ok := err.(*SemanticError); ok && se.Err == errNonNilReference {
+		return &ierrors.InvalidUnmarshalError{Type: se.GoType}
+	}
+	return err
+}
+
+// v1InputError returns the syntax error of in, the input of a call which is a single JSON value, by the options of
+// cfg, as encoding/json reports it before it decodes the value, or nil: the value is read whole, as encoding/json/v2
+// checks it with the option, and the input after it, as the call reads it.
+func v1InputError(in []byte, cfg *options.Config) error {
+	if jsontext.Value(in).IsValid(cfg) {
+		return nil
+	}
+	// the decoder reads a bytes.Buffer in place, whole, as a value whose error is at the end of a read is reported
+	_, err := jsontext.NewDecoder(bytes.NewBuffer(in), cfg).ReadValue()
+	if err == nil || err == io.EOF {
+		// the end of the input, or a value after the value
+		_, err = textcoder.UnmarshalPlace(in, cfg, -1, textcoder.ReadToken)
+	}
+	return v1SyntaxError(err)
+}
+
+// v1FatalError returns err, an error which the decoding stops at with ReportErrorsWithLegacySemantics, of the input
+// at the offset base of the whole input, as encoding/json reports it: a name which another member has, which
+// encoding/json/v2 reports as a syntax error at the name, a syntax error or an error of the reader which a method or a
+// function returned, of which the error of the reader is returned as it is, also within a token, which jsontext
+// reports as the syntax error of the token.
+func v1FatalError(err error, base int64) error {
+	if e, ok := err.(*ierrors.UnmarshalError); ok {
+		if e.Err == ierrors.ErrDuplicateName {
+			return ierrors.ErrSyntax(e.Err.Error(), base+e.Start)
+		}
+		err = e.Err
+	}
+	if serr, ok := err.(*jsontext.SyntacticError); ok && textcoder.IsIOError(serr.Err) {
+		err = serr.Err
+	}
+	if textcoder.IsIOError(err) {
+		return errors.Unwrap(err)
+	}
+	return v1SyntaxError(err)
 }
 
 // outputDecoder returns the decoder of the output, the value at p of the pointer type typ, which must be a non-nil
@@ -443,7 +574,9 @@ func unmarshalError(in *errorInput, err error, cfg *options.Config) error {
 	switch {
 	case e.NoKind:
 		read = textcoder.ReadNothing
-	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType):
+	case e.Method != ierrors.UnmarshalByKind || e.GoType != nil && readsWhole(e.GoType, cfg) && !decoder.IsArrayLengthError(e.Err):
+		// but the length of a JSON array read into an array of bytes element by element ( see
+		// FormatBytesWithLegacySemantics ), at the end of the JSON array, a token
 		read = textcoder.ReadValue
 	}
 	ptr, serr := in.place(cfg, e.Start, read)
@@ -491,10 +624,10 @@ func methodError(se *SemanticError, e *ierrors.UnmarshalError) error {
 	return se
 }
 
-// readsWhole reports whether encoding/json/v2 reads a value whole before it decodes it into a value of typ, whose
-// syntax error comes first: a string, a number, and the bytes of a base64 string. A value of another type is read by
-// its first token, which is the whole value but for an object or an array.
-func readsWhole(typ reflect.Type) bool {
+// readsWhole reports whether encoding/json/v2 reads a value whole before it decodes it into a value of typ by the
+// options of cfg, whose syntax error comes first: a string, a number, and the bytes of a base64 string. A value of
+// another type is read by its first token, which is the whole value but for an object or an array.
+func readsWhole(typ reflect.Type, cfg *options.Config) bool {
 	switch typ.Kind() {
 	case reflect.String,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -502,7 +635,7 @@ func readsWhole(typ reflect.Type) bool {
 		reflect.Float32, reflect.Float64:
 		return true
 	case reflect.Slice, reflect.Array:
-		return typ.Elem().Kind() == reflect.Uint8 && typ.Elem().PkgPath() == ""
+		return decoder.IsV2Bytes(typ, unmarshalFlags(cfg))
 	}
 	return false
 }

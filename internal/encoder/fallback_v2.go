@@ -89,7 +89,7 @@ func (fb *fallback) appendMembers(ctx *RuntimeContext, b []byte, p unsafe.Pointe
 		if ctx.Option.Flag&AllowDuplicateNamesOption == 0 {
 			names := &fallbackNames{
 				fb: fb, before: b, others: fb.raw || ctx.RescanNames,
-				insensitive: ctx.Option.Flag&MatchCaseInsensitiveNamesOption != 0,
+				flags: ctx.Option.Flag,
 			}
 			insertName = names.insertName
 		}
@@ -121,9 +121,10 @@ func (fb *fallback) appendMembers(ctx *RuntimeContext, b []byte, p unsafe.Pointe
 type fallbackNames struct {
 	fb     *fallback
 	before []byte
-	// insensitive is MatchCaseInsensitiveNamesOption, and others whether the names of the fallback are kept.
-	insensitive bool
-	others      bool
+	// flags are the options of the encoding, of which MatchCaseInsensitiveNamesOption and
+	// MatchCaseSensitiveDelimiterOption match the names, and others is whether the names of the fallback are kept.
+	flags  OptionFlag
+	others bool
 	// written are the fields whose members are written, read from before when a name is the one of a field, and
 	// otherNames the names of the fallback which are no field's.
 	written    map[*jsonfields.Field]bool
@@ -138,9 +139,10 @@ func (n *fallbackNames) insertName(name []byte) bool {
 	if f := fb.names[string(name)]; f != nil {
 		return n.insertField(f)
 	}
-	if fb.caseIgnore || n.insensitive {
+	if insensitive := n.flags&MatchCaseInsensitiveNamesOption != 0; fb.caseIgnore || insensitive {
 		for _, f := range fb.folded[string(jsonfields.FoldName(name))] {
-			if f.Casing&jsonfields.CaseIgnore != 0 || (n.insensitive && f.Casing&jsonfields.CaseStrict == 0) {
+			if (f.Casing&jsonfields.CaseIgnore != 0 || (insensitive && f.Casing&jsonfields.CaseStrict == 0)) &&
+				(n.flags&MatchCaseSensitiveDelimiterOption == 0 || strings.EqualFold(string(name), f.Name)) {
 				return n.insertField(f)
 			}
 		}

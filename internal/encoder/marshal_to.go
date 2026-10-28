@@ -223,7 +223,7 @@ func appendDeclined(ctx *RuntimeContext, b []byte, recv reflect.Type, p unsafe.P
 		var code Code
 		var err error
 		if addressable {
-			code, err = c.listElemCode(typ)
+			code, err = c.listElemCode(typ, true)
 		} else {
 			code, err = c.valueCode(typ)
 		}

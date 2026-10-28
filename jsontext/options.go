@@ -12,7 +12,7 @@ import (
 // an earlier one.
 //
 // A single Options type is used for encoding and decoding: an option which affects only one of them is ignored
-// by the other.
+// by the other. It is the same type as the Options of github.com/goccy/go-json/v2 and of github.com/goccy/go-json.
 //
 //   - AllowDuplicateNames affects encoding and decoding
 //   - AllowInvalidUTF8 affects encoding and decoding

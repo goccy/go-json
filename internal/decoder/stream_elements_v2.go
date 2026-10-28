@@ -328,9 +328,10 @@ func (s *Stream) decodeV2After(dec Decoder, p unsafe.Pointer, depth, from, start
 // while the value is looked for: keeps and keepFrom are what the stream kept before.
 func (s *Stream) decodeTopV2(dec Decoder, p unsafe.Pointer, depth, from int64, keeps bool, keepFrom int64) error {
 	switch dec.(type) {
-	case *v2UnmarshalFromDecoder, *v2FuncDecoder, *ptrDecoder, *basicPtrDecoder:
+	case *v2UnmarshalFromDecoder, *v2FuncDecoder, *ptrDecoder, *basicPtrDecoder, *v2InvalidDecoder:
 		// a method or a function which reads a jsontext.Decoder, which may read on past the value, as the one of
-		// encoding/json/v2 reads the values after it, also through a pointer
+		// encoding/json/v2 reads the values after it, also through a pointer; or a type of no representation, whose
+		// error is before the value is read, whatever follows
 		s.keeps, s.keepFrom = keeps, keepFrom
 		s.beginElements()
 		return s.decodeNestedV2(dec, p, depth, from)
@@ -559,6 +560,16 @@ func (s *Stream) decodeNestedV2(dec Decoder, p unsafe.Pointer, depth, from int64
 		return s.decodeNestedV2(d.next, p, depth, from)
 	case *v2FuncDecoder:
 		return s.decodeFuncsV2(d, p, depth, from)
+	case *v2InvalidDecoder:
+		// the error before the value is read, as encoding/json/v2 reports it, whatever the value is
+		return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: s.cursor, NoKind: true, Err: d.err}, from)
+	case *v2StringifiedPtrDecoder:
+		// by the decoder of the pointer: an object or an array element by element, which is not the JSON string
+		// "null", and any value but null of a pointer to a pointer, which fails before the value is read
+		c := s.buf[s.cursor]
+		if _, invalid := d.ptr.(*v2InvalidDecoder); c == '{' || c == '[' || invalid && c != 'n' {
+			return s.decodeNestedV2(d.ptr, p, depth, from)
+		}
 	case *intDecoder, *uintDecoder, *floatDecoder, *boolDecoder, v2StringDecoder, *v2InterfaceDecoder:
 		// a string, a number or a literal which the buffer has whole is decoded in it, as v1 decodes it, after from,
 		// which a read for the rest of a string keeps ( see decodeScalar, which decodes a value of an interface only
@@ -756,6 +767,12 @@ func (s *Stream) decodeElementsV2(dec Decoder, p unsafe.Pointer, depth, from int
 			return true, s.decodeArrayElementsV2(d, p, depth, from)
 		}
 		typ = d.typ
+	case *v2FormatBytesWithLegacySemanticsDecoder:
+		if c == '[' {
+			return s.decodeElementsV2(d.elements, p, depth, from)
+		}
+		// any other value, which is read whole as bytes are
+		return false, nil
 	case *boolDecoder:
 		typ = d.typ
 	case *v2InvalidDecoder:
@@ -1297,7 +1314,12 @@ func (s *Stream) decodeMapElementsV2(d *v2MapDecoder, p unsafe.Pointer, depth, f
 			if rejectDuplicateNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
 				return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
 			}
-			v.Elem().Set(old)
+			// the value of the name is decoded into, but replaced with MergeWithLegacySemantics
+			if s.Option.V2&V2MergeWithLegacySemantics == 0 {
+				v.Elem().Set(old)
+			} else {
+				v.Elem().SetZero()
+			}
 		} else {
 			v.Elem().SetZero()
 		}
@@ -1334,7 +1356,7 @@ func (s *Stream) nextElementV2(idx int) (int64, bool, error) {
 // decodeSliceElementsV2 decodes the array at the cursor into the slice at p, as v2SliceDecoder.Decode does, after
 // from, the total offset of the end of the token before it.
 func (s *Stream) decodeSliceElementsV2(d *v2SliceDecoder, p unsafe.Pointer, depth, from int64) error {
-	if d.zero && (*sliceHeader)(p).cap > 0 {
+	if d.zero && (*sliceHeader)(p).cap > 0 && s.Option.V2&V2MergeWithLegacySemantics == 0 {
 		sv := valueAt(d.slicePtrType, p)
 		sv.Slice(0, sv.Cap()).Clear()
 	}
@@ -1476,6 +1498,8 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 		return err
 	}
 	var lengthErr error
+	// an element is decoded into its zero value, but into the element with MergeWithLegacySemantics
+	zeroElems := s.Option.V2&V2MergeWithLegacySemantics == 0
 	for idx := 0; ; idx++ {
 		step, ok, err := s.nextElementV2(idx)
 		if err != nil {
@@ -1486,7 +1510,7 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 				d.elem.zero(unsafe.Add(p, uintptr(idx)*d.elem.size))
 				lengthErr = errArrayUnderflow
 			}
-			if lengthErr != nil {
+			if lengthErr != nil && s.Option.V2&V2UnmarshalArrayFromAnyLength == 0 {
 				// the error of the length is at the end of the array, which tells it
 				return s.placeAt(&errors.UnmarshalError{GoType: d.typ, Start: s.cursor - 1, Err: lengthErr}, step)
 			}
@@ -1495,7 +1519,9 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 		}
 		if idx < d.alen {
 			ep := unsafe.Add(p, uintptr(idx)*d.elem.size)
-			d.elem.zero(ep)
+			if zeroElems {
+				d.elem.zero(ep)
+			}
 			err = s.decodeNestedV2(d.valueDecoder, ep, depth, step)
 		} else {
 			err = s.skipValueV2(depth, step)
@@ -1513,6 +1539,10 @@ func (s *Stream) decodeArrayElementsV2(d *v2ArrayDecoder, p unsafe.Pointer, dept
 // having read nothing, for a value which is read whole.
 func (s *Stream) decodeInterfaceElementsV2(d *v2InterfaceDecoder, p unsafe.Pointer, depth, from int64) (bool, error) {
 	ctx := s.ctx
+	if (*[2]unsafe.Pointer)(p)[0] != nil && s.Option.V2&V2MergeWithLegacySemantics != 0 && !d.holdsPointer(p) {
+		// MergeWithLegacySemantics decodes into a pointer which the interface value holds only
+		*(*[2]unsafe.Pointer)(p) = [2]unsafe.Pointer{}
+	}
 	if (*[2]unsafe.Pointer)(p)[0] != nil {
 		// a value which the interface value holds is decoded into
 		iface := valueAt(d.ptrType, p)
@@ -1779,8 +1809,12 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		s.setName(lv, k)
 		s.keeps, s.keepFrom = keeps, keepFrom
 		// the value of the name in the map is decoded into, as decodeElem does: the decoder of the interface{}
-		// decodes a name of an object twice into its first value ( see v2InterfaceDecoder.Decode )
-		value := m[name]
+		// decodes a name of an object twice into its first value ( see v2InterfaceDecoder.Decode ), but with
+		// MergeWithLegacySemantics, which replaces it
+		var value any
+		if s.Option.V2&V2MergeWithLegacySemantics == 0 {
+			value = m[name]
+		}
 		err = s.decodeNestedV2(d, unsafe.Pointer(&value), depth, nameEnd)
 		m[name] = value
 		if err != nil {

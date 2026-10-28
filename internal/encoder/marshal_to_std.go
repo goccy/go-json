@@ -4,6 +4,7 @@ package encoder
 
 import (
 	"bytes"
+	jsonv1 "encoding/json"
 	stdjsontext "encoding/json/jsontext"
 	stdjson "encoding/json/v2"
 	"reflect"
@@ -29,13 +30,17 @@ var stdToEncoders = sync.Pool{New: func() any {
 	return e
 }}
 
+// stdToOptions are the options of the encoder which MarshalJSONTo of encoding/json/jsontext writes to, as toConfig:
+// DefaultOptionsV1 of encoding/json, without the escapes, which are made after the method.
+var stdToOptions = stdjson.JoinOptions(jsonv1.DefaultOptionsV1(), stdjsontext.EscapeForHTML(false), stdjsontext.EscapeForJS(false))
+
 // stdMarshalTo returns what MarshalJSONTo of v, a stdjson.MarshalerTo, writes, and whether it declined, as
 // marshalTo does.
 func stdMarshalTo(v any) ([]byte, bool, error) {
 	e := stdToEncoders.Get().(*stdToEncoder)
 	defer stdToEncoders.Put(e)
 	e.buf.Reset()
-	e.enc.Reset(&e.buf, stdjsontext.AllowDuplicateNames(true), stdjsontext.AllowInvalidUTF8(true))
+	e.enc.Reset(&e.buf, stdToOptions)
 	err := v.(stdjson.MarshalerTo).MarshalJSONTo(e.enc)
 	_, n := e.enc.StackIndex(0)
 	declined, err := errors.MethodCallResult(err, e.enc.StackDepth(), n)

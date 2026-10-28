@@ -3,11 +3,14 @@ package json_test
 import (
 	"bytes"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/goccy/go-json"
 	"github.com/goccy/go-json/jsontext"
+	jsonv2 "github.com/goccy/go-json/v2"
 )
 
 // The MarshalJSONTo and UnmarshalJSONFrom methods of the Encoder and the Decoder of github.com/goccy/go-json/jsontext,
@@ -240,5 +243,116 @@ func TestDecodeUnmarshalJSONFromErrors(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(`{"F":{},"N":1}`), &got); err == nil || got.N != 1 {
 		t.Errorf("after the error: got %+v, %v", got, err)
+	}
+}
+
+// toDelegate and fromDelegate encode and decode their values by MarshalEncode and UnmarshalDecode of v2, which follow
+// the options of the encoder and the decoder of the method: the ones of encoding/json, and the ones of the call which
+// encoding/json/v2 has, as encoding/json gives them its methods.
+type toDelegate struct{ V any }
+
+func (v toDelegate) MarshalJSONTo(enc *jsontext.Encoder) error { return jsonv2.MarshalEncode(enc, v.V) }
+
+type fromDelegate struct{ V any }
+
+func (v *fromDelegate) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return jsonv2.UnmarshalDecode(dec, v.V) }
+
+// delegatedEncodings are values which encoding/json encodes otherwise than encoding/json/v2 by default, and their
+// outputs by encoding/json.
+var delegatedEncodings = []struct {
+	name string
+	in   any
+	want string
+}{
+	{"nil slice", []int(nil), `null`},
+	{"nil map", map[string]int(nil), `null`},
+	{"duration", time.Second, `1000000000`},
+	{"byte array", [2]byte{1, 2}, `[1,2]`},
+	{"omitempty", struct {
+		N int `json:"n,omitempty"`
+	}{}, `{}`},
+	{"sorted keys", map[string]int{"b": 1, "a": 2}, `{"a":2,"b":1}`},
+	{"escaped for HTML", "<&>", `"\u003c\u0026\u003e"`},
+}
+
+func TestEncodeMarshalJSONToOptions(t *testing.T) {
+	for _, tt := range delegatedEncodings {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := json.Marshal(toDelegate{tt.in})
+			if err != nil || string(got) != tt.want {
+				t.Errorf("got %s, %v, want %s", got, err, tt.want)
+			}
+			// the method of an indented output writes to an encoder of its own
+			got, err = json.MarshalIndent(toDelegate{tt.in}, "", " ")
+			var compact bytes.Buffer
+			if err == nil {
+				err = json.Compact(&compact, got)
+			}
+			if err != nil || compact.String() != tt.want {
+				t.Errorf("indented: got %s, %v, want %s", got, err, tt.want)
+			}
+		})
+	}
+	if got, err := json.MarshalWithOption(toDelegate{"<&>"}, json.DisableHTMLEscape()); err != nil || string(got) != `"<&>"` {
+		t.Errorf("without HTML escaping: got %s, %v", got, err)
+	}
+}
+
+// delegatedDecoding is an input which encoding/json decodes otherwise than encoding/json/v2 by default, into the
+// value which v makes, by a Decoder with UseNumber if number is set and with DisallowUnknownFields if reject is set,
+// and the value which encoding/json decodes, and whether it fails.
+type delegatedDecoding struct {
+	name, in       string
+	v              func() any
+	want           any
+	number, reject bool
+	fails          bool
+}
+
+var delegatedDecodings = []delegatedDecoding{
+	{name: "folded name", in: `{"value":7}`, v: func() any { return new(struct{ Value int }) }, want: struct{ Value int }{7}},
+	{name: "null merged", in: `null`, v: func() any { n := 7; return &n }, want: 7},
+	{name: "duration", in: `1000000000`, v: func() any { return new(time.Duration) }, want: time.Second},
+	{name: "short array", in: `[1]`, v: func() any { return &[2]int{9, 9} }, want: [2]int{1, 0}},
+	{name: "number", in: `42`, v: func() any { return new(any) }, want: json.Number("42"), number: true},
+	{name: "float", in: `42`, v: func() any { return new(any) }, want: float64(42)},
+	{name: "unknown member rejected", in: `{"Unknown":7}`, v: func() any { return new(struct{ Value int }) },
+		want: struct{ Value int }{}, reject: true, fails: true},
+	{name: "unknown member", in: `{"Unknown":7}`, v: func() any { return new(struct{ Value int }) }, want: struct{ Value int }{}},
+}
+
+// delegatingDecoder is a Decoder of the root package or of encoding/json.
+type delegatingDecoder interface {
+	UseNumber()
+	DisallowUnknownFields()
+	Decode(v any) error
+}
+
+// test decodes the input of tt by dec, which reads it, and by unmarshal, unless tt has an option of a Decoder, into
+// the value which tt makes, which delegate gives to the method of the value it returns.
+func (tt delegatedDecoding) test(t *testing.T, dec delegatingDecoder, unmarshal func([]byte, any) error, delegate func(v any) any) {
+	t.Helper()
+	if tt.number {
+		dec.UseNumber()
+	}
+	if tt.reject {
+		dec.DisallowUnknownFields()
+	}
+	decodes := map[string]func(v any) error{"Decoder": dec.Decode}
+	if !tt.number && !tt.reject {
+		decodes["Unmarshal"] = func(v any) error { return unmarshal([]byte(tt.in), v) }
+	}
+	for name, decode := range decodes {
+		v := tt.v()
+		err := decode(delegate(v))
+		if got := reflect.ValueOf(v).Elem().Interface(); (err != nil) != tt.fails || !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s, %s: got %#v, %v, want %#v", tt.name, name, got, err, tt.want)
+		}
+	}
+}
+
+func TestDecodeUnmarshalJSONFromOptions(t *testing.T) {
+	for _, tt := range delegatedDecodings {
+		tt.test(t, json.NewDecoder(strings.NewReader(tt.in)), json.Unmarshal, func(v any) any { return &fromDelegate{v} })
 	}
 }

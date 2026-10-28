@@ -235,7 +235,7 @@ func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 			o.ApplyTo(cfg)
 		}
 	}
-	ctx.Option.Flags = 0
+	ctx.Option.Flags = decoderFlags(cfg)
 	decoder.SetV2Flags(ctx, unmarshalFlags(cfg))
 	call.Config, call.Funcs = cfg, nil
 	if u, _ := cfg.Unmarshalers.(*Unmarshalers); u != nil {
@@ -246,7 +246,7 @@ func beginCallOf(ctx *decoder.RuntimeContext, opts []Options) *options.Config {
 
 // setCall sets ctx for a call by the options of cfg, which clearCall drops from ctx.
 func setCall(ctx *decoder.RuntimeContext, cfg *options.Config) {
-	ctx.Option.Flags = 0
+	ctx.Option.Flags = decoderFlags(cfg)
 	decoder.SetV2Flags(ctx, unmarshalFlags(cfg))
 	call := ctx.V2Call()
 	call.Config, call.Funcs = cfg, nil
@@ -310,6 +310,15 @@ func releaseFrom(call *decoder.V2Call) {
 	if st := (*fromState)(call.From); st.att.In != nil {
 		st.release()
 	}
+}
+
+// decoderFlags returns the options of the decoders of v1 which the options of a call set: UseNumberOption, by which
+// the decoder of an empty interface decodes a number as a json.Number, for UnmarshalAnyWithRawNumber.
+func decoderFlags(c *options.Config) decoder.OptionFlags {
+	if c.Value&options.UnmarshalAnyWithRawNumber != 0 {
+		return decoder.UseNumberOption
+	}
+	return 0
 }
 
 // unmarshalFlags returns the options of the decoder for the options of a call.

@@ -34,6 +34,7 @@ Priority 3
 - [decoder-v2-read-report-errors-whole-reader.md](decoder-v2-read-report-errors-whole-reader.md)
 - [v2-report-errors-misuse-edges.md](v2-report-errors-misuse-edges.md)
 - [decoder-v2-string-option-of-methods.md](decoder-v2-string-option-of-methods.md)
+- [decoder-std-unmarshal-from-use-number.md](decoder-std-unmarshal-from-use-number.md)
 - [encoder-v2-indent-offsets.md](encoder-v2-indent-offsets.md)
 - [encoder-map-key-types.md](encoder-map-key-types.md)
 - [encoder-small-deviations.md](encoder-small-deviations.md)

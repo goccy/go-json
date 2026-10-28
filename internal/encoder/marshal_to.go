@@ -40,13 +40,12 @@ var toEncoders = sync.Pool{New: func() any {
 	return e
 }}
 
-// marshalTo returns what MarshalJSONTo of m writes, and whether it declined. The encoder takes duplicate names and
-// invalid UTF-8, which the output of MarshalJSON of v1 may have.
+// marshalTo returns what MarshalJSONTo of m writes, by the options of toConfig, and whether it declined.
 func marshalTo(m marshalerTo) ([]byte, bool, error) {
 	e := toEncoders.Get().(*toEncoder)
 	defer toEncoders.Put(e)
 	e.buf.Reset()
-	e.enc.Reset(&e.buf, jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true))
+	e.enc.Reset(&e.buf, &toConfig)
 	err := m.MarshalJSONTo(e.enc)
 	_, n := e.enc.StackIndex(0)
 	declined, err := errors.MethodCallResult(err, e.enc.StackDepth(), n)
@@ -65,12 +64,14 @@ type toAttachment struct {
 	pl  textcoder.Attachment
 }
 
-// toConfig are the options of the encoder of toAttachment: the output of MarshalJSON may have duplicate names, and
-// invalid UTF-8, which is written as U+FFFD. The characters which are escaped for HTML are escaped after the method
-// ( see appendMarshalTo ).
+// toConfig are the options of the encoders which MarshalJSONTo of github.com/goccy/go-json/jsontext writes to: the
+// ones of encoding/json, which DefaultOptionsV1 of the root package sets, as encoding/json gives its methods, by
+// which MarshalEncode of v2 within the method encodes as the encoder of v1 does. The characters which the escapes of
+// EscapeForHTML and EscapeForJS are for are escaped after the method, as in the output of MarshalJSON, by the options
+// of the call ( see appendMarshalTo ).
 var toConfig = options.Config{
-	Set:   options.AllowDuplicateNames | options.AllowInvalidUTF8,
-	Value: options.AllowDuplicateNames | options.AllowInvalidUTF8,
+	Set:   options.DefaultV1Flags,
+	Value: options.DefaultV1Flags &^ (options.EscapeForHTML | options.EscapeForJS),
 }
 
 // htmlChars are the bytes which an output escaped for HTML has escaped: '<', '>', '&' and the first byte of U+2028

@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
+	"github.com/goccy/go-json/internal/options"
 	"github.com/goccy/go-json/internal/runtime"
 	"github.com/goccy/go-json/jsontext"
 )
@@ -46,13 +47,32 @@ var fromDecoders = sync.Pool{New: func() any {
 	return d
 }}
 
-// unmarshalFrom calls UnmarshalJSONFrom of m with a decoder of the value, and returns its error, and whether it
-// declined. The decoder takes duplicate names and invalid UTF-8, as the decoder of v1 does.
-func unmarshalFrom(m unmarshalerFrom, value []byte) (bool, error) {
+// fromOptions are the options of the decoder which UnmarshalJSONFrom of github.com/goccy/go-json/jsontext reads from,
+// made of the options of the decoding: the ones of encoding/json, which DefaultOptionsV1 of the root package sets,
+// and RejectUnknownMembers and UnmarshalAnyWithRawNumber for DisallowUnknownFieldsOption and UseNumberOption, which a
+// Decoder of encoding/json adds for DisallowUnknownFields and UseNumber, as encoding/json gives its methods, by which
+// UnmarshalDecode of v2 within the method decodes as the decoder of v1 does.
+type fromOptions OptionFlags
+
+func (o fromOptions) ApplyTo(c *options.Config) {
+	f := options.DefaultV1Flags
+	if OptionFlags(o)&DisallowUnknownFieldsOption != 0 {
+		f |= options.RejectUnknownMembers
+	}
+	if OptionFlags(o)&UseNumberOption != 0 {
+		f |= options.UnmarshalAnyWithRawNumber
+	}
+	c.Set |= f
+	c.Value |= f
+}
+
+// unmarshalFrom calls UnmarshalJSONFrom of m with a decoder of the value, by the options of the decoding flags ( see
+// fromOptions ), and returns its error, and whether it declined.
+func unmarshalFrom(m unmarshalerFrom, value []byte, flags OptionFlags) (bool, error) {
 	d := fromDecoders.Get().(*fromDecoder)
 	defer fromDecoders.Put(d)
 	d.r.Reset(value)
-	d.dec.Reset(&d.r, jsontext.AllowDuplicateNames(true), jsontext.AllowInvalidUTF8(true))
+	d.dec.Reset(&d.r, fromOptions(flags))
 	err := m.UnmarshalJSONFrom(d.dec)
 	_, n := d.dec.StackIndex(0)
 	declined, err := errors.MethodCallResult(err, d.dec.StackDepth(), n)
@@ -65,7 +85,7 @@ func unmarshalFrom(m unmarshalerFrom, value []byte) (bool, error) {
 // declines.
 type unmarshalFromDecoder struct {
 	typ  reflect.Type
-	from func(v any, value []byte) (bool, error)
+	from func(v any, value []byte, flags OptionFlags) (bool, error)
 	next Decoder
 }
 
@@ -74,7 +94,9 @@ func newUnmarshalFromDecoder(typ reflect.Type, next Decoder) *unmarshalFromDecod
 	// github.com/goccy/go-json/jsontext
 	from := stdUnmarshalFrom
 	if typ.Implements(unmarshalerFromType) {
-		from = func(v any, value []byte) (bool, error) { return unmarshalFrom(v.(unmarshalerFrom), value) }
+		from = func(v any, value []byte, flags OptionFlags) (bool, error) {
+			return unmarshalFrom(v.(unmarshalerFrom), value, flags)
+		}
 	}
 	return &unmarshalFromDecoder{typ: typ, from: from, next: next}
 }
@@ -90,7 +112,7 @@ func (d *unmarshalFromDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		typ: runtime.TypePtr(d.typ),
 		ptr: p,
 	}))
-	declined, err := d.from(v, buf[start:end])
+	declined, err := d.from(v, buf[start:end], ctx.Option.Flags)
 	if declined {
 		return d.next.Decode(ctx, start, depth, p)
 	}

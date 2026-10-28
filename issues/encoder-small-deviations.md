@@ -10,7 +10,8 @@
 - v2 `Marshal` of `map[any]int` with number keys writes them; encoding/json/v2 fails because an
   object member name must be a string (recorded 2026-10-11).
 - v1 with HTML escaping off: U+2028 and U+2029 in the output of a `MarshalJSON` method are not
-  escaped as encoding/json escapes them (recorded 2026-10-10).
+  escaped as encoding/json escapes them (recorded 2026-10-10), nor in the output of a `MarshalJSONTo`
+  method, which is escaped as the one of `MarshalJSON` (recorded 2026-10-28).
 - v2 `PreserveRawStrings` with `Deterministic` keeps the raw escapes in names where
   encoding/json/v2 sorts and writes them decoded (recorded 2026-10-11).
 - `Colorize` with a color format that contains `"` or `\` breaks the order of sorted map keys

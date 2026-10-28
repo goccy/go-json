@@ -5,8 +5,10 @@ package json_test
 import (
 	stdjson "encoding/json"
 	"encoding/json/jsontext"
+	jsonv2 "encoding/json/v2"
 	"errors"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/goccy/go-json"
@@ -141,5 +143,37 @@ func TestDecodeStdUnmarshalJSONFrom(t *testing.T) {
 		if err == nil || stdErr == nil || err.Error() != stdErr.Error() {
 			t.Errorf("%s: got the error %v, want %v", tt.in, err, stdErr)
 		}
+	}
+}
+
+// stdToDelegate and stdFromDelegate are toDelegate and fromDelegate of encoding/json/v2.
+type stdToDelegate struct{ V any }
+
+func (v stdToDelegate) MarshalJSONTo(enc *jsontext.Encoder) error { return jsonv2.MarshalEncode(enc, v.V) }
+
+type stdFromDelegate struct{ V any }
+
+func (v *stdFromDelegate) UnmarshalJSONFrom(dec *jsontext.Decoder) error { return jsonv2.UnmarshalDecode(dec, v.V) }
+
+func TestEncodeStdMarshalJSONToOptions(t *testing.T) {
+	for _, tt := range delegatedEncodings {
+		// the outputs of the cases are the ones of encoding/json
+		if got, err := stdjson.Marshal(stdToDelegate{tt.in}); err != nil || string(got) != tt.want {
+			t.Errorf("%s: encoding/json: got %s, %v, want %s", tt.name, got, err, tt.want)
+		}
+		compareStdEncoding(t, stdToDelegate{tt.in})
+	}
+}
+
+func TestDecodeStdUnmarshalJSONFromOptions(t *testing.T) {
+	for _, tt := range delegatedDecodings {
+		delegate := func(v any) any { return &stdFromDelegate{v} }
+		// the values and the failures of the cases are the ones of encoding/json
+		tt.test(t, stdjson.NewDecoder(strings.NewReader(tt.in)), stdjson.Unmarshal, delegate)
+		if tt.number {
+			// UseNumber is not given to this method ( see issues/decoder-std-unmarshal-from-use-number.md )
+			continue
+		}
+		tt.test(t, json.NewDecoder(strings.NewReader(tt.in)), json.Unmarshal, delegate)
 	}
 }

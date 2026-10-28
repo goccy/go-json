@@ -9,5 +9,5 @@ import "reflect"
 // stdUnmarshalerFromType.
 var (
 	stdUnmarshalerFromType reflect.Type
-	stdUnmarshalFrom       func(any, []byte) (bool, error)
+	stdUnmarshalFrom       func(any, []byte, OptionFlags) (bool, error)
 )

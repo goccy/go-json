@@ -102,9 +102,8 @@ func PointeeOf(ctx *RuntimeContext, codeSet *OpcodeSet) *OpcodeSet {
 	pointee := codeSet.pointee.Load()
 	if pointee == nil {
 		pointee = noPointee
-		if codeSet.Type.Kind() == reflect.Pointer {
-			elem, err := CompileToGetCodeSet(ctx, uintptr(runtime.TypePtr(codeSet.Type.Elem())))
-			if err == nil && elem.IfaceIndir {
+		if t := codeSet.Type; t.Kind() == reflect.Pointer && runtime.IfaceIndir(t.Elem()) {
+			if elem, err := pointeeCodeSet(ctx, t.Elem()); err == nil {
 				pointee = elem
 			}
 		}
@@ -280,9 +279,10 @@ func errCycle(ctx *RuntimeContext, typ reflect.Type, p unsafe.Pointer) error {
 	}
 }
 
-// ErrUnsupportedFloat returns the error of a float which is not finite, the value of the opcode.
+// ErrUnsupportedFloat returns the error of a float which is not finite, the value of the opcode: of encoding/json, with
+// the float, for v1 and for ReportErrorsWithLegacySemantics.
 func ErrUnsupportedFloat(ctx *RuntimeContext, code *Opcode, v float64) error {
-	if ctx.Option.Flag&V2Option != 0 {
+	if ctx.Option.Flag&(V2Option|ReportErrorsWithLegacySemanticsOption) == V2Option {
 		return &errors.SemanticError{GoType: runtime.TypeOfPtr(code.Type), Err: fmt.Errorf("unsupported value: %v", v)}
 	}
 	// the value is of the type of the float, which pointers may lead to, as encoding/json gives it
@@ -1118,7 +1118,7 @@ func AppendMarshalText(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	if !appended {
 		var err error
 		if bytes, err = m.call(p); err != nil {
-			return nil, &errors.MarshalerError{Type: m.recv, Err: err}
+			return nil, errors.ErrMarshaler(m.recv, err, "MarshalText")
 		}
 	}
 	// appendText, written here: it is not inlined, and this is the text of the key of most maps of texts.
@@ -1143,7 +1143,7 @@ func appendMarshalTextByInterface(ctx *RuntimeContext, code *Opcode, b []byte, v
 	}
 	bytes, err := marshaler.MarshalText()
 	if err != nil {
-		return nil, &errors.MarshalerError{Type: reflect.TypeOf(v), Err: err}
+		return nil, errors.ErrMarshaler(reflect.TypeOf(v), err, "MarshalText")
 	}
 	return appendText(ctx, b, *(*string)(unsafe.Pointer(&bytes))), nil
 }

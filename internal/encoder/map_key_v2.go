@@ -68,9 +68,10 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	if len(funcs) > 0 {
 		out, err = appendByFuncs(ctx, b, p, typ, funcs)
 	}
-	written := err != ErrUseDefault || v2MethodOf(typ, noMethod) != noMethod // by a function or a method
+	byFunc := err != ErrUseDefault
 	if err == ErrUseDefault {
-		out, err = appendKeyName(ctx, b, reflect.NewAt(typ, p).Elem())
+		// a key, which is not addressable
+		out, err = appendKeyName(ctx, b, reflect.NewAt(typ, p).Elem(), false)
 	}
 	ctx.KeyName = false
 	if err == nil && out[start] != '"' {
@@ -106,7 +107,7 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	if _, ok := m.names[name]; ok {
 		unquoted := jsonstring.AppendUnescaped(nil, []byte(name[1:len(name)-1]))
 		err := &errors.TextError{Err: errors.ErrDuplicateName, Name: string(unquoted)}
-		if written {
+		if byFunc || keyMethodOf(ctx, typ, noMethod, false) != noMethod {
 			// the name was written by a function or a method, which the error is reported for.
 			err.GoType = typ
 		}
@@ -116,52 +117,63 @@ func appendMapKeyName(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.
 	return out, nil
 }
 
-// appendKeyName appends the name of the value v, which is addressable, as a JSON string.
-func appendKeyName(ctx *RuntimeContext, b []byte, v reflect.Value) ([]byte, error) {
-	return appendKeyNameAfter(ctx, b, v, noMethod)
+// appendKeyName appends the name of the value v, which reflect can take the address of, as a JSON string: it is
+// addressable if it is the value which a pointer key points to ( see keyMethodOf ).
+func appendKeyName(ctx *RuntimeContext, b []byte, v reflect.Value, addressable bool) ([]byte, error) {
+	return appendKeyNameAfter(ctx, b, v, noMethod, addressable)
 }
 
-// appendKeyNameAfter appends the name of the value v, which is addressable, by its method after the method
-// after or by its kind.
-func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after int) ([]byte, error) {
+// keyMethodOf returns the method of marshaling which names a key of the type t, addressable or not, after the method
+// after, as v2MethodOf does. With CallMethodsWithLegacySemantics, a key is named as encoding/json names it: a string
+// by itself, and a key of another kind by AppendText or MarshalText only, the methods after methodMarshalJSON, of a
+// value receiver unless the key is addressable.
+func keyMethodOf(ctx *RuntimeContext, t reflect.Type, after int, addressable bool) int {
+	if ctx.Option.Flag&CallMethodsWithLegacySemanticsOption == 0 {
+		return v2MethodOf(t, after)
+	}
+	if t.Kind() == reflect.String {
+		return noMethod
+	}
+	return methodOfAt(t, max(after, methodMarshalJSON), addressable)
+}
+
+// appendKeyNameAfter appends the name of the value v, addressable or not ( see appendKeyName ), by its method after
+// the method after or by its kind.
+func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after int, addressable bool) ([]byte, error) {
 	t := v.Type()
-	switch v2MethodOf(t, after) {
+	if t == timeTimeType {
+		// written as a value of time.Time is, as encoding/json/v2 writes a time, not by its methods
+		return appendTime(ctx, b, v.Addr().UnsafePointer())
+	}
+	switch m := keyMethodOf(ctx, t, after, addressable); m {
 	case methodMarshalJSONTo:
 		// the encoder, at the place of a name, takes a string only.
 		out, err := V2Hooks.MarshalTo(ctx, b, t, v.Addr().Interface())
 		if err == ErrUseDefault {
-			return appendKeyNameAfter(ctx, b, v, methodMarshalJSONTo)
+			return appendKeyNameAfter(ctx, b, v, methodMarshalJSONTo, addressable)
 		}
 		return out, err
 	case methodMarshalJSON:
 		raw, err := v.Addr().Interface().(json.Marshaler).MarshalJSON()
 		if err != nil {
-			return b, &errors.MethodError{GoType: t, Err: unsupportedError(err, "MarshalJSON method"), Kind: errors.MethodJSON}
+			return b, &errors.MethodError{GoType: t, Err: unsupportedError(err, errors.MethodMarshalJSON), Kind: errors.MethodMarshalJSON}
 		}
 		out, err := AppendRaw(ctx, b, raw)
 		if err != nil {
-			return b, &errors.MethodError{GoType: t, Err: err, Kind: errors.MethodJSON}
+			return b, &errors.MethodError{GoType: t, Err: err, Kind: errors.MethodMarshalJSON}
 		}
 		if out[len(b)] != '"' {
 			return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: t}
 		}
 		return out, nil
-	case methodAppendText:
-		m := v.Addr().Interface().(textAppender)
-		return appendMethodText(ctx, b, t, "AppendText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
-			return m.AppendText(dst)
-		})
-	case methodMarshalText:
-		m := v.Addr().Interface().(encoding.TextMarshaler)
-		return appendMethodText(ctx, b, t, "MarshalText method", nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
-			text, err := m.MarshalText()
-			return append(dst, text...), err
-		})
+	case methodAppendText, methodMarshalText:
+		return appendTextOf(ctx, b, t, m, v.Addr().Interface())
 	}
-	switch t {
-	case timeDurationType:
+	switch {
+	case t == timeDurationType && ctx.Option.Flag&FormatDurationAsNanoOption == 0:
+		// the nanoseconds of the int64 with FormatDurationAsNano, which its kind writes
 		return b, &errors.SemanticError{GoType: t, Err: errNoDuration}
-	case jsonNumberType:
+	case t == jsonNumberType:
 		out, err := AppendNumberString(ctx, append(b, '"'), json.Number(v.String()))
 		if err != nil {
 			return b, err
@@ -180,6 +192,10 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 	case reflect.Float32, reflect.Float64:
 		f := v.Float()
 		if math.IsNaN(f) || math.IsInf(f, 0) {
+			if ctx.Option.Flag&ReportErrorsWithLegacySemanticsOption != 0 {
+				// the error of encoding/json, with the float
+				return b, &errors.UnsupportedValueError{Value: v, Str: strconv.FormatFloat(f, 'g', -1, 64)}
+			}
 			return b, &errors.SemanticError{GoType: t, Err: errUnsupportedValue(f)}
 		}
 		bits := 64
@@ -189,6 +205,20 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		b = append(b, '"')
 		return append(appendFloatOfBits(b, f, bits), '"'), nil
 	case reflect.Pointer, reflect.Interface:
+		if ctx.Option.Flag&CallMethodsWithLegacySemanticsOption != 0 {
+			switch {
+			case v.Kind() == reflect.Pointer && v.IsNil() && (t.Implements(marshalTextType) || t.Implements(appendTextType)):
+				// a nil pointer of MarshalText or AppendText, which encoding/json names "" with
+				// CallMethodsWithLegacySemantics
+				return append(b, `""`...), nil
+			case v.Kind() == reflect.Interface && !v.IsNil() && v.Elem().Kind() == reflect.Pointer && v.Elem().IsNil():
+				// a nil pointer held by an interface value of MarshalText or AppendText, which encoding/json names by
+				// the method of the interface type, called for the nil pointer, as it writes such a value
+				if out, ok, err := appendNilTextKey(ctx, b, v); ok {
+					return out, err
+				}
+			}
+		}
 		// the pointers and the interfaces are followed here, one by one, up to a value which is named otherwise: by
 		// its functions, its method or its kind.
 		var cycle keyCycle
@@ -210,7 +240,8 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 				}
 			}
 			if k := elem.Kind(); k != reflect.Pointer && k != reflect.Interface || v2MethodOf(elem.Type(), noMethod) != noMethod {
-				return appendKeyName(ctx, b, elem)
+				// the value which a pointer points to is addressable, not the copy of the one an interface holds
+				return appendKeyName(ctx, b, elem, v.Kind() == reflect.Pointer)
 			}
 			if cycle.reached(elem) {
 				return b, &errors.SemanticError{GoType: t, Err: errors.ErrCycle}
@@ -218,7 +249,8 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 			v = elem
 		}
 	case reflect.Array:
-		if t.Elem().Kind() == reflect.Uint8 && t.Elem().PkgPath() == "" {
+		if t.Elem().Kind() == reflect.Uint8 &&
+			!v2BytesAsArray(t, ctx.Option.Flag&FormatByteArrayAsArrayOption != 0, ctx.Option.Flag&FormatBytesWithLegacySemanticsOption != 0) {
 			src := unsafe.Slice((*byte)(v.Addr().UnsafePointer()), t.Len())
 			b = append(b, '"')
 			return append(base64.StdEncoding.AppendEncode(b, src), '"'), nil
@@ -227,6 +259,33 @@ func appendKeyNameAfter(ctx *RuntimeContext, b []byte, v reflect.Value, after in
 		return b, &errors.SemanticError{GoType: t}
 	}
 	return b, &errors.TextError{Err: errors.ErrNonStringName, GoType: t}
+}
+
+// appendNilTextKey appends the name of the interface value v, which holds a nil pointer, by the method of the
+// interface type of v, called for the nil pointer, and reports true, if it is MarshalText or AppendText ( see
+// v2MethodOfInterface ) of the pointer: a method of the value it points to can't be called for it.
+func appendNilTextKey(ctx *RuntimeContext, b []byte, v reflect.Value) ([]byte, bool, error) {
+	held, recv := v.Elem().Type(), v.Interface()
+	m := v2MethodOfInterface(v.Type())
+	if m != methodAppendText && m != methodMarshalText || held.Elem().Implements(marshalerTypeOf(m)) {
+		return b, false, nil
+	}
+	out, err := appendTextOf(ctx, b, held, m, recv)
+	return out, true, err
+}
+
+// appendTextOf appends the text of recv by its method m, AppendText or MarshalText, as a JSON string, with the
+// errors of a value of typ.
+func appendTextOf(ctx *RuntimeContext, b []byte, typ reflect.Type, m int, recv any) ([]byte, error) {
+	if m == methodAppendText {
+		return appendMethodText(ctx, b, typ, errors.MethodAppendText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+			return recv.(textAppender).AppendText(dst)
+		})
+	}
+	return appendMethodText(ctx, b, typ, errors.MethodMarshalText, nil, func(_ unsafe.Pointer, dst []byte) ([]byte, error) {
+		text, err := recv.(encoding.TextMarshaler).MarshalText()
+		return append(dst, text...), err
+	})
 }
 
 // appendName appends the name as a JSON string, which must be valid UTF-8 unless it is allowed.

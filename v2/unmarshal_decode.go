@@ -154,6 +154,9 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 			cfg.Apply(opts)
 		}
 	}
+	if cfg.Has(options.ReportErrorsWithLegacySemantics) && !name {
+		return unmarshalDecodeWithV1Errors(in, typ, p, cfg)
+	}
 	var err error
 	switch st, attached := outer.(*fromState); {
 	case name:
@@ -166,6 +169,33 @@ func (dc *decodeCall) decode(in *jsontext.Decoder, typ, p unsafe.Pointer, opts [
 		err = decodeLent(d, in, dc, depth, typ, p, cfg)
 	}
 	return err
+}
+
+// unmarshalDecodeWithV1Errors decodes the next value of the decoder into the value at p, of the pointer type typ, by
+// the options of cfg, which have ReportErrorsWithLegacySemantics, as encoding/json decodes it: the whole value is read,
+// which the decoder checks by the options of the call, and decoded as Unmarshal decodes it ( see
+// unmarshalWithV1Errors ). The end of the input is io.EOF.
+func unmarshalDecodeWithV1Errors(in *jsontext.Decoder, typ, p unsafe.Pointer, cfg *options.Config) error {
+	ctx := decoder.TakeRuntimeContext()
+	setCall(ctx, cfg)
+	defer func() {
+		clearCall(ctx)
+		ctx.Option.V2 = 0
+		decoder.ReleaseRuntimeContext(ctx)
+	}()
+	dec, err := outputDecoder(ctx, typ, p)
+	if err != nil {
+		// an output which is not a non-nil pointer, before the value is read
+		return v1OutputError(err)
+	}
+	restore := textcoder.ConfigureDecoder(unsafe.Pointer(in), cfg)
+	v, err := in.ReadValue()
+	restore()
+	if err != nil {
+		return v1FatalError(err, 0)
+	}
+	ctx.SetInput(v)
+	return decodeWithV1Errors(ctx, dec, in.InputOffset()-int64(len(v)), typ, p, in)
 }
 
 // decodeName decodes the name of an object which is the next value of the decoder, which reads it, into the value at
@@ -524,5 +554,7 @@ func decodeOnStream(d unsafe.Pointer, in *jsontext.Decoder, st *fromState, level
 	st.nestedPath = s.RestorePath(savedPath)
 	call.Funcs, call.Config, call.Value, call.Place, call.From = savedFuncs, savedConfig, savedValue, savedPlace, savedFrom
 	*ctx.Option = savedOption
+	// the recent decoders of ctx, which are the ones of the options of encoding/json of the call around this again
+	decoder.SetV2Flags(ctx, savedOption.V2)
 	return err
 }

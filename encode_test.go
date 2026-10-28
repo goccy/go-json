@@ -979,6 +979,32 @@ func TestMarshalUncommonFieldNames(t *testing.T) {
 	}
 }
 
+// failingText is a type whose MarshalText fails, of a value receiver.
+type failingText struct{ X int }
+
+func (failingText) MarshalText() ([]byte, error) { return nil, errors.New("text failed") }
+
+// failingPtrText is a type whose MarshalText fails, of a pointer receiver.
+type failingPtrText struct{ X int }
+
+func (*failingPtrText) MarshalText() ([]byte, error) { return nil, errors.New("text failed") }
+
+// The error of MarshalText is a MarshalerError which names MarshalText, as encoding/json names it, wherever the value
+// is: a value, a pointer, a field, a value of an interface or a key of a map.
+func TestMarshalTextError(t *testing.T) {
+	for _, v := range []any{
+		failingText{}, &failingText{}, &failingPtrText{}, struct{ T failingText }{},
+		&struct{ T failingPtrText }{}, []any{failingText{}}, map[failingText]int{{}: 1},
+		map[string]failingText{"a": {}},
+	} {
+		_, err := json.Marshal(v)
+		var merr *json.MarshalerError
+		if !errors.As(err, &merr) || !strings.Contains(err.Error(), "error calling MarshalText for type") {
+			t.Errorf("Marshal(%T): got %v, want the error of MarshalText", v, err)
+		}
+	}
+}
+
 func TestMarshalerError(t *testing.T) {
 	s := "test variable"
 	st := reflect.TypeOf(s)

@@ -161,7 +161,7 @@ func diffValues() []any {
 	emptyPointer, nonEmptyPointer := &empty, &nonEmpty
 	var nilInt *int
 	f := false
-	return []any{
+	return append([]any{
 		nil, true, false, 0, -1, int8(-128), uint64(math.MaxUint64), 3.5, float32(0.1), 1e21, 1e-7, "", "a\"b\\c",
 		"<html>&</html>", "  ", "日本語", []byte(nil), []byte{}, []byte("bytes"), [4]byte{1, 2, 3, 4},
 		[]int(nil), []int{}, []int{1, 2}, map[string]int(nil), map[string]int{"b": 2, "a": 1}, map[int]bool{3: true, -1: false},
@@ -213,17 +213,17 @@ func diffValues() []any {
 		[]diffPtrToStructOfSlice{&diffStructOfSlice{F: []diffPtrToStructOfSlice{
 			&diffStructOfSlice{F: []diffPtrToStructOfSlice{}}, &diffStructOfSlice{}, nil,
 		}}},
-	}
+	}, v1DiffValues()...)
 }
 
 func diffOptions() [][]json.Options {
-	return [][]json.Options{
+	return append([][]json.Options{
 		nil,
 		{json.Deterministic(true)},
 		{json.StringifyNumbers(true), json.Deterministic(true)},
 		{json.FormatNilSliceAsNull(true), json.FormatNilMapAsNull(true), json.Deterministic(true)},
 		{json.OmitZeroStructFields(true), json.Deterministic(true)},
-	}
+	}, v1DiffOptions()...)
 }
 
 func stdOptions(opts []json.Options) []stdjson.Options {
@@ -238,7 +238,13 @@ func stdOptions(opts []json.Options) []stdjson.Options {
 			{json.FormatNilSliceAsNull, stdjson.FormatNilSliceAsNull},
 			{json.FormatNilMapAsNull, stdjson.FormatNilMapAsNull},
 			{json.OmitZeroStructFields, stdjson.OmitZeroStructFields},
+			{json.MatchCaseInsensitiveNames, stdjson.MatchCaseInsensitiveNames},
 		} {
+			if v, ok := json.GetOption(o, f.ours); ok {
+				out = append(out, f.std(v))
+			}
+		}
+		for _, f := range v1OptionPairs {
 			if v, ok := json.GetOption(o, f.ours); ok {
 				out = append(out, f.std(v))
 			}
@@ -281,12 +287,12 @@ func compareWithStd(t *testing.T, name string, v any, opts []json.Options) {
 		return
 	}
 	if err != nil {
+		// a SemanticError is compared by its fields; the place of another error, as of a name twice in a map which is
+		// not sorted, may depend on the order of the members
 		var serr *json.SemanticError
 		var stdSerr *stdjson.SemanticError
-		if errors.As(err, &serr) != errors.As(wantErr, &stdSerr) {
-			t.Errorf("%s: Marshal error = %v; std %v", name, err, wantErr)
-		} else if serr != nil && (serr.ByteOffset != stdSerr.ByteOffset || string(serr.JSONPointer) != string(stdSerr.JSONPointer) || serr.GoType != stdSerr.GoType) {
-			t.Errorf("%s: Marshal error = %#v; std %#v", name, serr, stdSerr)
+		if errors.As(err, &serr) != errors.As(wantErr, &stdSerr) || serr != nil && describeUnmarshalError(serr) != describeUnmarshalError(stdSerr) {
+			t.Errorf("%s: Marshal error:\n got %s\nwant %s", name, describeUnmarshalError(err), describeUnmarshalError(wantErr))
 		}
 		return
 	}

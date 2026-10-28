@@ -11,9 +11,10 @@ import (
 	"github.com/goccy/go-json/internal/runtime"
 )
 
-// The methods of marshaling of the semantics of encoding/json/v2. A value is always addressable for them: the
-// method of the pointer to a type is called for a value of the type, at its address. The first of them which a
-// type has writes its value: MarshalJSONTo, MarshalJSON, AppendText, MarshalText.
+// The methods of marshaling of the semantics of encoding/json/v2. The method of the pointer to a type is called for
+// a value of the type, at its address, as a value is addressable for them, but for a value which is not addressable
+// with CallMethodsWithLegacySemantics ( see v2MethodOfAt ). The first of them which a type has writes its value:
+// MarshalJSONTo, MarshalJSON, AppendText, MarshalText.
 
 // V2Hooks are what the v2 json package gives the encoder: the functions which take jsontext, which the encoder
 // doesn't import.
@@ -76,22 +77,97 @@ func v2MethodOf(typ reflect.Type, after int) int {
 	return noMethod
 }
 
-// v2HasMethod reports whether a value of the type is written by a function or a method of marshaling: of the
-// type of a default representation, after the ones which declined it ( see v2Code ).
-func (c *Compiler) v2HasMethod(typ reflect.Type) bool {
-	if typ == c.v2DefaultType {
-		return v2MethodOf(typ, c.v2DefaultAfter) != noMethod
-	}
-	return len(c.funcs.funcsOf(typ)) > 0 || v2MethodOf(typ, noMethod) != noMethod
+// v2MethodOfAt is v2MethodOf of a value which is addressable or not: with CallMethodsWithLegacySemantics, a method of
+// a pointer receiver is not called for a value which is not addressable, as encoding/json doesn't call it, and the
+// method after it or the kind writes the value.
+func (c *Compiler) v2MethodOfAt(typ reflect.Type, after int, addressable bool) int {
+	return methodOfAt(typ, after, addressable || c.v1Options&modeCallMethodsWithLegacySemantics == 0)
 }
 
-// v2MethodCode returns the code of a value of typ written by its method of marshaling after the method after,
-// and true, if it has one.
-func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
-	switch v2MethodOf(typ, after) {
+// methodOfAt is v2MethodOf of a value which is addressable or not: a method of a pointer receiver is passed over for
+// a value which is not, for the method after it.
+func methodOfAt(typ reflect.Type, after int, addressable bool) int {
+	m := v2MethodOf(typ, after)
+	for !addressable && m != noMethod && !typ.Implements(marshalerTypeOf(m)) {
+		m = v2MethodOf(typ, m)
+	}
+	return m
+}
+
+// marshalerTypeOf returns the interface type of the method of marshaling m.
+func marshalerTypeOf(m int) reflect.Type {
+	switch m {
+	case methodMarshalJSONTo:
+		return V2Hooks.MarshalerToType
+	case methodMarshalJSON:
+		return marshalJSONType
+	case methodAppendText:
+		return appendTextType
+	}
+	return marshalTextType
+}
+
+// v2MethodOfInterface returns the first method of marshaling which the interface type typ has, or noMethod.
+func v2MethodOfInterface(typ reflect.Type) int {
+	for m := methodMarshalJSONTo; m <= methodMarshalText; m++ {
+		if iface := marshalerTypeOf(m); iface != nil && typ.Implements(iface) {
+			return m
+		}
+	}
+	return noMethod
+}
+
+// appendV1Interface returns the function which appends the value of the interface type typ at p, of the method
+// of marshaling m, with CallMethodsWithLegacySemantics: a nil pointer which it holds is written by the method, called
+// for the nil pointer, as encoding/json calls it, if the method is of the pointer; any other value as the one of an
+// interface{}.
+func appendV1Interface(typ reflect.Type, m int) AppendFunc {
+	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		v := reflect.NewAt(typ, p).Elem()
+		if v.IsNil() {
+			return append(b, "null"...), nil
+		}
+		held := v.Elem()
+		if held.Kind() != reflect.Pointer || !held.IsNil() || held.Type().Elem().Implements(marshalerTypeOf(m)) {
+			// a value, or a nil pointer whose method is of the value it points to, which can't be called for it:
+			// written as any other
+			value := held.Interface()
+			return appendValueOf(ctx, b, emptyInterfaceType, unsafe.Pointer(&value))
+		}
+		recv := v.Interface()
+		switch m {
+		case methodMarshalJSONTo:
+			return V2Hooks.MarshalTo(ctx, b, held.Type(), recv)
+		case methodMarshalJSON:
+			raw, err := recv.(json.Marshaler).MarshalJSON()
+			return appendV2Raw(ctx, held.Type(), b, raw, err)
+		}
+		return appendTextOf(ctx, b, held.Type(), m, recv)
+	}
+}
+
+// v2HasMethod reports whether an addressable value of the type is written by a function or a method of marshaling:
+// of the type of a default representation, after the ones which declined it ( see v2Code ).
+func (c *Compiler) v2HasMethod(typ reflect.Type) bool {
+	return c.v2HasMethodAt(typ, true)
+}
+
+// v2HasMethodAt is v2HasMethod for a value which is addressable or not: with CallMethodsWithLegacySemantics, the
+// methods of the pointer don't write a value which is not ( see v2MethodOfAt ).
+func (c *Compiler) v2HasMethodAt(typ reflect.Type, addressable bool) bool {
+	if typ == c.v2DefaultType {
+		return c.v2MethodOfAt(typ, c.v2DefaultAfter, addressable) != noMethod
+	}
+	return len(c.funcs.funcsOf(typ)) > 0 || c.v2MethodOfAt(typ, noMethod, addressable) != noMethod
+}
+
+// v2MethodCode returns the code of a value of typ, addressable or not, written by its method of marshaling after the
+// method after, and true, if it has one.
+func (c *Compiler) v2MethodCode(typ reflect.Type, after int, addressable bool) (Code, bool) {
+	switch c.v2MethodOfAt(typ, after, addressable) {
 	case methodMarshalJSONTo:
 		return c.appendFuncCode(typ, V2Hooks.MarshalToOf(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			return appendDefault(ctx, b, typ, p, methodMarshalJSONTo)
+			return appendDefault(ctx, b, typ, p, methodMarshalJSONTo, addressable)
 		})), true
 	case methodMarshalJSON:
 		if typ == rawMessageType {
@@ -104,7 +180,7 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 				}
 				out, err := AppendRaw(ctx, b, raw)
 				if err != nil {
-					return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
+					return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodMarshalJSON}
 				}
 				return out, nil
 			}), true
@@ -132,12 +208,12 @@ func (c *Compiler) v2MethodCode(typ reflect.Type, after int) (Code, bool) {
 	case methodAppendText:
 		appendText := addrMethod[func(unsafe.Pointer, []byte) ([]byte, error)](typ, appendTextInterface)
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			return appendMethodText(ctx, b, typ, "AppendText method", p, appendText)
+			return appendMethodText(ctx, b, typ, errors.MethodAppendText, p, appendText)
 		}), true
 	case methodMarshalText:
 		marshalText := addrMethod[func(unsafe.Pointer) ([]byte, error)](typ, marshalTextInterface)
 		return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
-			return appendMethodText(ctx, b, typ, "MarshalText method", p, func(p unsafe.Pointer, dst []byte) ([]byte, error) {
+			return appendMethodText(ctx, b, typ, errors.MethodMarshalText, p, func(p unsafe.Pointer, dst []byte) ([]byte, error) {
 				text, err := marshalText(p)
 				return append(dst, text...), err
 			})
@@ -163,11 +239,11 @@ func appendV2Raw(ctx *RuntimeContext, typ reflect.Type, b, raw []byte, err error
 		return append(b, raw...), nil
 	}
 	if err != nil {
-		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, "MarshalJSON method"), Kind: errors.MethodJSON}
+		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, errors.MethodMarshalJSON), Kind: errors.MethodMarshalJSON}
 	}
 	out, err := AppendRaw(ctx, b, raw)
 	if err != nil {
-		return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodJSON}
+		return b, &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodMarshalJSON}
 	}
 	return out, nil
 }
@@ -213,11 +289,12 @@ func addrJSONAppender(typ reflect.Type) func([]byte, unsafe.Pointer) ([]byte, bo
 var RunHook func(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet) ([]byte, error)
 
 // defaultKey is the key of the opcodes of the default representation of a type, in a compile mode, after the
-// functions and a method.
+// functions and a method, of a value which is addressable or not ( see appendDefault ).
 type defaultKey struct {
-	typ   reflect.Type
-	mode  compileMode
-	after int
+	typ         reflect.Type
+	mode        compileMode
+	addressable bool
+	after       int
 }
 
 // defaultCodeSets are the opcodes of the default representations ( see appendDefault ) without functions of
@@ -227,9 +304,13 @@ var defaultCodeSets sync.Map // map[defaultKey]*OpcodeSet
 // appendDefault appends the value at p, of typ, by its representation after the functions of marshaling and the
 // method after, which declined to write it: the next method of it, or the representation of its type. The value
 // is written by the opcodes of the representation, in a context of their own, after the output b: the VM runs
-// once more within the method which called this.
-func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Pointer, after int) ([]byte, error) {
-	key := defaultKey{typ: typ, mode: ctx.compileMode(), after: after}
+// once more within the method which called this. The value is addressable or not, as the one which the method was
+// called for: with CallMethodsWithLegacySemantics, which calls the methods of pointers for addressable values only,
+// the opcodes of an addressable value are the ones of the value of a pointer. Without it, all the values are written
+// alike, by the opcodes of a value given by itself.
+func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Pointer, after int, addressable bool) ([]byte, error) {
+	mode := ctx.compileMode()
+	key := defaultKey{typ: typ, mode: mode, after: after, addressable: addressable && mode&modeCallMethodsWithLegacySemantics != 0}
 	var funcs *MarshalFuncs
 	cache := &defaultCodeSets
 	if ctx.Option.Flag&MarshalFuncsOption != 0 {
@@ -243,7 +324,11 @@ func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Poi
 		if after != allMethods {
 			c.v2DefaultType, c.v2DefaultAfter = typ, after
 		}
-		code, err := c.valueCode(typ)
+		valueCode := c.valueCode
+		if key.addressable {
+			valueCode = c.pointeeCode
+		}
+		code, err := valueCode(typ)
 		if err != nil {
 			return b, err
 		}
@@ -257,11 +342,26 @@ func appendDefault(ctx *RuntimeContext, b []byte, typ reflect.Type, p unsafe.Poi
 	return runInner(ctx, b, codeSet, p)
 }
 
+// appendAddressable returns the function which appends the addressable value of typ at p by its representation, as
+// appendDefault compiles it, with its functions and its methods ( see recursiveValueCode ).
+func appendAddressable(typ reflect.Type) AppendFunc {
+	return func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
+		return appendDefault(ctx, b, typ, p, allMethods, true)
+	}
+}
+
 // runInner runs the opcodes of the value at p in a context of its own, after the output b, and returns the output
 // without the comma after the value, which the caller writes. An error is at its place in that output.
 func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointer) ([]byte, error) {
+	if ctx.ValueDepth+codeSet.Levels > MaxDepth {
+		// the depth of the value, which the frames of the VM check when they enter it ( see EnterInterface ), but
+		// which a context of its own starts at.
+		return b, &errors.OutputError{Out: b, Err: ErrMaxDepth(ctx)}
+	}
 	inner := TakeRuntimeContext()
 	*inner.Option = *ctx.Option
+	// the recent opcodes of inner, which are the ones of the options of encoding/json of ctx
+	SetFlags(inner, ctx.Option.Flag)
 	// the escaper of the options of ctx is the one of ctx, which records invalid UTF-8 for it: inner sets its own.
 	inner.Option.EscaperFlags = noEscaperFlags
 	inner.Init(p, codeSet.CodeLength)
@@ -292,27 +392,27 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	return out[:len(out)-1], nil // without the comma after the value, which the caller writes
 }
 
-// appendMethodText appends the text which appendText appends for the value at p, as a JSON string.
-func appendMethodText(ctx *RuntimeContext, b []byte, typ reflect.Type, what string, p unsafe.Pointer, appendText func(unsafe.Pointer, []byte) ([]byte, error)) ([]byte, error) {
+// appendMethodText appends the text which appendText, the method kind, appends for the value at p, as a JSON string.
+func appendMethodText(ctx *RuntimeContext, b []byte, typ reflect.Type, kind errors.MethodKind, p unsafe.Pointer, appendText func(unsafe.Pointer, []byte) ([]byte, error)) ([]byte, error) {
 	start := len(b)
 	text, err := appendText(p, ctx.MarshalBuf[:0])
 	if err != nil {
-		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, what), Kind: errors.MethodText}
+		return b, &errors.MethodError{GoType: typ, Err: unsupportedError(err, kind), Kind: kind}
 	}
 	ctx.MarshalBuf = text[:0]
 	out, err := appendName(ctx, b, *(*string)(unsafe.Pointer(&text)))
 	if err != nil {
 		// invalid UTF-8, of the string at the place of the value.
-		return b[:start], &errors.MethodError{GoType: typ, Err: err, Kind: errors.MethodText}
+		return b[:start], &errors.MethodError{GoType: typ, Err: err, Kind: kind}
 	}
 	return out, nil
 }
 
-// unsupportedError returns the error of a method or a function, which must not report errors.ErrUnsupported:
-// only MarshalJSONTo and the functions of MarshalToFunc may.
-func unsupportedError(err error, what string) error {
+// unsupportedError returns the error of the method kind, which must not report errors.ErrUnsupported: only
+// MarshalJSONTo and the functions of MarshalToFunc may.
+func unsupportedError(err error, kind errors.MethodKind) error {
 	if stderrors.Is(err, stderrors.ErrUnsupported) {
-		return stderrors.New(what + " may not return errors.ErrUnsupported")
+		return stderrors.New(kind.String() + " method may not return errors.ErrUnsupported")
 	}
 	return err
 }

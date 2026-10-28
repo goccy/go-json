@@ -278,6 +278,10 @@ func MarshalEncode(out *jsontext.Encoder, in any, opts ...Options) error {
 	restore := textcoder.Configure(out, cfg)
 	if err = out.WriteValue(buf); err != nil {
 		textcoder.Fail(out, err)
+		if st.cfg.Has(options.ReportErrorsWithLegacySemantics) && textcoder.IsIOError(err) {
+			// the error of the writer as it is, as encoding/json reports it
+			err = errors.Unwrap(err)
+		}
 	}
 	restore()
 	releaseCallState(st)
@@ -321,7 +325,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 	// the options of the engine: the default ones, which most calls have, without a call. ctx.RewriteFrom is not
 	// reset: the levels of the output are read from its start after the state is reset ( see tracker.sync ).
 	if st.cfg.Set == 0 {
-		ctx.Option.Flag = defaultFlags
+		encoder.SetFlags(ctx, defaultFlags)
 		ctx.RescanNames = false
 	} else if st.configure(ctx, in, nilPointer) {
 		// a nil pointer is null, which no function is called for.
@@ -372,7 +376,7 @@ func marshal(ctx *encoder.RuntimeContext, st *callState, in any, nilPointer bool
 // prepareDefault sets ctx and the state for an encoding of the default options at the top level of an output of
 // its own, as marshal does: it is inlined into the functions of marshaling, which then encode without a call.
 func (st *callState) prepareDefault(ctx *encoder.RuntimeContext) {
-	ctx.Option.Flag = defaultFlags
+	encoder.SetFlags(ctx, defaultFlags)
 	ctx.RescanNames = false
 	st.base, st.attached = 0, false
 	st.tracked.stale = true
@@ -395,7 +399,7 @@ func (st *callState) defaultError(ctx *encoder.RuntimeContext, buf []byte, err e
 // functions of marshaling are not called for.
 func (st *callState) configure(ctx *encoder.RuntimeContext, in any, nilPointer bool) bool {
 	c := &st.cfg
-	ctx.Option.Flag = optionFlags(c)
+	encoder.SetFlags(ctx, optionFlags(c))
 	// two names may be the same after U+FFFD is written for their invalid bytes.
 	ctx.RescanNames = c.Has(options.AllowInvalidUTF8) && !c.Has(options.AllowDuplicateNames)
 	if m, _ := c.Marshalers.(*Marshalers); m != nil && m.funcs != nil {
@@ -465,7 +469,7 @@ func optionFlags(c *options.Config) encoder.OptionFlag {
 		flags |= encoder.OmitZeroStructFieldsOption
 	}
 	if c.Has(options.StringTag) {
-		flags |= encoder.StringTagOption | encoder.StringifyNumbersOption
+		flags |= encoder.StringTagOption
 	}
 	if !c.Has(options.AllowInvalidUTF8) {
 		flags |= encoder.RejectInvalidUTF8Option
@@ -479,5 +483,20 @@ func optionFlags(c *options.Config) encoder.OptionFlag {
 	if c.Value&rawRewriting != 0 {
 		flags |= encoder.RawRewriteOption
 	}
+	// the options of encoding/json which change the marshaling, copied at once, as their flags are in the same order
+	flags |= encoder.OptionFlag(c.Value&v1MarshalOptions/options.MatchCaseSensitiveDelimiter) *
+		encoder.MatchCaseSensitiveDelimiterOption
 	return flags
 }
+
+// v1MarshalOptions are the options of encoding/json which change the marshaling, MatchCaseSensitiveDelimiter by the
+// matching of the names of a fallback, which are adjacent properties, from MatchCaseSensitiveDelimiter, in the order of
+// their flags in the encoder.
+const v1MarshalOptions = options.MatchCaseSensitiveDelimiter | options.CallMethodsWithLegacySemantics |
+	options.FormatByteArrayAsArray | options.FormatBytesWithLegacySemantics | options.FormatDurationAsNano |
+	options.ReportErrorsWithLegacySemantics | options.StringifyWithLegacySemantics | options.OmitEmptyWithLegacySemantics
+
+// the last of the options is as far from the first as its flag is, as both are made by iota in the same order: the
+// length of the array type is 0 then, and it is another type, or a negative constant, otherwise.
+var _ [0]struct{} = [options.OmitEmptyWithLegacySemantics/options.MatchCaseSensitiveDelimiter -
+	options.Flags(encoder.OmitEmptyWithLegacySemanticsOption/encoder.MatchCaseSensitiveDelimiterOption)]struct{}{}

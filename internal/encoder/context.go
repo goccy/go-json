@@ -23,6 +23,9 @@ type compileContext struct {
 	// hiddenNames are the names which the code of a recursive struct leaves out, by the opcode which jumps to it
 	// from a struct it is embedded in ( see StructCode.hiddenNames ).
 	hiddenNames map[*Opcode][]string
+	// recursiveKeys are the keys of the structs which the recursive codes jump to, by the opcodes which jump, where
+	// the key is not the type ( see StructCode.key ).
+	recursiveKeys map[*Opcode]uintptr
 }
 
 func (c *compileContext) incIndent() {
@@ -183,6 +186,10 @@ type RuntimeContext struct {
 	topValue unsafe.Pointer
 	// recentCodeSets are the opcodes of the types encoded last, in the sets indexed by the address of the type.
 	recentCodeSets [recentCodeSetSets]recentCodeSetSet
+	// recentV1Options are the options of encoding/json which change the opcodes ( see v1OpcodeOptions ) that
+	// recentCodeSets were compiled for: the keys of the sets have no room for them, so the sets are emptied when an
+	// encoding has others ( see SetFlags ).
+	recentV1Options OptionFlag
 	// value is a zero value of the type of valueCodeSet in the heap, which MarshalOf copies its argument to.
 	// It is zeroed again after the encoding.
 	valueCodeSet *OpcodeSet

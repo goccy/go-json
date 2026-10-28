@@ -50,7 +50,7 @@ func UnmarshalOf[T any](data []byte, v *T, optFuncs ...DecodeOptionFunc) error {
 	if err == nil {
 		// a type error is returned only when the whole input is valid, as encoding/json does
 		if err = validateEndBuf(src, cursor); err == nil && ctx.HasTypeError() {
-			err = ctx.TypeError(reflect.TypeOf((*T)(nil)), 0, 0)
+			err = ctx.TypeError(reflect.TypeOf((*T)(nil)), 0, 0, nil)
 		}
 	}
 	if err != nil {

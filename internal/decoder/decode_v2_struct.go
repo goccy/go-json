@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/bits"
 	"reflect"
+	"slices"
 	"strings"
 	"unicode/utf8"
 	"unsafe"
@@ -42,16 +43,34 @@ type v2StructDecoder struct {
 	fields     []*structFieldSet
 	keyDecoder *structDecoder
 	// foldedTo is the field which a name of the folded name of each field matches ( see jsonfields.FoldName ), by the
-	// indexes of the fields: [0] without V2MatchCaseInsensitiveNames, where only the fields of the `case:ignore`
-	// option match a name so, and [1] with it, where all but the ones of `case:strict` do. It is nil where no field
-	// matches the name, and ambiguousField where several do. A name is of the folded name of the field which v1
-	// finds for it, or which foldKeys finds for it without its '_' and '-' ( see foldKey ). foldKeys is a table as
-	// v1's of the names of the fields without their '_' and '-', v1's own if no name of a field has them. foldAlways
-	// is whether a field matches by its `case:ignore` option, without V2MatchCaseInsensitiveNames.
-	foldedTo   [2][]*structFieldSet
+	// indexes of the fields, in a table for the options ( see foldedOf ): without V2MatchCaseInsensitiveNames, only the
+	// fields of the `case:ignore` option match a name so, and with it all but the ones of `case:strict` do; with
+	// V2MatchCaseSensitiveDelimiter, only the ones of the name but for the case do, as strings.EqualFold compares
+	// names, which v1 finds a name by ( see appendFoldedKey ). It is nil where no field matches the name, and
+	// ambiguousField where several do, but the first of them in the breadth-first order of the fields with
+	// V2ReportErrorsWithLegacySemantics, as encoding/json chooses it. A name is of the folded name of the field which
+	// v1 finds for it, or which foldKeys finds for it without its '_' and '-' ( see foldKey ), but with
+	// V2MatchCaseSensitiveDelimiter. foldKeys is a table as v1's of the names of the fields without their '_' and '-',
+	// v1's own if no name of a field has them. foldAlways is whether a field matches by its `case:ignore` option,
+	// without V2MatchCaseInsensitiveNames.
+	foldedTo   [foldedTables][]*structFieldSet
 	foldKeys   *structKeys
 	foldAlways bool
 	fallback   *v2Fallback
+}
+
+// The tables of foldedTo of v2StructDecoder, by the options which choose them.
+const (
+	foldedInsensitive = 1 << iota // V2MatchCaseInsensitiveNames
+	foldedDelimiter               // V2MatchCaseSensitiveDelimiter
+	foldedTables      = foldedDelimiter << 1
+)
+
+// foldedOf returns the table of foldedTo for the options flags: the bit of each option, moved to the bit of its table,
+// without a branch.
+func (d *v2StructDecoder) foldedOf(flags V2Flags) []*structFieldSet {
+	return d.foldedTo[(flags/V2MatchCaseInsensitiveNames&1)*foldedInsensitive|
+		(flags/V2MatchCaseSensitiveDelimiter&1)*foldedDelimiter]
 }
 
 // compileStructV2 returns the decoder of the struct type typ. It stays in c.decoders after the compile, as the one
@@ -62,8 +81,11 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		c.decoders[uintptr(runtime.TypePtr(typ))] = d
 	}
 	fields := jsonfields.Of(typ)
+	reportErrors := c.v1Options&V2ReportErrorsWithLegacySemantics != 0
 	switch {
-	case fields.Err != nil:
+	case fields.Err != nil && !reportErrors:
+		// with ReportErrorsWithLegacySemantics, the fields which jsonfields found are decoded, as encoding/json
+		// decodes them
 		d.initErr = fields.Err
 		return d, nil
 	case fields.FormatErr != nil:
@@ -76,7 +98,7 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 		f := &fields.List[i]
 		var dec Decoder
 		var err error
-		if f.String {
+		if f.String && (!reportErrors || c.stringOptionAppliesAsV1(f.Type)) {
 			dec, err = c.stringTagCompiler().compileV2(f.Type, typ.Name(), f.Name)
 		} else {
 			dec, err = compile(f.Type, typ.Name(), f.Name, c)
@@ -85,7 +107,7 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 			return nil, err
 		}
 		offset, dec := fieldPathV2(typ, typ, f.Index, dec)
-		set := &structFieldSet{dec: dec, offset: offset, key: f.Name, keyLen: int64(len(f.Name)), fieldIdx: i}
+		set := &structFieldSet{dec: c.goOnDecoder(dec), offset: offset, key: f.Name, keyLen: int64(len(f.Name)), fieldIdx: i}
 		d.fields = append(d.fields, set)
 		if f.Casing&jsonfields.CaseStrict == 0 {
 			key := string(jsonfields.FoldName([]byte(f.Name)))
@@ -93,14 +115,34 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 			d.foldAlways = d.foldAlways || f.Casing&jsonfields.CaseIgnore != 0
 		}
 	}
-	d.foldedTo = [2][]*structFieldSet{make([]*structFieldSet, len(d.fields)), make([]*structFieldSet, len(d.fields))}
+	for i := range d.foldedTo {
+		d.foldedTo[i] = make([]*structFieldSet, len(d.fields))
+	}
+	only := onlyField
+	if reportErrors {
+		// the first field in the breadth-first order of the fields, as encoding/json matches a name which several
+		// fields match with ReportErrorsWithLegacySemantics
+		only = func(match, field *structFieldSet) *structFieldSet {
+			if match == nil || fields.List[field.fieldIdx].ID < fields.List[match.fieldIdx].ID {
+				return field
+			}
+			return match
+		}
+	}
 	dashes := false
 	for i, f := range d.fields {
 		for _, other := range folded[string(jsonfields.FoldName([]byte(f.key)))] {
-			if fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0 {
-				d.foldedTo[0][i] = onlyField(d.foldedTo[0][i], other)
+			ignore := fields.List[other.fieldIdx].Casing&jsonfields.CaseIgnore != 0
+			// a name of the field which matches the other field without their '_' and '-' only
+			dashesOnly := !strings.EqualFold(other.key, f.key)
+			// the other field matches the name in the tables of V2MatchCaseInsensitiveNames, and in all if it has
+			// case:ignore, but in none of V2MatchCaseSensitiveDelimiter if the names differ in their '_' and '-'
+			for t := range d.foldedTo {
+				if t&foldedInsensitive == 0 && !ignore || t&foldedDelimiter != 0 && dashesOnly {
+					continue
+				}
+				d.foldedTo[t][i] = only(d.foldedTo[t][i], other)
 			}
-			d.foldedTo[1][i] = onlyField(d.foldedTo[1][i], other)
 		}
 		dashes = dashes || strings.ContainsAny(f.key, "_-")
 	}
@@ -135,7 +177,43 @@ func (c *compiler) compileStructV2(typ reflect.Type) (Decoder, error) {
 // stringTagCompiler returns the compiler of the values of a field of the `string` option: a number is decoded from
 // a JSON string, through the pointers to it, and a value of any other type can't be decoded.
 func (c *compiler) stringTagCompiler() *compiler {
-	return &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, stringTag: true, funcs: c.funcs}
+	return &compiler{
+		decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, stringTag: true, v1Options: c.v1Options,
+		funcs: c.funcs,
+	}
+}
+
+// stringOptionAppliesAsV1 reports whether the `string` option of a field of typ is in effect with
+// ReportErrorsWithLegacySemantics, which drops the option of a value which it doesn't apply to, as encoding/json drops
+// it: it applies to a value which a function or a method decodes, but a time.Time, to a number, to a time.Duration and
+// to a value of a type which has no representation, which fail as they do without it, and with
+// StringifyWithLegacySemantics to a bool and a string, through one pointer only. The value which an interface value
+// holds, which encoding/json decodes by the option without StringifyWithLegacySemantics, is decoded without it.
+func (c *compiler) stringOptionAppliesAsV1(typ reflect.Type) bool {
+	elem := typ
+	// the walk ends where it comes back to a pointer which it passed, in pointers to pointers without an end, as type
+	// P *P, which the option doesn't apply to
+	var passed []reflect.Type
+	for elem.Kind() == reflect.Pointer && len(c.funcs.funcsOf(elem)) == 0 {
+		if slices.Contains(passed, elem) {
+			return false
+		}
+		passed = append(passed, elem)
+		elem = elem.Elem()
+	}
+	stringify := c.v1Options&V2StringifyWithLegacySemantics != 0
+	switch {
+	case elem == timeType, stringify && typ.Kind() == reflect.Pointer && typ.Elem().Kind() == reflect.Pointer:
+		// a pointer to a pointer, whatever functions the pointers have: the functions are given no option ( see
+		// issues/decoder-v2-string-option-of-methods.md ), and the value which one declines is decoded without it,
+		// as encoding/json/v2 decodes it
+		return false
+	case len(c.funcs.funcsOf(elem)) > 0 || v2MethodOf(elem, methodUnmarshalJSONFrom) != noMethod:
+		return true
+	case isNumberKind(elem.Kind()) || elem == jsonNumberType:
+		return true
+	}
+	return stringify && (elem.Kind() == reflect.Bool || elem.Kind() == reflect.String)
 }
 
 // fieldPathV2 returns the offset of the field of the struct typ at index, by reflect.Type.FieldByIndex, and the
@@ -189,7 +267,9 @@ func (d *v2StructDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p uns
 		if err := validateNull(buf, cursor); err != nil {
 			return 0, err
 		}
-		d.zero.zero(p)
+		if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
+			d.zero.zero(p)
+		}
 		return cursor + 4, nil
 	case '{':
 	default:
@@ -478,7 +558,11 @@ func (d *v2StructDecoder) decodedMember(ctx *RuntimeContext, buf []byte, start i
 // field one after another, as most such members are, and the state of that loop is not kept around their calls.
 func (d *v2StructDecoder) skipUnknownMembers(ctx *RuntimeContext, unknown *nameSet, fold bool, buf []byte, start, end int64, name []byte, depth int64) (int64, bool, error) {
 	if ctx.Option.V2&V2RejectUnknownMembers != 0 {
-		return 0, false, &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
+		if ctx.Option.V2&V2ReportErrorsWithLegacySemantics == 0 {
+			return 0, false, &errors.UnmarshalError{GoType: d.typ, Start: start, Err: errors.ErrUnknownName}
+		}
+		// with ReportErrorsWithLegacySemantics, the error is recorded and the members are decoded on
+		ctx.recordUnknownMember(start, end, name)
 	}
 	rejectDuplicateNames := ctx.Option.V2&V2AllowDuplicateNames == 0
 	// the values are skipped as skipValueV2 skips them, by the kind of their first byte: the objects and the arrays by
@@ -712,23 +796,22 @@ func (d *v2StructDecoder) foldedFieldV2(ctx *RuntimeContext, buf []byte, start i
 	if !plain {
 		return nil, 0, false
 	}
-	folded := d.foldedTo[0]
-	if ctx.Option.V2&V2MatchCaseInsensitiveNames != 0 {
-		folded = d.foldedTo[1]
-	}
+	folded := d.foldedOf(ctx.Option.V2)
 	if field != nil {
 		return field, end, folded[field.fieldIdx] == field
 	}
 	// a name of no field of v1, which the table of the names of the fields without '_' and '-' may find without its
-	// own, but not if no field has its length without them, which foldedPlainFieldV2 counts
-	return nil, end, dashes == 0 && d.foldKeys == d.keyDecoder.keys || !d.foldKeys.hasLength(int(end-start-2)-dashes)
+	// own, but not if no field has its length without them, which foldedPlainFieldV2 counts, nor with
+	// V2MatchCaseSensitiveDelimiter, where a name matches a field only as v1 finds it
+	return nil, end, ctx.Option.V2&V2MatchCaseSensitiveDelimiter != 0 || dashes == 0 && d.foldKeys == d.keyDecoder.keys ||
+		!d.foldKeys.hasLength(int(end-start-2)-dashes)
 }
 
-// memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was:
-// candidate is the field which v1 finds, exactly or by its folded name, which is the field if the name is its name
-// as it is. Any other name matches the field which its folded name matches ( see foldedTo ), but a name which
-// several fields match so is an error. A name of a byte which is not ASCII or of an escape must have the text which
-// v2 allows.
+// memberOf returns the field of the name, quoted as the input has it, or nil, and the name decoded if it was: candidate
+// is the field which v1 finds, exactly or by its folded name, which is the field if the name is its name as it is. Any
+// other name matches the field which its folded name matches ( see foldedTo ), but a name which several fields match so
+// is an error, without V2ReportErrorsWithLegacySemantics. A name of a byte which is not ASCII or of an escape must have
+// the text which v2 allows.
 func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate *structFieldSet) (*structFieldSet, []byte, error) {
 	name := quoted[1 : len(quoted)-1]
 	if candidate != nil && string(name) == candidate.key {
@@ -738,10 +821,7 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 	}
 	plain := !hasNotASCIIOrEscape(name)
 	insensitive := ctx.Option.V2&V2MatchCaseInsensitiveNames != 0
-	folded := d.foldedTo[0]
-	if insensitive {
-		folded = d.foldedTo[1]
-	}
+	folded := d.foldedOf(ctx.Option.V2)
 	if !plain {
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && !validV2Text(quoted) {
 			return nil, nil, errV2Text
@@ -756,7 +836,7 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 		// the field of the folded name of candidate, which v1 found by the name folded as FoldName folds it, but for
 		// '_' and '-', which no rune folds to: it is the folded name of the name
 		match = folded[candidate.fieldIdx]
-	case insensitive || d.foldAlways:
+	case (insensitive || d.foldAlways) && ctx.Option.V2&V2MatchCaseSensitiveDelimiter == 0:
 		// the name without its '_' and '-' in the table of the fields without theirs, which folds it as FoldName
 		// folds it: v1 found nothing in the same lookup of the name without them in its table. A name of ASCII of
 		// a length which no field has without them is of no field, as the lookup finds ( see structKeys.lookup ).
@@ -770,7 +850,7 @@ func (d *v2StructDecoder) memberOf(ctx *RuntimeContext, quoted []byte, candidate
 	}
 	if match == ambiguousField {
 		// a name which several fields match by its folded name is an error, as in encoding/json/v2, whatever their
-		// order
+		// order, without V2ReportErrorsWithLegacySemantics ( see foldedTo )
 		return nil, nil, &errors.UnmarshalError{GoType: d.typ, Err: errors.ErrAmbiguousName}
 	}
 	return match, name, nil
@@ -918,7 +998,7 @@ func (c *compiler) compileFallback(root reflect.Type, f *jsonfields.Field) (*v2F
 		if err != nil {
 			return nil, err
 		}
-		fb.value = value
+		fb.value = c.goOnDecoder(value)
 	}
 	return fb, nil
 }
@@ -965,8 +1045,9 @@ func (fb *v2Fallback) decodeMember(ctx *RuntimeContext, cursor, depth int64, p u
 		// the value which the member is appended to is checked before the value of the member is read
 		b, err := fb.openRaw(p)
 		if err != nil {
-			// the error of the member, at its name
-			return 0, &errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: start, Err: err}
+			// the error of the member, at its name, after whose value the decoding goes on with
+			// ReportErrorsWithLegacySemantics
+			return ctx.goOnAfter(&errors.UnmarshalError{GoType: jsonfields.RawValueType, Start: start, Err: err}, cursor, depth)
 		}
 		valueStart := skipWhiteSpace(ctx.Buf, cursor)
 		valueEnd, err := ctx.skipValueV2(valueStart, depth)
@@ -1012,7 +1093,10 @@ func (c *compiler) compileMapV2(typ reflect.Type, structName, fieldName string) 
 		defer delete(c.decoders, uintptr(runtime.TypePtr(typ)))
 	}
 	// the keys are compiled apart: a type of them, compiled for the names, is not the one of a value
-	keyCompiler := &compiler{decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, funcs: c.funcs}
+	keyCompiler := &compiler{
+		decoders: map[uintptr]Decoder{}, v2: true, stringifyNumbers: true, v1Options: c.v1Options, mapKeys: true,
+		funcs: c.funcs,
+	}
 	keyDec, err := keyCompiler.compileV2(typ.Key(), structName, fieldName)
 	if err != nil {
 		return nil, err
@@ -1021,7 +1105,7 @@ func (c *compiler) compileMapV2(typ reflect.Type, structName, fieldName string) 
 	if err != nil {
 		return nil, err
 	}
-	d.keyDecoder, d.valueDecoder = keyDec, valueDec
+	d.keyDecoder, d.valueDecoder = keyDec, c.goOnDecoder(valueDec)
 	return d, nil
 }
 
@@ -1103,7 +1187,16 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		k.Elem().SetZero()
 		next, err := d.keyDecoder.Decode(ctx, start, depth, k.UnsafePointer())
 		if err != nil {
-			return 0, err
+			// with ReportErrorsWithLegacySemantics, the member of the key is skipped, and the next one decoded
+			if next, err = ctx.goOnAfterKey(err, start, depth); err != nil {
+				return 0, err
+			}
+			if cursor = skipWhiteSpace(buf, next); buf[cursor] == '}' {
+				names.end(ctx.v2)
+				return cursor + 1, nil
+			}
+			cursor = skipWhiteSpace(buf, cursor+1)
+			continue
 		}
 		if keyNames && !names.addCopy(ctx.V2Call(), nil, unquotedName(buf[start:next])) {
 			return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
@@ -1113,7 +1206,12 @@ func (d *v2MapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			if rejectDuplicateNames && (!seen.IsValid() || seen.MapIndex(key).IsValid()) {
 				return 0, &errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}
 			}
-			v.Elem().Set(old)
+			// the value of the name is decoded into, but replaced with MergeWithLegacySemantics
+			if ctx.Option.V2&V2MergeWithLegacySemantics == 0 {
+				v.Elem().Set(old)
+			} else {
+				v.Elem().SetZero()
+			}
 		} else {
 			v.Elem().SetZero()
 		}

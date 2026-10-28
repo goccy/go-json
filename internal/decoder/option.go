@@ -18,7 +18,7 @@ const (
 
 // V2Flags are the options of a decoding by the semantics of encoding/json/v2, which the v2 json package decodes by
 // ( see CompileToGetDecoderV2 ). They are zero for the decodings of v1.
-type V2Flags uint8
+type V2Flags uint32
 
 const (
 	// V2Semantics is set for every decoding of v2.
@@ -35,6 +35,21 @@ const (
 	// V2RejectUnknownMembers makes a name of an object which is the name of no field of a struct an error, unless
 	// the struct has an embedded fallback.
 	V2RejectUnknownMembers
+	// The options of the semantics of encoding/json which the v2 json package applies when unmarshaling, named by the
+	// options of the root package, whose documentation they follow, in the order of their properties in
+	// internal/options, from ParseBytesWithLooseRFC4648, so that they are copied at once ( see unmarshalFlags of the
+	// v2 json package ).
+	V2ParseBytesWithLooseRFC4648
+	V2ParseTimeWithLooseRFC3339
+	V2UnmarshalArrayFromAnyLength
+	V2MergeWithLegacySemantics
+	V2MatchCaseSensitiveDelimiter
+	V2CallMethodsWithLegacySemantics
+	V2FormatByteArrayAsArray
+	V2FormatBytesWithLegacySemantics
+	V2FormatDurationAsNano
+	V2ReportErrorsWithLegacySemantics
+	V2StringifyWithLegacySemantics
 )
 
 // The options of the text which v1 accepts and encoding/json/v2 rejects by default, names twice in an object and
@@ -48,7 +63,7 @@ const (
 
 type Option struct {
 	Flags OptionFlags
-	// V2 is in the room which Flags leaves before Context, so that Option keeps its size.
+	// V2 is in the room which Flags leaves before Context on 64-bit platforms, so that Option keeps its size there.
 	V2      V2Flags
 	Context context.Context
 	Path    *Path

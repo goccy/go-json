@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -46,19 +47,41 @@ func CompileToGetCodeSet(ctx *RuntimeContext, typeptr uintptr) (*OpcodeSet, erro
 }
 
 // compileMode is how the opcodes of a type are compiled, which the options of a context choose: the fields of a
-// struct in their order or ordered by the encoder, the semantics of v1 or of v2, and the options of v2 which
-// change the opcodes of a type. The opcodes of each mode are cached apart.
-type compileMode uint8
+// struct in their order or ordered by the encoder, the semantics of v1 or of v2, the options of v2 which change the
+// opcodes of a type, and the options of encoding/json which do, for v2. The opcodes of each mode are cached apart.
+type compileMode uint16
 
 const (
 	modeOptimizeFieldOrder   compileMode = 1 << iota // OptimizeFieldOrderOption
 	modeV2                                           // V2Option
 	modeStringifyNumbers                             // StringifyNumbersOption, with V2Option
 	modeOmitZeroStructFields                         // OmitZeroStructFieldsOption, with V2Option
-	modeStringTag                                    // StringTagOption, with modeStringifyNumbers
+	modeStringTag                                    // StringTagOption, whose numbers are written as modeStringifyNumbers writes them
 
-	compileModes = 32
+	// compileModes is the number of the modes of cachedOpcodeSets, every set of the modes above, whose bits are below
+	// this one: the ones without the options of encoding/json below.
+	compileModes = 1 << iota
 )
+
+// The modes of the options of encoding/json, with V2Option, above the ones of cachedOpcodeSets, in the order of their
+// options from CallMethodsWithLegacySemanticsOption: their opcodes are cached in v1OptionCodeSets, apart from the
+// tables shared by every goroutine, which have no room for them, as few programs use them.
+const (
+	modeCallMethodsWithLegacySemantics compileMode = compileModes << iota
+	modeFormatByteArrayAsArray
+	modeFormatBytesWithLegacySemantics
+	modeFormatDurationAsNano
+	modeReportErrorsWithLegacySemantics
+	modeStringifyWithLegacySemantics
+	modeOmitEmptyWithLegacySemantics
+
+	v1OptionModes = modeOmitEmptyWithLegacySemantics<<1 - modeCallMethodsWithLegacySemantics
+)
+
+// the last of the modes of encoding/json is as far from the first as its option is, as both are made by iota in the
+// same order: the length of the array type is 0 then, and it is another type, or a negative constant, otherwise.
+var _ [0]struct{} = [OmitEmptyWithLegacySemanticsOption/CallMethodsWithLegacySemanticsOption -
+	OptionFlag(modeOmitEmptyWithLegacySemantics/modeCallMethodsWithLegacySemantics)]struct{}{}
 
 // the options of the compile mode are adjacent bits, from OptimizeFieldOrderOption.
 var _ [0]struct{} = [OptimizeFieldOrderOption*OptionFlag(modeOptimizeFieldOrder) - OptimizeFieldOrderOption +
@@ -69,12 +92,14 @@ var _ [0]struct{} = [OptimizeFieldOrderOption*OptionFlag(modeOptimizeFieldOrder)
 
 // compileMode is the compile mode of the options of c.
 func (c *RuntimeContext) compileMode() compileMode {
-	return compileMode(c.Option.Flag / OptimizeFieldOrderOption & (compileModes - 1))
+	return compileMode(c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1)) |
+		compileMode(c.Option.Flag&v1OpcodeOptions/CallMethodsWithLegacySemanticsOption)*modeCallMethodsWithLegacySemantics
 }
 
 // codeSetKey is what the opcodes of a type are looked up by in a context: the address of the type plus the
-// compile mode. A type descriptor is larger than the number of the modes, so the key of a type in a mode is not
-// the key of another type in any mode.
+// compile mode without the options of encoding/json, which the recent opcodes are emptied for when they change ( see
+// SetFlags ). A type descriptor is larger than the number of the modes, so the key of a type in a mode is not the key
+// of another type in any mode.
 func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 	return typeptr + uintptr(c.Option.Flag/OptimizeFieldOrderOption&(compileModes-1))
 }
@@ -89,7 +114,7 @@ func (c *RuntimeContext) codeSetKey(typeptr uintptr) uintptr {
 func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 	key := c.codeSetKey(typeptr)
 	set := &c.recentCodeSets[recentCodeSetIndex(key)]
-	if c.Option.Flag&UncachedOption == 0 {
+	if c.Option.Flag&recentUncachedOption == 0 {
 		if set[0].typeptr == key {
 			return set[0].codeSet
 		}
@@ -101,9 +126,9 @@ func (c *RuntimeContext) RecentCodeSet(typeptr uintptr) *OpcodeSet {
 }
 
 // SharedCodeSets returns the table shared by every goroutine which has the opcodes of the context, of its compile
-// mode. Its opcodes are not
-// filtered by a field query: a context which may filter the fields ( ContextOption ) is left to
-// CompileToGetCodeSet, which filters them, and the callers look at this table only for the other contexts.
+// mode. Its opcodes are not filtered by a field query, nor of the options of encoding/json, which have no such table:
+// a context of them ( see UncachedOption ) is left to CompileToGetCodeSet, and the callers look at this table only
+// for the other contexts.
 //
 // Which types share a set of the recent opcodes depends on where the binary has them, and three types of a set
 // encoded by turns, as the values of a map[string]interface{} are, evict each other. The VM looks such a type up in
@@ -124,6 +149,24 @@ func (c *RuntimeContext) RememberCodeSet(typeptr uintptr, codeSet *OpcodeSet) {
 	set[0] = recentCodeSet{typeptr: key, codeSet: codeSet}
 }
 
+// SetFlags sets the options of ctx for an encoding of v2, which every setting of them which may change the options of
+// encoding/json is made by, the others adding or dropping other options only: the recent opcodes are emptied if they
+// were compiled for other options of encoding/json which change the opcodes, which their keys have no room for
+// ( see recentV1Options ), by a call of its own, so that SetFlags is inlined into the callers.
+func SetFlags(ctx *RuntimeContext, flags OptionFlag) {
+	ctx.Option.Flag = flags
+	if v1Options := flags & v1OpcodeOptions; v1Options != ctx.recentV1Options {
+		emptyRecentCodeSets(ctx, v1Options)
+	}
+}
+
+// emptyRecentCodeSets empties the recent opcodes of ctx, which are compiled for the options v1Options of encoding/json
+// from now on.
+func emptyRecentCodeSets(ctx *RuntimeContext, v1Options OptionFlag) {
+	ctx.recentCodeSets = [recentCodeSetSets]recentCodeSetSet{}
+	ctx.recentV1Options = v1Options
+}
+
 func recentCodeSetIndex(typeptr uintptr) uint64 {
 	return (uint64(typeptr) * runtime.TypeHashMultiplier) >> recentCodeSetHashShift
 }
@@ -131,6 +174,9 @@ func recentCodeSetIndex(typeptr uintptr) uint64 {
 // compileToGetUnfilteredCodeSet is CompileToGetCodeSet without the filter by the field query of the context.
 // The opcodes of each compile mode are cached apart.
 func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
+	if mode&v1OptionModes != 0 {
+		return codeSetIn(&v1OptionCodeSets, typeptr, mode, nil)
+	}
 	cache := &cachedOpcodeSets[mode]
 	if codeSet := cache.Load(typeptr); codeSet != nil {
 		return codeSet, nil
@@ -140,6 +186,33 @@ func compileToGetUnfilteredCodeSet(typeptr uintptr, mode compileMode) (*OpcodeSe
 		return nil, err
 	}
 	return cache.Store(typeptr, codeSet), nil
+}
+
+// modeKey is what the opcodes of a type in a compile mode are cached by in a sync.Map: the ones of the modes with
+// options of encoding/json ( see v1OptionCodeSets ), and the ones of the functions of marshaling ( see MarshalFuncs ).
+type modeKey struct {
+	typeptr uintptr
+	mode    compileMode
+}
+
+// v1OptionCodeSets are the opcodes of the modes with options of encoding/json ( see v1OptionModes ).
+var v1OptionCodeSets sync.Map // map[modeKey]*OpcodeSet
+
+// codeSetIn returns the opcodes of the type in mode from m, compiling them for the functions funcs, or none, if the
+// type is new.
+func codeSetIn(m *sync.Map, typeptr uintptr, mode compileMode, funcs *MarshalFuncs) (*OpcodeSet, error) {
+	key := modeKey{typeptr: typeptr, mode: mode}
+	if v, ok := m.Load(key); ok {
+		return v.(*OpcodeSet), nil
+	}
+	c := newCompiler(mode)
+	c.funcs = funcs
+	codeSet, err := c.compile(typeptr)
+	if err != nil {
+		return nil, err
+	}
+	v, _ := m.LoadOrStore(key, codeSet)
+	return v.(*OpcodeSet), nil
 }
 
 type marshalerContext interface {
@@ -193,6 +266,8 @@ type Compiler struct {
 	// stringTag is whether the value is the one of a field of the `string` option ( StringTagOption, see
 	// stringTagCode ).
 	stringTag bool
+	// v1Options are the options of encoding/json which the opcodes are compiled for ( see v1OptionModes ).
+	v1Options compileMode
 	// embeddingChain is the types of the structs whose fields are written to the JSON object being compiled:
 	// the struct of the object and the structs embedded in it, down to the one being compiled.
 	embeddingChain []uintptr
@@ -229,14 +304,45 @@ type Compiler struct {
 // encoded as a value of interface{} of typ would be, by the opcodes of typ, which are compiled when the first
 // value is encoded. They take the address of the value, or, for a pointer type compiled to the value it points to
 // ( see compilesToPointee ), the pointer: the code returned for such a type is a PtrCode, which loads it first.
-func (c *Compiler) recursiveValueCode(typ reflect.Type) (Code, bool) {
+func (c *Compiler) recursiveValueCode(typ reflect.Type, addressable bool) (Code, bool) {
 	if _, ok := c.valuesOnPath[uintptr(runtime.TypePtr(typ))]; !ok {
 		return nil, false
 	}
 	if c.compilesToPointee(typ) {
 		return &PtrCode{typ: typ, value: &InterfaceCode{typ: typ, static: true}, ptrNum: 1}, true
 	}
+	if addressable && c.v1Options&modeCallMethodsWithLegacySemantics != 0 && c.addressableMatters(typ) {
+		// with CallMethodsWithLegacySemantics, the opcodes of the type, which a static interface writes the value by,
+		// are the ones of a value given by itself, which is not addressable: an addressable value whose code differs
+		// is written by its default representation, addressable, as appendDefault compiles it.
+		return c.appendFuncCode(typ, appendAddressable(typ)), true
+	}
 	return &InterfaceCode{typ: typ, static: true}, true
+}
+
+// addressableMatters reports whether the code of a value of typ differs as the value is addressable or not, with
+// CallMethodsWithLegacySemantics: the method which writes the value, or a value in it which is addressable as it is
+// ( an element of an array, a field of a struct which is a member of its JSON object ), is not the same. The values
+// in it are finite: a type can't hold itself but through a pointer, a slice, a map or an interface, whose values are
+// addressable or not whatever it is.
+func (c *Compiler) addressableMatters(typ reflect.Type) bool {
+	if m := c.v2MethodOfAt(typ, noMethod, true); m != c.v2MethodOfAt(typ, noMethod, false) {
+		return true
+	} else if m != noMethod {
+		// written by the method, whatever is in it
+		return false
+	}
+	switch typ.Kind() {
+	case reflect.Array:
+		return c.addressableMatters(typ.Elem())
+	case reflect.Struct:
+		for _, f := range v2FieldsOf(typ).List {
+			if c.addressableMatters(f.Type) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // compilesToPointee is whether the opcodes of typ are the ones of the value it points to: a pointer is the address
@@ -279,9 +385,10 @@ func newCompiler(mode compileMode) *Compiler {
 		structTypeToCode:     map[uintptr]*StructCode{},
 		optimizeFieldOrder:   mode&modeOptimizeFieldOrder != 0,
 		v2:                   mode&modeV2 != 0,
-		stringifyNumbers:     mode&modeStringifyNumbers != 0,
+		stringifyNumbers:     mode&(modeStringifyNumbers|modeStringTag) != 0,
 		omitZeroStructFields: mode&modeOmitZeroStructFields != 0,
 		stringTag:            mode&modeStringTag != 0,
+		v1Options:            mode & v1OptionModes,
 		structFieldCounts:    map[uintptr]int{},
 	}
 }
@@ -307,10 +414,27 @@ func (c *Compiler) compile(typeptr uintptr) (*OpcodeSet, error) {
 	return c.codeToOpcodeSet(typ, code)
 }
 
+// pointeeCodeSet returns the opcodes of the value of typ which a pointer at the top level points to, which is
+// addressable ( see PointeeOf ): with CallMethodsWithLegacySemantics, which calls the methods of pointers for
+// addressable values only, they are compiled as the value of a pointer, apart from the opcodes of typ, which are the
+// ones of a value given by itself. Without it, both are written alike, by the opcodes of typ.
+func pointeeCodeSet(ctx *RuntimeContext, typ reflect.Type) (*OpcodeSet, error) {
+	if ctx.Option.Flag&CallMethodsWithLegacySemanticsOption == 0 {
+		return CompileToGetCodeSet(ctx, uintptr(runtime.TypePtr(typ)))
+	}
+	c := newCompiler(ctx.compileMode())
+	c.funcs = ctx.Option.Funcs
+	code, err := c.pointeeCode(typ)
+	if err != nil {
+		return nil, err
+	}
+	return c.codeToOpcodeSet(typ, code)
+}
+
 // pointeeCode returns the code for the value which a pointer points to.
 // It is addressable, as an element of a slice is.
 func (c *Compiler) pointeeCode(typ reflect.Type) (Code, error) {
-	code, err := c.listElemCode(typ)
+	code, err := c.listElemCode(typ, true)
 	if err != nil {
 		return nil, err
 	}
@@ -422,11 +546,11 @@ func isScalarOp(op OpType) bool {
 }
 
 func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error) {
-	if code, ok := c.recursiveValueCode(typ); ok {
+	if code, ok := c.recursiveValueCode(typ, isPtr); ok {
 		return code, nil
 	}
 	if c.v2 {
-		if code, ok := c.v2Code(typ); ok {
+		if code, ok := c.v2Code(typ, isPtr); ok {
 			return code, nil
 		}
 	} else {
@@ -451,7 +575,7 @@ func (c *Compiler) typeToCodeWithPtr(typ reflect.Type, isPtr bool) (Code, error)
 		}
 		return c.sliceCode(typ)
 	case reflect.Array:
-		return c.arrayCode(typ)
+		return c.arrayCode(typ, isPtr)
 	case reflect.Map:
 		return c.mapCode(typ)
 	case reflect.Struct:
@@ -650,12 +774,19 @@ func (c *Compiler) marshalTextCode(typ reflect.Type) (*MarshalTextCode, error) {
 }
 
 func (c *Compiler) ptrCode(typ reflect.Type) (*PtrCode, error) {
+	return c.pointerCode(typ, true)
+}
+
+// pointerCode returns the code of the pointer type typ, whose value is addressable if addressable is set: the value
+// of a pointer is, but the one of the pointer to a map by which the opcodes of a map in a value read the map, which is
+// addressable as the map is ( see mapValueCode ).
+func (c *Compiler) pointerCode(typ reflect.Type, addressable bool) (*PtrCode, error) {
 	if elem := typ.Elem(); elem.Kind() == reflect.Ptr && len(c.funcs.funcsOf(elem)) > 0 {
 		// a pointer which a function of marshaling takes is not followed with the pointer to it: it is a value of
 		// its own, encoded by its type after the pointer to it.
 		return &PtrCode{typ: typ, value: &InterfaceCode{typ: elem, static: true}, ptrNum: 1}, nil
 	}
-	code, err := c.typeToCodeWithPtr(typ.Elem(), true)
+	code, err := c.typeToCodeWithPtr(typ.Elem(), addressable)
 	if err != nil {
 		return nil, err
 	}
@@ -668,7 +799,7 @@ func (c *Compiler) ptrCode(typ reflect.Type) (*PtrCode, error) {
 
 func (c *Compiler) sliceCode(typ reflect.Type) (*SliceCode, error) {
 	elem := typ.Elem()
-	code, err := c.listElemCode(elem)
+	code, err := c.listElemCode(elem, true)
 	if err != nil {
 		return nil, err
 	}
@@ -679,9 +810,11 @@ func (c *Compiler) sliceCode(typ reflect.Type) (*SliceCode, error) {
 	return &SliceCode{typ: typ, value: code}, nil
 }
 
-func (c *Compiler) arrayCode(typ reflect.Type) (*ArrayCode, error) {
+// arrayCode returns the code of the array type typ, addressable or not: its elements are addressable as v1 takes
+// them, but as encoding/json takes them with CallMethodsWithLegacySemantics, if the array is.
+func (c *Compiler) arrayCode(typ reflect.Type, addressable bool) (*ArrayCode, error) {
 	elem := typ.Elem()
-	code, err := c.listElemCode(elem)
+	code, err := c.listElemCode(elem, addressable || c.v1Options&modeCallMethodsWithLegacySemantics == 0)
 	if err != nil {
 		return nil, err
 	}
@@ -721,8 +854,8 @@ func (c *Compiler) mapCode(typ reflect.Type) (*MapCode, error) {
 	return &MapCode{typ: typ, key: keyCode, value: valueCode, mayRepeatNames: c.v2 && marshaledKey}, nil
 }
 
-func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
-	if code, ok := c.recursiveValueCode(typ); ok {
+func (c *Compiler) listElemCode(typ reflect.Type, addressable bool) (Code, error) {
+	if code, ok := c.recursiveValueCode(typ, addressable); ok {
 		return code, nil
 	}
 	switch {
@@ -738,13 +871,14 @@ func (c *Compiler) listElemCode(typ reflect.Type) (Code, error) {
 		return c.marshalJSONCode(typ)
 	case !c.v2 && !typ.Implements(marshalTextType) && reflect.PointerTo(typ).Implements(marshalTextType):
 		return &MarshalTextCode{typ: reflect.PointerTo(typ)}, nil
-	case typ.Kind() == reflect.Map && !(c.v2 && c.hasMarshaler(typ)):
-		return c.ptrCode(reflect.PointerTo(typ))
+	case typ.Kind() == reflect.Map && !(c.v2 && (c.hasMarshaler(typ, addressable) || c.stringTag)):
+		// a map is read by the pointer to it, but one which has a marshaler is encoded by the marshaler, and the value
+		// of the `string` option by its code ( see v2Code ), which are given its address
+		return c.pointerCode(reflect.PointerTo(typ), addressable)
 	default:
-		// isPtr was originally used to indicate whether the type of top level is pointer.
-		// However, since the slice/array element is a specification that can get the pointer address, explicitly set isPtr to true.
-		// See here for related issues: https://github.com/goccy/go-json/issues/370
-		code, err := c.typeToCodeWithPtr(typ, true)
+		// an element of a slice or an array is addressable ( see https://github.com/goccy/go-json/issues/370 ), but
+		// the one of an array which is not, with CallMethodsWithLegacySemantics ( see arrayCode )
+		code, err := c.typeToCodeWithPtr(typ, addressable)
 		if err != nil {
 			return nil, err
 		}
@@ -867,13 +1001,14 @@ func (c *Compiler) mapKeyCode(typ reflect.Type) (Code, error) {
 }
 
 func (c *Compiler) mapValueCode(typ reflect.Type) (Code, error) {
-	if code, ok := c.recursiveValueCode(typ); ok {
+	if code, ok := c.recursiveValueCode(typ, false); ok {
 		return code, nil
 	}
 	switch {
-	case typ.Kind() == reflect.Map && !c.hasMarshaler(typ):
-		// a map which has a marshaler is encoded by the marshaler, not as a map.
-		return c.ptrCode(reflect.PointerTo(typ))
+	case typ.Kind() == reflect.Map && !c.hasMarshaler(typ, false) && !c.stringTag:
+		// a map which has a marshaler is encoded by the marshaler, not as a map, and so is the value of the
+		// `string` option by its code ( see v2Code ), which is given its address.
+		return c.pointerCode(reflect.PointerTo(typ), false)
 	default:
 		code, err := c.typeToCodeWithPtr(typ, false)
 		if err != nil {
@@ -901,13 +1036,14 @@ func (c *Compiler) structCode(typ reflect.Type, isPtr bool) (*StructCode, error)
 // which embeds it, which may hide some of them.
 func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare bool) (*StructCode, error) {
 	typeptr := uintptr(runtime.TypePtr(typ))
-	if count, compiled := c.structFieldCounts[typeptr]; mayShare && compiled && count > sharedStructFieldCount {
-		if _, onPath := c.structTypeToCode[typeptr]; !onPath {
+	key := c.structKey(typeptr, isPtr)
+	if count, compiled := c.structFieldCounts[key]; mayShare && compiled && count > sharedStructFieldCount {
+		if _, onPath := c.structTypeToCode[key]; !onPath {
 			// the code which is jumped to is compiled when the recursive codes are linked.
-			return &StructCode{typ: typ, isPtr: isPtr, isIndirect: runtime.IfaceIndir(typ), isRecursive: true}, nil
+			return &StructCode{typ: typ, key: key, isPtr: isPtr, isIndirect: runtime.IfaceIndir(typ), isRecursive: true}, nil
 		}
 	}
-	if code, exists := c.structTypeToCode[typeptr]; exists {
+	if code, exists := c.structTypeToCode[key]; exists {
 		derefCode := *code
 		derefCode.isRecursive = true
 		if slices.Contains(c.embeddingChain, typeptr) {
@@ -921,8 +1057,8 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 	c.embeddingChain = append(c.embeddingChain, typeptr)
 	defer func() { c.embeddingChain = c.embeddingChain[:len(c.embeddingChain)-1] }()
 	indirect := runtime.IfaceIndir(typ)
-	code := &StructCode{typ: typ, isPtr: isPtr, isIndirect: indirect}
-	c.structTypeToCode[typeptr] = code
+	code := &StructCode{typ: typ, key: key, isPtr: isPtr, isIndirect: indirect}
+	c.structTypeToCode[key] = code
 	firstField := c.fieldCount
 
 	fieldNum := typ.NumField()
@@ -1007,12 +1143,27 @@ func (c *Compiler) compileStruct(typ reflect.Type, isPtr, embedded, mayShare boo
 	if !code.disableIndirectConversion && !indirect && isPtr {
 		code.enableIndirect()
 	}
-	delete(c.structTypeToCode, typeptr)
+	delete(c.structTypeToCode, key)
 	c.fieldCount += len(code.fields)
 	if !embedded {
-		c.structFieldCounts[typeptr] = c.fieldCount - firstField
+		c.structFieldCounts[key] = c.fieldCount - firstField
 	}
 	return code, nil
+}
+
+// addressableStructMark marks the key of the code of an addressable struct with CallMethodsWithLegacySemantics in the
+// lowest bit of the address of its type, which is 0 ( see structKey ).
+const addressableStructMark = 1
+
+// structKey returns what the code of a struct of the type typeptr, addressable if isPtr is set, is kept by while it is
+// compiled ( structTypeToCode, structFieldCounts ) and linked ( compileContext.structTypeToCodes ): its type, and
+// with CallMethodsWithLegacySemantics whether it is addressable, as its fields are addressable if it is, which calls
+// the methods of their pointers then only ( see v2MethodOfAt ).
+func (c *Compiler) structKey(typeptr uintptr, isPtr bool) uintptr {
+	if isPtr && c.v1Options&modeCallMethodsWithLegacySemantics != 0 {
+		return typeptr | addressableStructMark
+	}
+	return typeptr
 }
 
 // orderFieldsForSpeed returns the fields in the order they are encoded fastest ( OptimizeFieldOrderOption ):
@@ -1100,7 +1251,7 @@ func (c *Compiler) structFieldCode(structCode *StructCode, tag *runtime.StructTa
 		fieldCode.tag = &inlined
 	}
 	if c.v2 && !fieldCode.isAnonymous {
-		if code, ok := c.v2FieldValueCode(fieldCode); ok {
+		if code, ok := c.v2FieldValueCode(fieldCode, isPtr); ok {
 			fieldCode.value = code
 			return fieldCode, nil
 		}
@@ -1403,11 +1554,11 @@ func (c *Compiler) implementsMarshalText(typ reflect.Type) bool {
 	return false
 }
 
-// hasMarshaler reports whether a value of the type is written by a marshaler: a method of its own, or of v1 the
-// method of the pointer to it.
-func (c *Compiler) hasMarshaler(typ reflect.Type) bool {
+// hasMarshaler reports whether a value of the type, addressable or not, is written by a marshaler: a method of its
+// own, or of v1 the method of the pointer to it.
+func (c *Compiler) hasMarshaler(typ reflect.Type, addressable bool) bool {
 	if c.v2 {
-		return c.v2HasMethod(typ)
+		return c.v2HasMethodAt(typ, addressable)
 	}
 	return c.implementsMarshalJSON(typ) || c.implementsMarshalText(typ)
 }
@@ -1476,7 +1627,7 @@ func markTailRecursion(code, end *Opcode, compiled *CompiledCode) {
 
 func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	type recursiveTarget struct {
-		typeptr  uintptr
+		key      uintptr
 		embedded bool
 		query    *FieldQuery
 		hidden   string
@@ -1487,14 +1638,18 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 	// the recursive codes may increase while they are linked, so the length is evaluated every time.
 	for i := 0; i < len(*ctx.recursiveCodes); i++ {
 		recursive := (*ctx.recursiveCodes)[i]
-		target := recursiveTarget{typeptr: uintptr(recursive.Type), embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery,
+		// the struct jumped to by its key, which tells an addressable one apart ( see Compiler.structKey )
+		key := uintptr(recursive.Type)
+		if k, ok := ctx.recursiveKeys[recursive]; ok {
+			key = k
+		}
+		target := recursiveTarget{key: key, embedded: recursive.Jmp.Embedded, query: recursive.FieldQuery,
 			hidden: strings.Join(ctx.hiddenNames[recursive], "\x00")}
-		typeptr := target.typeptr
 		if recursiveCode, ok := recursiveCodes[target]; ok {
 			*recursive.Jmp = *recursiveCode
 			continue
 		}
-		codes, exists := ctx.structTypeToCodes[typeptr]
+		codes, exists := ctx.structTypeToCodes[key]
 		if target.embedded || !exists || c.isFiltered {
 			// structTypeToCodes has the opcodes of the struct itself, with the braces and the check of nil.
 			// - A recursive struct which is embedded jumps to the opcodes only of the fields.
@@ -1502,7 +1657,7 @@ func (c *Compiler) linkRecursiveCode(ctx *compileContext) error {
 			// - The opcodes of a struct filtered by a field query are filtered by the query of their place,
 			//   and the struct is filtered by the query of the code which jumps to it.
 			// In these cases the opcodes to jump to are compiled here.
-			structCode, err := c.compileStruct(runtime.TypeOfPtr(recursive.Type), false, target.embedded, false)
+			structCode, err := c.compileStruct(runtime.TypeOfPtr(recursive.Type), key&addressableStructMark != 0, target.embedded, false)
 			if err != nil {
 				return err
 			}

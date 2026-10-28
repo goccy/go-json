@@ -24,30 +24,14 @@ type MarshalFunc struct {
 // for them.
 type MarshalFuncs struct {
 	Funcs    []MarshalFunc
-	codeSets sync.Map // map[funcsKey]*OpcodeSet
+	codeSets sync.Map // map[modeKey]*OpcodeSet
 	castable sync.Map // map[reflect.Type][]*MarshalFunc
 	defaults sync.Map // map[defaultKey]*OpcodeSet: the default representations ( see appendDefault )
 }
 
-type funcsKey struct {
-	typeptr uintptr
-	mode    compileMode
-}
-
 // codeSet returns the opcodes of the type for the functions, compiling them if the type is new.
 func (f *MarshalFuncs) codeSet(typeptr uintptr, mode compileMode) (*OpcodeSet, error) {
-	key := funcsKey{typeptr: typeptr, mode: mode}
-	if v, ok := f.codeSets.Load(key); ok {
-		return v.(*OpcodeSet), nil
-	}
-	c := newCompiler(mode)
-	c.funcs = f
-	codeSet, err := c.compile(typeptr)
-	if err != nil {
-		return nil, err
-	}
-	v, _ := f.codeSets.LoadOrStore(key, codeSet)
-	return v.(*OpcodeSet), nil
+	return codeSetIn(&f.codeSets, typeptr, mode, f)
 }
 
 // funcsOf returns the functions which take a value of the type, in their order.
@@ -80,9 +64,10 @@ func appendByFuncs(ctx *RuntimeContext, b []byte, p unsafe.Pointer, typ reflect.
 	return b, ErrUseDefault
 }
 
-// v2FuncsCode returns the code of a value of typ written by the functions of marshaling, and true, if a function
-// takes it. A value which they all decline is written by its default representation ( see appendDefault ).
-func (c *Compiler) v2FuncsCode(typ reflect.Type) (Code, bool) {
+// v2FuncsCode returns the code of a value of typ, addressable or not, written by the functions of marshaling, and
+// true, if a function takes it. A value which they all decline is written by its default representation ( see
+// appendDefault ).
+func (c *Compiler) v2FuncsCode(typ reflect.Type, addressable bool) (Code, bool) {
 	funcs := c.funcs.funcsOf(typ)
 	if len(funcs) == 0 {
 		return nil, false
@@ -90,7 +75,7 @@ func (c *Compiler) v2FuncsCode(typ reflect.Type) (Code, bool) {
 	return c.appendFuncCode(typ, func(ctx *RuntimeContext, b []byte, p unsafe.Pointer) ([]byte, error) {
 		out, err := appendByFuncs(ctx, b, p, typ, funcs)
 		if err == ErrUseDefault {
-			return appendDefault(ctx, b, typ, p, noMethod)
+			return appendDefault(ctx, b, typ, p, noMethod, addressable)
 		}
 		return out, err
 	}), true

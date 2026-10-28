@@ -510,11 +510,8 @@ func NewPathDecoder() Decoder {
 	return ifaceDecoder
 }
 
-var (
-	truebytes  = []byte("true")
-	falsebytes = []byte("false")
-)
-
+// DecodePath returns the values of the rest of the path, which is not empty: the object or the array decodes them,
+// and any other value, which has no member or element, has none.
 func (d *interfaceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) ([][]byte, int64, error) {
 	buf := ctx.Buf
 	cursor = skipWhiteSpace(buf, cursor)
@@ -523,28 +520,10 @@ func (d *interfaceDecoder) DecodePath(ctx *RuntimeContext, cursor, depth int64) 
 		return d.mapDecoder.DecodePath(ctx, cursor, depth)
 	case '[':
 		return d.sliceDecoder.DecodePath(ctx, cursor, depth)
-	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		return d.floatDecoder.DecodePath(ctx, cursor, depth)
-	case '"':
-		return d.stringDecoder.DecodePath(ctx, cursor, depth)
-	case 't':
-		if err := validateTrue(buf, cursor); err != nil {
-			return nil, 0, err
-		}
-		cursor += 4
-		return [][]byte{truebytes}, cursor, nil
-	case 'f':
-		if err := validateFalse(buf, cursor); err != nil {
-			return nil, 0, err
-		}
-		cursor += 5
-		return [][]byte{falsebytes}, cursor, nil
-	case 'n':
-		if err := validateNull(buf, cursor); err != nil {
-			return nil, 0, err
-		}
-		cursor += 4
-		return [][]byte{nullbytes}, cursor, nil
 	}
-	return nil, cursor, errors.ErrInvalidBeginningOfValue(buf[cursor], cursor)
+	end, err := skipValue(buf, cursor, depth)
+	if err != nil {
+		return nil, 0, err
+	}
+	return nil, end, nil
 }

@@ -60,6 +60,17 @@ type RuntimeContext struct {
 	// typeError is the first type error of the decoding, which is returned at its end ( see TypeError ). It is nil
 	// in a context of the pool: TypeError clears it, and DiscardTypeError when the decoding fails.
 	typeError *pendingTypeError
+	// path is the copy of the Path which the decoding selects by ( see SetPath ). It is in the context, which is
+	// kept, so that the copy costs no allocation.
+	path Path
+}
+
+// SetPath makes the decoding select the values of p. It selects by a copy of p, as it moves the node of the path it
+// is at: p stays as it is for the next call, after one which fails too, and for the calls which other goroutines make
+// at the same time.
+func (ctx *RuntimeContext) SetPath(p *Path) {
+	ctx.path = *p
+	ctx.Option.Path = &ctx.path
 }
 
 const (

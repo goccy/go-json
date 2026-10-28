@@ -52,6 +52,10 @@ const (
 	// option is given has it, by which MarshalEncode of the encoder encodes the value as such a value, as
 	// encoding/json/v2 has it, until an object or an array begins.
 	StringTag
+	// UnmarshalAnyWithRawNumber is set by no option: the decoder which a Decoder of the root package gives
+	// UnmarshalJSONFrom after UseNumber has it, by which UnmarshalDecode of the decoder decodes a number into an empty
+	// interface as a json.Number, as encoding/json/v2 has it for encoding/json.
+	UnmarshalAnyWithRawNumber
 
 	maxArshalFlag
 )

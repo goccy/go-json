@@ -78,6 +78,19 @@ func compile(typ reflect.Type, structName, fieldName string, c *compiler) (Decod
 	if c.v2 {
 		return c.compileV2(typ, structName, fieldName)
 	}
+	if implementsUnmarshalFrom(reflect.PointerTo(typ)) {
+		next, err := compileAfterFrom(typ, structName, fieldName, c)
+		if err != nil {
+			return nil, err
+		}
+		return newUnmarshalFromDecoder(reflect.PointerTo(typ), next), nil
+	}
+	return compileAfterFrom(typ, structName, fieldName, c)
+}
+
+// compileAfterFrom returns the decoder of a value of the type by its methods of unmarshaling after
+// UnmarshalJSONFrom, or by its kind.
+func compileAfterFrom(typ reflect.Type, structName, fieldName string, c *compiler) (Decoder, error) {
 	switch {
 	case implementsUnmarshalJSONType(reflect.PointerTo(typ)):
 		return newUnmarshalJSONDecoder(reflect.PointerTo(typ)), nil
@@ -155,7 +168,7 @@ func isStringTagSupportedType(typ reflect.Type) bool {
 		typ = typ.Elem()
 	}
 	switch {
-	case implementsUnmarshalJSONType(reflect.PointerTo(typ)):
+	case implementsUnmarshalFrom(reflect.PointerTo(typ)), implementsUnmarshalJSONType(reflect.PointerTo(typ)):
 		return false
 	case reflect.PointerTo(typ).Implements(unmarshalTextType):
 		return false

@@ -934,19 +934,27 @@ func AppendMarshalJSON(ctx *RuntimeContext, code *Opcode, b []byte, p unsafe.Poi
 	var bb []byte
 	var err error
 	if code.Flags&(MarshalerContextFlags|MarshalerFuncFlags) != 0 {
-		// the calls of a context and of the v2 semantics, which the others don't look at.
-		if code.Flags&MarshalerFuncFlags != 0 {
-			if m.v2Raw {
-				return appendV2MarshalJSON(ctx, m, b, p)
+		// the calls of a context, of MarshalJSONTo and of the v2 semantics, which the others don't look at.
+		switch {
+		case code.Flags&MarshalerFuncFlags == 0:
+			stdctx := ctx.marshalerContext()
+			if ctx.Option.Flag&FieldQueryOption != 0 {
+				stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
 			}
+			bb, err = m.callContext(p, stdctx)
+		case m.marshalTo != nil:
+			// its error is the one of MarshalJSONTo, or of the value it declined
+			ctx.ValueDepth = ctx.BaseIndent + code.Indent
+			var appended bool
+			if bb, appended, err = m.marshalTo(ctx, b, p); err != nil || appended {
+				return bb, err
+			}
+		case m.v2Raw:
+			return appendV2MarshalJSON(ctx, m, b, p)
+		default:
 			ctx.ValueDepth = ctx.BaseIndent + code.Indent
 			return appendValue(ctx, m, b, p)
 		}
-		stdctx := ctx.marshalerContext()
-		if ctx.Option.Flag&FieldQueryOption != 0 {
-			stdctx = SetFieldQueryToContext(stdctx, code.FieldQuery)
-		}
-		bb, err = m.callContext(p, stdctx)
 	} else {
 		bb, err = m.call(p)
 	}
@@ -1030,9 +1038,17 @@ func AppendMarshalJSONIndent(ctx *RuntimeContext, code *Opcode, b []byte, p unsa
 	}
 	var bb []byte
 	var err error
-	if (code.Flags & MarshalerContextFlags) != 0 {
+	switch {
+	case m.marshalTo != nil:
+		// its error is the one of MarshalJSONTo, or of the value it declined
+		ctx.ValueDepth = ctx.BaseIndent + code.Indent
+		var appended bool
+		if bb, appended, err = m.marshalTo(ctx, b, p); err != nil || appended {
+			return bb, err
+		}
+	case (code.Flags & MarshalerContextFlags) != 0:
 		bb, err = m.callContext(p, ctx.marshalerContext())
-	} else {
+	default:
 		bb, err = m.call(p)
 	}
 	if err != nil {

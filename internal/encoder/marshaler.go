@@ -44,6 +44,10 @@ type MarshalerCall struct {
 	// appendValue, if it is set, writes the value at the address recv instead of a method: the representation of
 	// a type which the compiler gives by a function ( see Compiler.appendFuncCode ).
 	appendValue AppendFunc
+	// marshalTo, if it is set, returns what MarshalJSONTo of the receiver writes, which the encoder of v1 writes as
+	// the output of MarshalJSON, or appends the value after b by the representation after the method, if the method
+	// declined it, and reports so ( see Compiler.marshalToCall ).
+	marshalTo func(ctx *RuntimeContext, b []byte, recv unsafe.Pointer) (out []byte, appended bool, err error)
 }
 
 // AppendFunc appends the JSON value of the value at p, the address of the value.

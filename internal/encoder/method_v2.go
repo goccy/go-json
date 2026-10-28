@@ -368,6 +368,7 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 	// the value is where the function or the method which called this was called: one which declined it, or the one
 	// of an inline fallback map, whose values these are ( see appendValueOf ).
 	inner.BaseIndent = ctx.ValueDepth
+	inner.Prefix, inner.IndentStr = ctx.Prefix, ctx.IndentStr
 	inner.RescanNames = false
 	inner.RewriteFrom = ctx.RewriteFrom
 	out, err := b, EnterNested(inner, ctx, codeSet, p)
@@ -388,8 +389,14 @@ func runInner(ctx *RuntimeContext, b []byte, codeSet *OpcodeSet, p unsafe.Pointe
 		}
 		return b, err
 	}
-	ctx.Rewrote(len(out) - 1)
-	return out[:len(out)-1], nil // without the comma after the value, which the caller writes
+	// without the comma after the value, which the caller writes, and the newline after it in an indented output
+	// ( see AppendCommaIndent )
+	end := len(out) - 1
+	if ctx.Option.Flag&IndentOption != 0 {
+		end--
+	}
+	ctx.Rewrote(end)
+	return out[:end], nil
 }
 
 // appendMethodText appends the text which appendText, the method kind, appends for the value at p, as a JSON string.

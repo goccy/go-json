@@ -1320,7 +1320,7 @@ func (c *MarshalJSONCode) ToOpcode(ctx *compileContext) Opcodes {
 	if c.isMarshalerContext {
 		code.Flags |= MarshalerContextFlags
 	}
-	if code.Marshaler != nil && code.Marshaler.appendValue != nil {
+	if code.Marshaler != nil && (code.Marshaler.appendValue != nil || code.Marshaler.marshalTo != nil) {
 		code.Flags |= MarshalerFuncFlags
 	}
 	// a method on the pointer is called with the address of the value, which is not loaded from it.

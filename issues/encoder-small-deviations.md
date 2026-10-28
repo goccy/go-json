@@ -10,7 +10,8 @@
 - v2 `Marshal` of `map[any]int` with number keys writes them; encoding/json/v2 fails because an
   object member name must be a string (recorded 2026-10-11).
 - v1 with HTML escaping off: U+2028 and U+2029 in the output of a `MarshalJSON` method are not
-  escaped as encoding/json escapes them (recorded 2026-10-10).
+  escaped as encoding/json escapes them (recorded 2026-10-10), nor in the output of a `MarshalJSONTo`
+  method, which is escaped as the one of `MarshalJSON` (recorded 2026-10-28).
 - v2 `PreserveRawStrings` with `Deterministic` keeps the raw escapes in names where
   encoding/json/v2 sorts and writes them decoded (recorded 2026-10-11).
 - `Colorize` with a color format that contains `"` or `\` breaks the order of sorted map keys
@@ -37,6 +38,9 @@
   encoding/json of those releases writes the string it leads to, and "" for a nil one (recorded
   2026-10-27). Writing the string needs an opcode of a pointer to a string whose nil is "", which
   the VM doesn't have. Such a pointer in a key of an interface type is written as the string.
+- v1 with a field query ( `Selection`, `FieldQuery` ): the fields of a struct whose `MarshalJSONTo`
+  declined are all written, as the value is written by the opcodes of its type compiled apart,
+  without the query (recorded 2026-10-27).
 - v2: the error of a key of an interface type which holds a value which can't be a name, as a nil pointer
   ( `map[encoding.TextMarshaler]int{(*T)(nil): 1}` ), is a `SemanticError` of the type of the held value; the one of
   encoding/json/v2 is of the type of the key, the interface type (recorded 2026-10-28, found in the review of

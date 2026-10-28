@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -245,6 +246,86 @@ func TestDecodeFloatOutOfRange(t *testing.T) {
 			if got := reflect.ValueOf(v).Elem().Interface(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("%s of %s: decoded %#v, want %#v", name, tt.in, got, tt.want)
 			}
+		}
+	}
+}
+
+// issue770Floats holds a number in every kind of value which a float is decoded into.
+type issue770Floats struct {
+	F  float64
+	P  *float64
+	A  any
+	M  map[string]float64
+	MA map[string]any
+	S  []float64
+	SA []any
+	R  [2]float64
+	N  struct{ F float64 }
+}
+
+// The numbers whose digits make the mantissa of the parser wrap around to 0, which were decoded as the digits after
+// the wrap ( the fraction of 18446744073709551616.5, 0 for 1844674407370955161.6 ), have the float of
+// strconv.ParseFloat wherever they are, by Unmarshal, by a Decoder and by its Token, on every version of Go; and are
+// decoded as encoding/json of Go 1.27 decodes them, out of the range of the float too.
+func TestIssue770DigitsPastUint64(t *testing.T) {
+	zeros64 := "1" + strings.Repeat("0", 64) // 10^64 is a multiple of 1<<64
+	for _, n := range []string{
+		"18446744073709551616.5", "36893488147419103232.25", "1844674407370955161.6", "-1844674407370955161.6",
+		"1844674407370955161.6e3", "184467440737.09551616", "0.18446744073709551616", "0.1844674407370955161600",
+		zeros64 + ".5", "-" + zeros64 + ".5", zeros64 + ".0", zeros64 + ".123456", zeros64 + ".5e2",
+		"1" + strings.Repeat("0", 309) + ".5",
+	} {
+		doc := fmt.Sprintf(`{"F":%[1]s,"P":%[1]s,"A":%[1]s,"M":{"k":%[1]s},"MA":{"k":%[1]s},"S":[%[1]s],"SA":[%[1]s],"R":[%[1]s,1],"N":{"F":%[1]s}}`, n)
+		for _, newValue := range []func() any{
+			func() any { return new(float64) }, func() any { return new(float32) }, func() any { return new(any) },
+			func() any { return new(issue770Floats) }, func() any { return new(struct{ F float32 }) },
+		} {
+			compareUnmarshal(t, n, newValue)
+			compareUnmarshal(t, doc, newValue)
+		}
+		f, rangeErr := strconv.ParseFloat(n, 64)
+		f32, rangeErr32 := strconv.ParseFloat(n, 32)
+		want := issue770Floats{
+			F: f, P: &f, A: f, M: map[string]float64{"k": f}, MA: map[string]any{"k": f}, S: []float64{f}, SA: []any{f},
+			R: [2]float64{f, 1}, N: struct{ F float64 }{f},
+		}
+		for name, decode := range map[string]func(in string, v any) error{
+			"Unmarshal": func(in string, v any) error { return json.Unmarshal([]byte(in), v) },
+			"Decoder":   func(in string, v any) error { return json.NewDecoder(strings.NewReader(in)).Decode(v) },
+		} {
+			var typeErr *json.UnmarshalTypeError
+			var top float64
+			err := decode(n, &top)
+			switch {
+			case rangeErr != nil:
+				if !errors.As(err, &typeErr) {
+					t.Errorf("%s of %s into a float64: got the error %v, want an UnmarshalTypeError", name, n, err)
+				}
+				continue
+			case err != nil || math.Float64bits(top) != math.Float64bits(f):
+				t.Errorf("%s of %s into a float64: decoded %v, %v; want %v", name, n, top, err, f)
+			}
+			var got issue770Floats
+			if err := decode(doc, &got); err != nil || !reflect.DeepEqual(got, want) {
+				t.Errorf("%s of %s: decoded %+v, %v; want %+v", name, n, got, err, want)
+			}
+			var field32 struct{ F float32 }
+			err = decode(`{"F":`+n+`}`, &field32)
+			switch {
+			case rangeErr32 != nil:
+				if !errors.As(err, &typeErr) {
+					t.Errorf("%s of %s into a float32: got the error %v, want an UnmarshalTypeError", name, n, err)
+				}
+			case err != nil || field32.F != float32(f32):
+				t.Errorf("%s of %s into a float32: decoded %v, %v; want %v", name, n, field32.F, err, float32(f32))
+			}
+		}
+		if rangeErr != nil {
+			continue
+		}
+		tok, err := json.NewDecoder(strings.NewReader(n)).Token()
+		if got, ok := tok.(float64); err != nil || !ok || math.Float64bits(got) != math.Float64bits(f) {
+			t.Errorf("Token of %s: got %v, %v; want %v", n, tok, err, f)
 		}
 	}
 }

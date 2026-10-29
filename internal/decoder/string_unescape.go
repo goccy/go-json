@@ -153,7 +153,7 @@ func (d *stringDecoder) unescapeRest(ctx *RuntimeContext, literal []byte, cursor
 			if high&msb != 0 && !utf8.Valid(out) {
 				return string(coerceUTF8(out)), next, true, nil
 			}
-			return ctx.copyString(out), next, true, nil
+			return string(out), next, true, nil
 		case nul:
 			return d.skipOtherValue(ctx, errors.ErrUnexpectedEndOfJSON("string", cursor))
 		default:

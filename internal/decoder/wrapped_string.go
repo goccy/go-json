@@ -107,12 +107,14 @@ func (d *wrappedStringDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, 
 		// encoding/json reads the bytes of the string as a value with nothing around it
 		return d.stringError(ctx, start, c, bytes, p)
 	}
-	// The value is decoded from a copy of its bytes, which nothing else uses: its strings may refer to it. A type
-	// error of it is the one of the string, which is made after it ( see stringOptionError ).
+	// The value is decoded from a copy of its bytes followed by a nul byte, which its strings refer to under
+	// NoCopyStringOption. A type error of it is the one of the string, which is made after it ( see
+	// stringOptionError ).
 	saved := ctx.typeError
 	ctx.typeError = nil
 	oldBuf, oldOrigin := ctx.Buf, ctx.origin
-	ctx.Buf, ctx.origin = NewInput(bytes), nil
+	ctx.Buf = NewInput(bytes)
+	ctx.origin = ctx.Buf
 	next, err := d.dec.Decode(ctx, 0, depth, p)
 	if err == nil && skipWhiteSpace(ctx.Buf, next) != int64(len(bytes)) {
 		// the value is followed by more bytes in the string

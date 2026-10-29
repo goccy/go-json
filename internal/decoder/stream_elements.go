@@ -49,12 +49,11 @@ func (s *Stream) scanFailed(err error, dec Decoder, typ, p unsafe.Pointer) error
 		// would take a few allocations for
 		s.elements = &bracketIndex{closes: make([]bracketClose, 0, indexFirstStep/4)}
 	}
-	keep := s.elements.buf
 	if (s.Option.Flags & NoCopyStringOption) != 0 {
 		// the strings of the value refer to the buffer, which is not reused in place then ( see grow )
-		keep = nil
+		s.referred = true
 	}
-	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start, buf: keep}
+	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: start}
 	decoded, err := s.decodeElements(dec, p, 0)
 	if !decoded {
 		var end int64
@@ -334,19 +333,6 @@ type bracketIndex struct {
 	next int
 	// inString and escaped are the state of the scan after what has been read ( see compoundScanner.scan ).
 	inString, escaped uint64
-	// buf is the last buffer which the stream made, which no decoded value refers to: the strings decoded element by
-	// element and the ones of Token are copied, so the stream reuses it in place ( see grow ), until a value whose
-	// strings refer to it is decoded from it: a value read whole ( see Stream.Decode ), or one decoded element by
-	// element under NoCopyStringOption ( see scanFailed ), under which no buffer is marked. The bytes given to
-	// UnmarshalText, of a value or a map key, are a part of the buffer, which may be written again then:
-	// encoding.TextUnmarshaler has the method copy them to keep them, and the Decoder of encoding/json gives a part of
-	// its buffer too.
-	buf *byte
-}
-
-// owns reports whether buf is the buffer which the stream made while the value is decoded element by element.
-func (x *bracketIndex) owns(buf []byte) bool {
-	return x.buf == unsafe.SliceData(buf)
 }
 
 // bracketClose is a bracket which closes an object or an array: its total offset, and the number of the objects and
@@ -1213,7 +1199,7 @@ func (s *Stream) decodeAnyObject(d *interfaceDecoder, depth int64) (any, error) 
 			ctx.popEntries(base)
 			return m, nil
 		}
-		name := ctx.copyString(decodeLiteral(key, info))
+		name := string(decodeLiteral(key, info))
 		if err := s.memberValue(); err != nil {
 			ctx.popEntries(base)
 			return nil, err

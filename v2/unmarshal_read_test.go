@@ -184,9 +184,8 @@ func TestUnmarshalReadOf(t *testing.T) {
 	}
 }
 
-// UnmarshalReadOf decodes a value which needs no allocation of its own without one: the stream, its buffer and the
-// value are reused.
-func TestUnmarshalReadOfZeroAllocation(t *testing.T) {
+// UnmarshalReadOf allocates nothing but the strings of the value: the stream, its buffer and the value are reused.
+func TestUnmarshalReadOfAllocations(t *testing.T) {
 	if raceEnabled {
 		t.Skip("sync.Pool drops items at random under the race detector")
 	}
@@ -200,9 +199,9 @@ func TestUnmarshalReadOfZeroAllocation(t *testing.T) {
 		}
 		v = w
 	})
-	// The strings share a buffer of the context, which is allocated once in a while.
-	if allocs >= 0.1 {
-		t.Fatalf("%v allocations per call", allocs)
+	// a string is a copy of its own, and nothing else is allocated
+	if allocs != unmarshalOfSmallStrings {
+		t.Fatalf("%v allocations per call, want %v", allocs, unmarshalOfSmallStrings)
 	}
 	if v.Ua != "user_agent" {
 		t.Fatalf("got %+v", v)

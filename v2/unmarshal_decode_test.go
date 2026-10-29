@@ -236,9 +236,9 @@ func TestUnmarshalDecodeOf(t *testing.T) {
 	}
 }
 
-// UnmarshalDecodeOf decodes a value which needs no allocation of its own without one, from a reader and from a
-// bytes.Buffer, which the decoder reads in place.
-func TestUnmarshalDecodeOfZeroAllocation(t *testing.T) {
+// UnmarshalDecodeOf allocates nothing but the strings of the value, from a reader and from a bytes.Buffer, which the
+// decoder reads in place.
+func TestUnmarshalDecodeOfAllocations(t *testing.T) {
 	if raceEnabled {
 		t.Skip("sync.Pool drops items at random under the race detector")
 	}
@@ -253,9 +253,9 @@ func TestUnmarshalDecodeOfZeroAllocation(t *testing.T) {
 			}
 			v = w
 		})
-		// The strings share a buffer of the context, which is allocated once in a while.
-		if allocs >= 0.1 {
-			t.Fatalf("%T: %v allocations per call", r, allocs)
+		// a string is a copy of its own, and nothing else is allocated
+		if allocs != unmarshalOfSmallStrings {
+			t.Fatalf("%T: %v allocations per call, want %v", r, allocs, unmarshalOfSmallStrings)
 		}
 		if v.Ua != "user_agent" {
 			t.Fatalf("%T: got %+v", r, v)

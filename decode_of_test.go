@@ -26,6 +26,9 @@ type unmarshalOfSmall struct {
 
 const unmarshalOfSmallInput = `{"st": 1,"sid": 486,"tt": "active","gr": 0,"uuid": "de305d54-75b4-431b-adb2-eb6b9e546014","ip": "127.0.0.1","ua": "user_agent","tz": -6,"v": 1}`
 
+// unmarshalOfSmallStrings is the number of the strings of unmarshalOfSmallInput: tt, uuid, ip and ua.
+const unmarshalOfSmallStrings = 4
+
 // unmarshalOfCase decodes the input by UnmarshalOf and by Unmarshal into two values which start the same.
 func unmarshalOfCase[T any](t *testing.T, input string, start T) {
 	t.Helper()
@@ -92,23 +95,30 @@ func TestUnmarshalOfOtherTypesByTurns(t *testing.T) {
 	}
 }
 
-func TestUnmarshalOfZeroAllocation(t *testing.T) {
+func TestUnmarshalOfAllocations(t *testing.T) {
 	if raceEnabled {
 		t.Skip("sync.Pool drops items at random under the race detector")
 	}
 	data := []byte(unmarshalOfSmallInput)
 	var v unmarshalOfSmall
-	for _, opts := range [][]json.DecodeOptionFunc{nil, {json.DecodeNoCopyString()}} {
+	for _, tc := range []struct {
+		opts   []json.DecodeOptionFunc
+		allocs float64
+	}{
+		// a string is a copy of its own, and nothing else is allocated
+		{nil, unmarshalOfSmallStrings},
+		// the strings, which have no escape, refer to the input
+		{[]json.DecodeOptionFunc{json.DecodeNoCopyString()}, 0},
+	} {
 		allocs := testing.AllocsPerRun(1000, func() {
 			var w unmarshalOfSmall
-			if err := json.UnmarshalOf(data, &w, opts...); err != nil {
+			if err := json.UnmarshalOf(data, &w, tc.opts...); err != nil {
 				t.Fatal(err)
 			}
 			v = w
 		})
-		// The strings share a buffer of the context, which is allocated once in a while.
-		if allocs >= 0.1 {
-			t.Fatalf("options %d: %v allocations per call", len(opts), allocs)
+		if allocs != tc.allocs {
+			t.Fatalf("options %d: %v allocations per call, want %v", len(tc.opts), allocs, tc.allocs)
 		}
 	}
 	if v.Ua != "user_agent" {

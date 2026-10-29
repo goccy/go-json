@@ -358,7 +358,7 @@ func (s *Stream) beginElements() {
 		// would take a few allocations for
 		s.elements = &bracketIndex{closes: make([]bracketClose, 0, indexFirstStep/4)}
 	}
-	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: s.offset + s.cursor, buf: s.elements.buf}
+	*s.elements = bracketIndex{closes: s.elements.closes[:0], end: s.offset + s.cursor}
 }
 
 // AfterTopLevel moves the stream to the end of the input after its top-level value, which only white space may
@@ -1643,7 +1643,7 @@ func (s *Stream) decodeNewAnyObjectV2(d *v2InterfaceDecoder, depth, from int64) 
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(quoted) && !validV2Text(quoted) {
 			return ctx.anyEntries(base), s.placeAt(errV2Text, step)
 		}
-		name := ctx.copyString(decodeLiteral(key, info))
+		name := string(decodeLiteral(key, info))
 		at := names.index(ctx, base, name)
 		if at >= 0 && ctx.Option.V2&V2AllowDuplicateNames == 0 {
 			return ctx.anyEntries(base), s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)
@@ -1796,7 +1796,7 @@ func (s *Stream) decodeAnyObjectV2(d *v2InterfaceDecoder, m map[string]any, dept
 		if ctx.Option.V2&V2AllowInvalidUTF8 == 0 && hasNotASCIIOrEscape(quoted) && !validV2Text(quoted) {
 			return s.placeAt(errV2Text, step)
 		}
-		name := ctx.copyString(unquotedName(quoted))
+		name := string(unquotedName(quoted))
 		if ctx.Option.V2&V2AllowDuplicateNames == 0 && !names.addCopy(ctx.V2Call(), nil, unsafeBytes(name)) {
 			start := s.cursor - int64(len(quoted))
 			return s.placeAt(&errors.UnmarshalError{Start: start, Err: errors.ErrDuplicateName}, step)

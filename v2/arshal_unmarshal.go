@@ -153,8 +153,8 @@ func Unmarshal(in []byte, out any, opts ...Options) error {
 // value always escapes to the heap. UnmarshalOf takes the pointer by its type and never gives it to the decoder: it
 // copies *out to a value in the heap which is reused, decodes into that value, and copies the result back to *out,
 // also after an error. So out may point to a variable on the stack of the caller, and a value which needs no
-// allocation of its own (no pointer, slice or map to fill) is decoded without an allocation: the strings are copied
-// into a buffer shared by the calls.
+// allocation of its own (no pointer, slice, map or string to fill) is decoded without an allocation: a string is a
+// copy of its own, as Unmarshal makes it.
 //
 // A value is copied twice, so a large value is faster with Unmarshal when it is in the heap anyway. As the result
 // is a copy, an UnmarshalJSONFrom, UnmarshalJSON or UnmarshalText method of a type in the value must not keep the

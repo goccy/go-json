@@ -24,6 +24,9 @@ type unmarshalOfSmall struct {
 
 const unmarshalOfSmallInput = `{"st": 1,"sid": 486,"tt": "active","gr": 0,"uuid": "de305d54-75b4-431b-adb2-eb6b9e546014","ip": "127.0.0.1","ua": "user_agent","tz": -6,"v": 1}`
 
+// unmarshalOfSmallStrings is the number of the strings of unmarshalOfSmallInput: tt, uuid, ip and ua.
+const unmarshalOfSmallStrings = 4
+
 type unmarshalOfLarge struct {
 	A    [600]int
 	Name string
@@ -105,7 +108,7 @@ func TestUnmarshalOfOtherTypesByTurns(t *testing.T) {
 	}
 }
 
-func TestUnmarshalOfZeroAllocation(t *testing.T) {
+func TestUnmarshalOfAllocations(t *testing.T) {
 	if raceEnabled {
 		t.Skip("sync.Pool drops items at random under the race detector")
 	}
@@ -118,9 +121,9 @@ func TestUnmarshalOfZeroAllocation(t *testing.T) {
 		}
 		v = w
 	})
-	// The strings share a buffer of the context, which is allocated once in a while.
-	if allocs >= 0.1 {
-		t.Fatalf("%v allocations per call", allocs)
+	// a string is a copy of its own, and nothing else is allocated
+	if allocs != unmarshalOfSmallStrings {
+		t.Fatalf("%v allocations per call, want %v", allocs, unmarshalOfSmallStrings)
 	}
 	if v.Ua != "user_agent" {
 		t.Fatalf("got %+v", v)

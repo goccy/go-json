@@ -79,12 +79,13 @@ type OpcodeSet struct {
 	EndCode           *Opcode
 	// Scalar is the opcode of the value if the type is encoded by a single opcode of a scalar ( a number,
 	// a string, a bool, ... ), or nil. Such a value held by an interface value is encoded without a frame.
-	Scalar     *Opcode
-	Code       Code
-	QueryCache map[string]*OpcodeSet
+	Scalar *Opcode
+	Code   Code
+	// queryCache is the opcodes of the field queries of the type, by the hash of the query, which every goroutine
+	// reads without a lock ( see getFilteredCodeSetIfNeeded ).
+	queryCache sync.Map
 	// values is the pool of the values of Type in the heap, which MarshalOf copies its argument to.
-	values  sync.Pool
-	cacheMu sync.RWMutex
+	values sync.Pool
 	// pointee is the opcodes of the value which a pointer of Type points to, or noPointee ( see PointeeOf ).
 	pointee atomic.Pointer[OpcodeSet]
 }
@@ -191,16 +192,14 @@ func (s *OpcodeSet) TakeValue(ctx *RuntimeContext) unsafe.Pointer {
 }
 
 func (s *OpcodeSet) getQueryCache(hash string) *OpcodeSet {
-	s.cacheMu.RLock()
-	codeSet := s.QueryCache[hash]
-	s.cacheMu.RUnlock()
-	return codeSet
+	if codeSet, ok := s.queryCache.Load(hash); ok {
+		return codeSet.(*OpcodeSet)
+	}
+	return nil
 }
 
 func (s *OpcodeSet) setQueryCache(hash string, codeSet *OpcodeSet) {
-	s.cacheMu.Lock()
-	s.QueryCache[hash] = codeSet
-	s.cacheMu.Unlock()
+	s.queryCache.Store(hash, codeSet)
 }
 
 type CompiledCode struct {

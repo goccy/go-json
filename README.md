@@ -437,7 +437,7 @@ A string with an escape is decoded in the same pass as it is scanned from its fi
 
 ### Strings copied, or referring to the input
 
-A decoded string is a copy of its own, as with `encoding/json`, so the input may be modified after the call, and a kept string keeps alive nothing but its bytes. The stream decoder copies the strings out of its buffer too, so that it reuses the buffer in place when it reads more. With the option `json.DecodeNoCopyString()`, a string without an escape refers to the input without a copy.
+A decoded string is a copy of its own, as with `encoding/json`, so the input may be modified after the call, and a kept string keeps alive nothing but its bytes. The stream decoder copies the strings out of its buffer too, so that it reuses the buffer in place when it reads more. With the option `json.DecodeNoCopyString()`, a string without an escape refers to the input without a copy, and keeps it alive: the data given to `Unmarshal`, or the buffer of the stream decoder which the value was read into, which the decoder doesn't reuse then.
 
 An earlier version copied the short strings into chunks of up to 16 KB shared by the strings of a runtime context, instead of an allocation for each: a small value kept out of a call kept a whole chunk alive, filled by the strings of other calls ( #775 ).
 

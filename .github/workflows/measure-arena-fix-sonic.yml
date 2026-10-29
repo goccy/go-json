@@ -1,0 +1,46 @@
+name: Measure the decoding against sonic
+# A throwaway workflow of a measure/* branch: the comparison of the decoding with sonic ( make bench-compare-decode )
+# by the branch and by master, one after the other on the same machine, for each decoder of sonic.
+on:
+  push:
+    branches:
+      - measure/arena-fix-sonic
+jobs:
+  measure:
+    name: measure (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: sonic jit
+            env: BENCH_MEASURE=1
+          - name: sonic optdec
+            env: SONIC_USE_OPTDEC=1
+          - name: sonic fastmap
+            env: SONIC_USE_FASTMAP=1
+          - name: live heap, sonic jit
+            env: BENCH_LIVE_HEAP_MB=64
+          - name: live heap, sonic optdec
+            env: BENCH_LIVE_HEAP_MB=64 SONIC_USE_OPTDEC=1
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.3'
+          cache-dependency-path: |
+            go.sum
+            benchmarks/go.sum
+      - name: machine
+        run: grep -m1 'model name' /proc/cpuinfo
+      - name: the branch
+        run: env ${{ matrix.env }} make bench-compare-decode
+      - name: master
+        run: |
+          git worktree add ../master origin/master
+          cd ../master && env ${{ matrix.env }} make bench-compare-decode

@@ -97,8 +97,7 @@ func DecodeFieldPriorityFirstWin() DecodeOptionFunc {
 // modified while the decoded strings are used.
 //
 // By default, a decoded string is a copy, as with encoding/json: the input may be modified or reused
-// after the call. The copies of the short strings share buffers of up to 16 KB, so a decoded string keeps
-// at most 16 KB alive with it.
+// after the call, and a decoded string keeps alive no memory but its own.
 func DecodeNoCopyString() DecodeOptionFunc {
 	return func(opt *DecodeOption) {
 		opt.Flags |= decoder.NoCopyStringOption

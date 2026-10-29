@@ -83,6 +83,7 @@ var (
 	pathDecoder = decoder.NewPathDecoder()
 )
 
+// extractFromPath returns the values of data which the path selects: parts of data, or of a copy of it.
 func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][]byte, error) {
 	if path.path.RootSelectorOnly {
 		return [][]byte{data}, nil
@@ -90,7 +91,7 @@ func extractFromPath(path *Path, data []byte, optFuncs ...DecodeOptionFunc) ([][
 	src := decoder.NewInput(data)
 
 	ctx := decoder.TakeRuntimeContext()
-	ctx.Buf = src
+	decoder.SetBuf(ctx, src)
 	ctx.Option.Flags = 0
 	ctx.Option.Flags |= decoder.PathOption
 	ctx.SetPath(path.path)

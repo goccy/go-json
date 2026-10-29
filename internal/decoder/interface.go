@@ -261,7 +261,7 @@ func decodeFloatSlow(ctx *RuntimeContext, cursor int64, p unsafe.Pointer) (int64
 		ctx.numberTypeError(cursor, end, float64Type)
 		f = 0
 	}
-	**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
+	**(**any)(unsafe.Pointer(&p)) = f
 	return end, nil
 }
 
@@ -287,20 +287,20 @@ func (d *interfaceDecoder) decodeEmptyInterface(ctx *RuntimeContext, cursor, dep
 			return d.numberDecoder.Decode(ctx, cursor, depth, p)
 		}
 		if f, next, ok := parseFloatFast(buf, cursor); ok && validEndNumberChar[buf[next]] {
-			**(**any)(unsafe.Pointer(&p)) = ctx.boxFloat(f)
+			**(**any)(unsafe.Pointer(&p)) = f
 			return next, nil
 		}
 		return decodeFloatSlow(ctx, cursor, p)
 	case '"':
 		if end := plainStringEnd(buf, cursor+1); end >= 0 {
-			**(**any)(unsafe.Pointer(&p)) = ctx.boxString(ctx.makeString(buf[cursor+1 : end]))
+			**(**any)(unsafe.Pointer(&p)) = ctx.makeString(buf[cursor+1 : end])
 			return end + 1, nil
 		}
 		s, c, _, err := d.stringDecoder.decodeString(ctx, cursor)
 		if err != nil {
 			return 0, err
 		}
-		**(**any)(unsafe.Pointer(&p)) = ctx.boxString(s)
+		**(**any)(unsafe.Pointer(&p)) = s
 		return c, nil
 	case 't':
 		if err := validateTrue(buf, cursor); err != nil {

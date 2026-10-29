@@ -17,7 +17,6 @@ import (
 
 	"github.com/goccy/go-json/internal/errors"
 	"github.com/goccy/go-json/internal/jsonnum"
-	"github.com/goccy/go-json/internal/jsonstring"
 	"github.com/goccy/go-json/internal/runtime"
 )
 
@@ -512,14 +511,9 @@ func decodeStringV2(d *stringDecoder, ctx *RuntimeContext, start int64) (string,
 			if firstEscape < 0 {
 				return ctx.makeString(literal), next, nil
 			}
-			if len(literal) > maxArenaStringSize {
-				return ctx.unescapeLong(literal, stringInfo{firstEscape: int(firstEscape), nonASCII: nonASCII}), next, nil
-			}
-			// an escaped string is decoded into the arena, out of the buffer, which is never written
-			dst := ctx.reserveArena(len(literal))
-			n := jsonstring.UnescapeTo(unsafe.Pointer(unsafe.SliceData(dst)), literal, int(firstEscape))
-			ctx.arena = ctx.arena[:len(ctx.arena)+n]
-			return unsafe.String(unsafe.SliceData(dst), n), next, nil
+			// the literal is valid UTF-8, and has no \u escape, so its decoding is valid UTF-8 too: it is not
+			// validated again
+			return ctx.unescapeString(literal, stringInfo{firstEscape: int(firstEscape)}), next, nil
 		case c == '\\':
 			switch char(b, cursor+1) {
 			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':

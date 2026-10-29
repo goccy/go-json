@@ -201,7 +201,7 @@ func TestDecodeInterfaceNested(t *testing.T) {
 }
 
 func TestDecodeInterfaceManyValues(t *testing.T) {
-	// More numbers and strings than a slab holds, over several calls: every value keeps its own.
+	// Many numbers and strings, over several calls: every value keeps its own.
 	var b strings.Builder
 	b.WriteString("[")
 	for i := 0; i < 100; i++ {

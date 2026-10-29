@@ -3,7 +3,6 @@ package decoder
 import (
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -29,14 +28,7 @@ type mapDecoder struct {
 	fieldName      string
 	// temps holds the zero values which the key and the value of an entry are decoded into ( see mapTemps ).
 	temps sync.Pool
-	// lastLen is the number of the entries of the object which the decoder decoded last, up to maxMapSizeHint,
-	// which a new map is made for: the objects of a kind often have a number of entries. It is only a hint, for
-	// any goroutine.
-	lastLen atomic.Int32
 }
-
-// maxMapSizeHint is the largest number of the entries which a new map is made for ( see lastLen ).
-const maxMapSizeHint = 64
 
 // mapTemps are the zero values of the key and of the value of a map, into which the key and the value of every
 // entry are decoded, which reflect.Value.SetMapIndex copies into the map, and which are zeroed after it: a
@@ -195,8 +187,7 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	cursor = skipWhiteSpace(buf, cursor)
 	mapValue := *(*unsafe.Pointer)(p)
 	if mapValue == nil {
-		// made for the number of the entries of the last object, which an object of the kind is likely to have
-		mapValue = reflect.MakeMapWithSize(d.mapType, int(d.lastLen.Load())).UnsafePointer()
+		mapValue = reflect.MakeMap(d.mapType).UnsafePointer()
 	}
 	if buf[cursor] == '}' {
 		**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
@@ -208,7 +199,6 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 	t := d.temps.Get().(*mapTemps)
 	k, v, kv, vv := t.k, t.v, t.kv, t.vv
 	mv := d.mapValue(mapValue)
-	n := int32(0)
 	for {
 		keyCursor, err := d.keyDecoder.Decode(ctx, cursor, depth, k)
 		if err != nil {
@@ -234,12 +224,10 @@ func (d *mapDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.P
 		mv.SetMapIndex(kv, vv)
 		kv.SetZero()
 		vv.SetZero()
-		n++
 		cursor = skipWhiteSpace(buf, valueCursor)
 		if buf[cursor] == '}' {
 			**(**unsafe.Pointer)(unsafe.Pointer(&p)) = mapValue
 			d.temps.Put(t)
-			d.lastLen.Store(min(n, maxMapSizeHint))
 			cursor++
 			return cursor, nil
 		}

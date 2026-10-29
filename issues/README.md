@@ -25,9 +25,12 @@ Priority 2: first after priority 1
 - [encoder-sorted-map-speed.md](encoder-sorted-map-speed.md)
 - [path-cast-by-go-field-names.md](path-cast-by-go-field-names.md)
 - [path-recursive-rest-rereads.md](path-recursive-rest-rereads.md)
+- [encoder-field-query-cache-growth.md](encoder-field-query-cache-growth.md)
+- [decoder-any-vs-sonic-optdec.md](decoder-any-vs-sonic-optdec.md)
 
 Priority 3
 
+- [decoder-decode-context-kept.md](decoder-decode-context-kept.md)
 - [decoder-map-key-errors.md](decoder-map-key-errors.md)
 - [decoder-new-decoder-allocations.md](decoder-new-decoder-allocations.md)
 - [decoder-stream-speed-amd64.md](decoder-stream-speed-amd64.md)
@@ -58,6 +61,7 @@ Priority 4
 - [decoder-v2-position-after-function-error.md](decoder-v2-position-after-function-error.md)
 - [decoder-v2-position-after-type-error.md](decoder-v2-position-after-type-error.md)
 - [decoder-error-source-display.md](decoder-error-source-display.md)
+- [compile-concurrent-first-use.md](compile-concurrent-first-use.md)
 - [encoder-error-texts.md](encoder-error-texts.md)
 - [encoder-vm-structure.md](encoder-vm-structure.md)
 - [encoder-marshal-to-stack-depth.md](encoder-marshal-to-stack-depth.md)

@@ -366,7 +366,7 @@ Like the encoder, the decoder uses `typeptr` to call the decoder built for the t
 
 ### Decode a value without an allocation for the argument by `UnmarshalOf`
 
-`json.Unmarshal` receives an `interface{}` value, which makes the value escape to the heap. `json.UnmarshalOf[T]` receives the pointer by its type: it decodes into a value in the heap which is reused and copies the result to `*v`, so `v` may point to a variable on the stack of the caller, and a value without a pointer, slice or map to fill is decoded without an allocation.
+`json.Unmarshal` receives an `interface{}` value, which makes the value escape to the heap. `json.UnmarshalOf[T]` receives the pointer by its type: it decodes into a value in the heap which is reused and copies the result to `*v`, so `v` may point to a variable on the stack of the caller, and a value without a pointer, slice, map or string to fill is decoded without an allocation. With `json.DecodeNoCopyString()`, a string without an escape needs none either.
 
 ```go
 var v T
@@ -435,9 +435,11 @@ A string is scanned a word ( eight bytes ) at a time: a few bit operations on th
 
 A string with an escape is decoded in the same pass as it is scanned from its first escape on: the runs of plain bytes between the escapes are moved at once, and the escapes are validated and decoded as they are met.
 
-### Strings copied into an arena, or referring to the input
+### Strings copied, or referring to the input
 
-A decoded string is a copy, as with `encoding/json`, so the input may be modified after the call. The short strings are copied into chunks of up to 16 KB shared by the strings of a runtime context, instead of an allocation for each. With the option `json.DecodeNoCopyString()`, a string without an escape refers to the input without a copy.
+A decoded string is a copy of its own, as with `encoding/json`, so the input may be modified after the call, and a kept string keeps alive nothing but its bytes. The stream decoder copies the strings out of its buffer too, so that it reuses the buffer in place when it reads more. With the option `json.DecodeNoCopyString()`, a string without an escape refers to the input without a copy.
+
+An earlier version copied the short strings into chunks of up to 16 KB shared by the strings of a runtime context, instead of an allocation for each: a small value kept out of a call kept a whole chunk alive, filled by the strings of other calls ( #775 ).
 
 ### Finding the field of a key by its words
 
@@ -457,11 +459,13 @@ To find the end of an object or an array without decoding it, as the stream deco
 
 ### Decoding `interface{}` values without reflection
 
-The values of an array or an object decoded into `interface{}` are pushed to a stack of the runtime context, and a `[]interface{}` or a `map[string]interface{}` is made of their number at the end: a map filled entry by entry grows and moves its entries several times on the way. The numbers and the strings are stored into `interface{}` values from slabs, instead of an allocation for each, and the empty arrays share one empty slice.
+The values of an array or an object decoded into `interface{}` are pushed to a stack of the runtime context, and a `[]interface{}` or a `map[string]interface{}` is made of their number at the end: a map filled entry by entry grows and moves its entries several times on the way. The empty arrays share one empty slice. A number or a string is stored into its `interface{}` value by itself, as with `encoding/json`: an earlier version stored them from slabs of a runtime context, which a kept value kept alive with the values of other calls ( #775 ).
 
-### Sizing slices and maps by the last value
+### Slices and maps of their own size
 
-The elements of an array are decoded directly into the slice, which is allocated for the length of the array the decoder decoded last, and a map is made for the number of the entries of the last object: the values of a type often have the same size. The zero values the entries of a map are decoded into are reused from a pool.
+The elements of an array are decoded directly into the slice, which grows as `append` grows it, and the elements of a long array into a buffer which becomes the slice, allocated once, of its length. The zero values the entries of a map are decoded into are reused from a pool.
+
+An earlier version allocated a new slice or map for the length which the decoder of its type decoded last: a small value kept the capacity which another call needed, and every goroutine wrote the length into the decoder they shared ( #775 ).
 
 ### Others
 

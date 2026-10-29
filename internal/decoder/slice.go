@@ -3,7 +3,6 @@ package decoder
 import (
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/goccy/go-json/internal/errors"
@@ -18,10 +17,7 @@ type sliceDecoder struct {
 	// bufPool holds the buffers into which the elements of a long array are decoded before its length is known
 	// ( see decodeLong ). A buffer in the pool has only zero values, so that an element is decoded into a zero
 	// value.
-	bufPool sync.Pool
-	// lastLen is the length of the array which the decoder decoded last, which an empty slice is allocated for,
-	// up to inPlaceSliceLength: the arrays of a kind are often of a length. It is only a hint, for any goroutine.
-	lastLen    atomic.Int32
+	bufPool    sync.Pool
 	structName string
 	fieldName  string
 	// typ is the type of the slice, which the type errors report.
@@ -106,7 +102,6 @@ func (d *sliceDecoder) decodeLong(ctx *RuntimeContext, cursor, depth int64, dst 
 		switch buf[cursor] {
 		case ']':
 			d.storeBuf(dst, elems, idx+1, idx+1)
-			d.lastLen.Store(int32(min(idx+1, inPlaceSliceLength)))
 			return cursor + 1, nil
 		case ',':
 			idx++
@@ -220,12 +215,6 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 			// decoded into, the ones after its length too, as encoding/json does. The elements beyond its capacity
 			// and inPlaceSliceLength are decoded into a buffer ( see decodeLong ).
 			limit := max(dst.cap, inPlaceSliceLength)
-			if dst.cap == 0 {
-				// the length of the last array, which an array of the kind is likely to have
-				if n := int(d.lastLen.Load()); n > 0 {
-					d.grow(dst, 0, min(n, inPlaceSliceLength))
-				}
-			}
 			idx := 0
 			for {
 				if idx == limit {
@@ -242,7 +231,6 @@ func (d *sliceDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 				switch buf[cursor] {
 				case ']':
 					dst.len = idx + 1
-					d.lastLen.Store(int32(idx + 1))
 					cursor++
 					return cursor, nil
 				case ',':

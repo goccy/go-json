@@ -508,7 +508,6 @@ func (c *Compiler) codeToOpcodeSet(typ reflect.Type, code Code) (*OpcodeSet, err
 		EndCode:           ToEndCode(interfaceKeyCodes[0]),
 		Scalar:            scalarOpcode(keyCodes[0]),
 		Code:              code,
-		QueryCache:        map[string]*OpcodeSet{},
 	}, nil
 }
 

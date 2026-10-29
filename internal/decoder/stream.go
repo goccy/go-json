@@ -26,11 +26,10 @@ const (
 //
 // A value is decoded by the same decoders as a byte slice is: a value which the buffer holds whole is decoded from
 // it, with a nul byte put after the value, and an object or an array which it doesn't is decoded element by element
-// as it is read ( see scanFailed ), so that the buffer keeps its size. The strings decoded from the buffer refer to
-// it, so a byte which has been read is not overwritten: when the buffer is full, the bytes which are not consumed yet
-// are copied to a new one. Once a value has been decoded element by element, whose strings are copied unless
-// NoCopyStringOption is set, a buffer is reused in place instead, until a value whose strings refer to it is decoded
-// from it ( see bracketIndex.buf ).
+// as it is read ( see scanFailed ), so that the buffer keeps its size. The decoded strings are copied out of the
+// buffer, so that a value keeps alive no memory but its own, and the buffer is reused in place when it is full: the
+// bytes which are not consumed yet are moved to its start. Under NoCopyStringOption, the strings refer to the
+// buffer, which is then never written again: the bytes are copied to a new one instead ( see reusable ).
 type Stream struct {
 	// buf[:length] is what has been read, buf[length] is nul, and bufPadding bytes are free at the end.
 	buf    []byte
@@ -73,8 +72,15 @@ type Stream struct {
 	own []byte
 	// elements is where the objects and the arrays of the value which is decoded element by element end, which the
 	// lookups extend ( see indexAt ), made for the first such value and kept for the next ones, which allocate its
-	// entries no more, and the buffer which is reused ( see bracketIndex.buf ). It is nil until a value is decoded so.
+	// entries no more. It is nil until a value is decoded so.
 	elements *bracketIndex
+	// reusable is the buffer which the stream made, if no decoded value refers to it, which grow reuses in place: the
+	// decoded strings are copied out of it, unless NoCopyStringOption is set, under which a value refers to the
+	// buffer it is decoded from, and no buffer is reusable ( see Stream.Decode and scanFailed ). The bytes given to
+	// UnmarshalText, of a value or a map key, are a part of the buffer, which may be written again then:
+	// encoding.TextUnmarshaler has the method copy them to keep them, and the Decoder of encoding/json gives a part
+	// of its buffer too.
+	reusable *byte
 }
 
 // ReadAllV2 returns the whole input of the stream, which has read nothing yet, up to the end of its reader, followed
@@ -90,11 +96,13 @@ func (s *Stream) ReadAllV2() ([]byte, error) {
 
 func NewStream(r io.Reader) *Stream {
 	opt := &Option{}
+	buf := make([]byte, initBufSize+bufPadding)
 	return &Stream{
-		r:      r,
-		buf:    make([]byte, initBufSize+bufPadding),
-		ctx:    &RuntimeContext{Option: opt},
-		Option: opt,
+		r:        r,
+		buf:      buf,
+		ctx:      &RuntimeContext{Option: opt},
+		Option:   opt,
+		reusable: unsafe.SliceData(buf),
 	}
 }
 
@@ -143,8 +151,8 @@ func (s *Stream) read() bool {
 }
 
 // grow moves the bytes which are not consumed yet to the start of a buffer, so that the reader has room to read into:
-// a new one, as the old buffer is left to the strings which refer to it, or the same one, if nothing refers to it
-// ( see bracketIndex.buf ) and it has room for the bytes.
+// the same one, if nothing refers to it ( see reusable ) and it has room for the bytes, or else a new one, as the
+// old buffer is left to the strings which refer to it.
 func (s *Stream) grow() {
 	if call := s.ctx.v2; call != nil && len(call.pathNames) != 0 {
 		// the names of the path which the levels have by their places in the buffer, which the bytes are moved from
@@ -159,17 +167,13 @@ func (s *Stream) grow() {
 		size *= 2
 	}
 	buf := s.buf
-	x := s.elements
-	if x == nil || !x.owns(buf) || size > int64(len(buf))-bufPadding {
+	if unsafe.SliceData(buf) != s.reusable || size > int64(len(buf))-bufPadding {
 		buf = make([]byte, size+bufPadding)
-		if x != nil {
-			// nothing refers to the new buffer yet: a value read whole clears the mark before its strings refer to it
-			// ( see Stream.Decode ), and the element path and Token copy theirs. Under NoCopyStringOption the element
-			// path doesn't, so the buffer is not marked: an option may clear the flag before the next value.
-			x.buf = nil
-			if (s.Option.Flags & NoCopyStringOption) == 0 {
-				x.buf = unsafe.SliceData(buf)
-			}
+		// nothing refers to the new buffer yet, unless the value being decoded refers to it under NoCopyStringOption:
+		// an option may clear the flag before the next value
+		s.reusable = nil
+		if (s.Option.Flags & NoCopyStringOption) == 0 {
+			s.reusable = unsafe.SliceData(buf)
 		}
 	}
 	copy(buf, s.buf[from:s.length])
@@ -576,9 +580,9 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 	}
 	ctx := s.ctx
 	ctx.Option = s.Option
-	if x := s.elements; x != nil {
+	if (s.Option.Flags & NoCopyStringOption) != 0 {
 		// the strings of the value refer to the buffer, which is not reused in place then ( see grow )
-		x.buf = nil
+		s.reusable = nil
 	}
 	var cursor int64
 	if c := s.buf[s.cursor]; c != 't' && c != 'f' && c != 'n' {
@@ -588,15 +592,17 @@ func (s *Stream) Decode(dec Decoder, typ unsafe.Pointer, p unsafe.Pointer) error
 		saved := s.buf[end]
 		s.buf[end] = nul
 		ctx.Buf = s.buf[:end+1]
+		ctx.origin = ctx.Buf
 		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
 		s.buf[end] = saved
 	} else {
 		// true, false and null end at the first byte which can't belong to them, and the decoder
 		// reports that byte when it is wrong: it sees the whole buffer, ended by the nul byte.
 		ctx.Buf = s.buf[:s.length+1]
+		ctx.origin = ctx.Buf
 		cursor, err = dec.Decode(ctx, s.cursor, 0, p)
 	}
-	ctx.Buf = nil
+	ctx.Buf, ctx.origin = nil, nil
 	if err != nil {
 		return s.decodeError(err)
 	}

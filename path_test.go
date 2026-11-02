@@ -944,3 +944,32 @@ func TestPathGetMapKeys(t *testing.T) {
 		t.Errorf("Get($..a): got %v, want [1 2]", values)
 	}
 }
+
+// An index is the number which the path has, on every machine: one past the length selects nothing, where the number
+// cut to 32 bits would select an element. A number which an int64 cannot hold is not an index.
+func TestPathIndexWiderThanInt32(t *testing.T) {
+	text := []byte(`[10,20,30]`)
+	for _, p := range []string{`$[2147483648]`, `$[4294967296]`, `$[4294967297]`, `$[9223372036854775807]`} {
+		path, err := json.CreatePath(p)
+		if err != nil {
+			t.Fatalf("CreatePath(%s): %v", p, err)
+		}
+		var values []any
+		if err := path.Unmarshal(text, &values); err != nil || len(values) != 0 {
+			t.Errorf("Unmarshal(%s): got %v, %v, want nothing", p, values, err)
+		}
+		extracted, err := path.Extract(text)
+		if err != nil || len(extracted) != 0 {
+			t.Errorf("Extract(%s): got %q, %v, want nothing", p, extracted, err)
+		}
+		var v any
+		if err := path.Get([]int{10, 20, 30}, &v); err == nil {
+			t.Errorf("Get(%s): got %v, want an error", p, v)
+		}
+	}
+	_, err := json.CreatePath(`$[9223372036854775808]`)
+	var pathErr *json.PathError
+	if !errors.As(err, &pathErr) {
+		t.Errorf("CreatePath of an index past int64: got %v, want a PathError", err)
+	}
+}

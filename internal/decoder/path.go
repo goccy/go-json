@@ -258,7 +258,7 @@ func (b *PathBuilder) buildIndex(buf []rune) (int, error) {
 			if err != nil {
 				return 0, errors.ErrInvalidPath("%q is unexpected index path", buf[:cursor])
 			}
-			b.addIndexNode(int(index))
+			b.addIndexNode(index)
 			return b.buildNextCharIfExists(buf, cursor+1)
 		}
 	}
@@ -295,7 +295,7 @@ func (b *PathBuilder) addSelectorNode(name string) {
 	}
 }
 
-func (b *PathBuilder) addIndexNode(idx int) {
+func (b *PathBuilder) addIndexNode(idx int64) {
 	node := newPathIndexNode(idx)
 	if b.root == nil {
 		b.root = node
@@ -506,10 +506,12 @@ func (n *PathSelectorNode) String() string {
 
 type PathIndexNode struct {
 	*BasePathNode
-	selector int
+	// selector is an int64 so that an index means the same on every machine: one which the int of a 32-bit machine
+	// cannot hold selects nothing there, as any index past the length does.
+	selector int64
 }
 
-func newPathIndexNode(selector int) *PathIndexNode {
+func newPathIndexNode(selector int64) *PathIndexNode {
 	return &PathIndexNode{
 		BasePathNode: &BasePathNode{},
 		selector:     selector,
@@ -517,7 +519,7 @@ func newPathIndexNode(selector int) *PathIndexNode {
 }
 
 func (n *PathIndexNode) Index(idx int) (PathNode, bool, error) {
-	if n.selector == idx {
+	if n.selector == int64(idx) {
 		return n.child, true, nil
 	}
 	return nil, false, nil
@@ -534,11 +536,13 @@ func (n *PathIndexNode) Get(src, dst reflect.Value) error {
 	}
 	switch src.Kind() {
 	case reflect.Array, reflect.Slice:
-		if n.selector >= 0 && n.selector < src.Len() {
+		if n.selector >= 0 && n.selector < int64(src.Len()) {
+			// the selector is below a length, which is an int, so it keeps its value.
+			idx := int(n.selector)
 			if n.child != nil {
-				return n.child.Get(src.Index(n.selector), dst)
+				return n.child.Get(src.Index(idx), dst)
 			}
-			return AssignValue(src.Index(n.selector), dst)
+			return AssignValue(src.Index(idx), dst)
 		}
 	}
 	return fmt.Errorf("failed to get [%d] value from %s", n.selector, pathTypeName(src))

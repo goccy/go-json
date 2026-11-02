@@ -16,6 +16,9 @@ on:
       - 'LICENSE'
       - 'benchmarks/licenses/**'
       - '.github/FUNDING.yml'
+# The jobs read the repository and nothing else: a job which needs more states it itself, as coverage does.
+permissions:
+  contents: read
 jobs:
   build:
     name: Build on limited environment

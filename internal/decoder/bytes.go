@@ -46,6 +46,16 @@ func newBytesDecoder(typ reflect.Type, structName string, fieldName string) *byt
 func (d *bytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe.Pointer) (int64, error) {
 	cursor = skipWhiteSpace(ctx.Buf, cursor)
 	start := cursor
+	if buf := ctx.Buf; buf[cursor] == 'n' && cursor+3 < int64(len(buf)) &&
+		buf[cursor+1] == 'u' && buf[cursor+2] == 'l' && buf[cursor+3] == 'l' {
+		// A slice is nil for null, which encoding/json sets it to ( "The JSON null value unmarshals into an
+		// interface, map, pointer, or slice by setting that Go value to nil" ): the base64 path below writes
+		// the bytes of a string only, and decodeBinary reports nil for a literal which is not one, so the
+		// value the caller already has would be left in place. The decoder of v2 does this too
+		// ( see v2BytesDecoder.Decode ).
+		*(*[]byte)(p) = nil
+		return cursor + 4, nil
+	}
 	bytes, c, err := d.decodeBinary(ctx, cursor, depth, p)
 	if err != nil {
 		if c := ctx.Buf[cursor]; c != '[' && isOtherValue(c, stringValue) {

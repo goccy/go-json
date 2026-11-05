@@ -54,6 +54,11 @@ func (d *bytesDecoder) Decode(ctx *RuntimeContext, cursor, depth int64, p unsafe
 		return 0, err
 	}
 	if bytes == nil {
+		// decodeBinary decoded an array into p, or validated a null, which sets the slice to nil as encoding/json
+		// does.
+		if ctx.Buf[start] == 'n' {
+			*(*[]byte)(p) = nil
+		}
 		return c, nil
 	}
 	cursor = c

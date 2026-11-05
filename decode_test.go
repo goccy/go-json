@@ -3740,6 +3740,46 @@ func TestDecodeByteSliceNull(t *testing.T) {
 			t.Fatalf("failed to decode null to []byte. expected:%#v but got %#v", v1, v2)
 		}
 	})
+	t.Run("held bytes", func(t *testing.T) {
+		// null sets a []byte which holds bytes to nil as well, at the top level, in a field and in an element.
+		// reflect.DeepEqual tells a nil slice from an empty one.
+		type holder struct {
+			B  []byte
+			Bs [][]byte
+		}
+		newValues := func() (*[]byte, *holder) {
+			return &[]byte{1}, &holder{B: []byte{1}, Bs: [][]byte{{1}}}
+		}
+		const in = `{"B":null,"Bs":[null]}`
+		wantBytes, wantHolder := newValues()
+		if err := stdjson.Unmarshal([]byte(`null`), wantBytes); err != nil {
+			t.Fatal(err)
+		}
+		if err := stdjson.Unmarshal([]byte(in), wantHolder); err != nil {
+			t.Fatal(err)
+		}
+		for _, decode := range []struct {
+			name string
+			f    func(string, any) error
+		}{
+			{"Unmarshal", func(s string, v any) error { return json.Unmarshal([]byte(s), v) }},
+			{"Decoder", func(s string, v any) error { return json.NewDecoder(strings.NewReader(s)).Decode(v) }},
+		} {
+			gotBytes, gotHolder := newValues()
+			if err := decode.f(`null`, gotBytes); err != nil {
+				t.Fatal(err)
+			}
+			if err := decode.f(in, gotHolder); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(gotBytes, wantBytes) {
+				t.Errorf("%s of null: got %#v, want %#v", decode.name, *gotBytes, *wantBytes)
+			}
+			if !reflect.DeepEqual(gotHolder, wantHolder) {
+				t.Errorf("%s of %s: got %#v, want %#v", decode.name, in, *gotHolder, *wantHolder)
+			}
+		}
+	})
 }
 
 func TestDecodeBackSlash(t *testing.T) {

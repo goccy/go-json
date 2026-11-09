@@ -966,6 +966,14 @@ func (c *StructFieldCode) fieldOpcodes(ctx *compileContext, field *Opcode, value
 		}
 	}
 	field.PtrNum = value.PtrNum
+	if (op == OpStructFieldMarshalJSONPtr || op == OpStructFieldOmitEmptyMarshalJSONPtr ||
+		op == OpStructFieldMarshalTextPtr || op == OpStructFieldOmitEmptyMarshalTextPtr) &&
+		value.Flags&IsNilableTypeFlags != 0 {
+		// the pointers of the field lead to the address of a value of a nilable type, such as the *T of a **T,
+		// whose marshaler takes the value itself: the opcode of the value loads it ( see OpMarshalJSONPtr ), and
+		// the one of the field, which calls the marshaler, follows one pointer more.
+		field.PtrNum++
+	}
 	field.FieldQuery = value.FieldQuery
 	field.Marshaler = value.Marshaler
 

@@ -245,3 +245,71 @@ func TestEncodePointerReceiverOfPointerSizedTypes(t *testing.T) {
 		}
 	}
 }
+
+type receiverPair struct{ A, B int }
+
+func (r *receiverPair) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Itoa(r.A + r.B)), nil
+}
+
+type receiverPairText struct{ A, B int }
+
+func (r *receiverPairText) MarshalText() ([]byte, error) {
+	return []byte(strconv.Itoa(r.A + r.B)), nil
+}
+
+type receiverValueMap map[string]int
+
+func (m receiverValueMap) MarshalJSON() ([]byte, error) {
+	return []byte(strconv.Itoa(len(m))), nil
+}
+
+// A field of a pointer to a pointer to a type whose marshaler is on the pointer, or to a pointer-shaped type with
+// a marshaler, is encoded by the marshaler of the value it leads to, as encoding/json does it.
+func TestEncodePointerToPointerFieldOfMarshaler(t *testing.T) {
+	pair := &receiverPair{A: 1, B: 2}
+	text := &receiverPairText{A: 3, B: 4}
+	m := &receiverValueMap{"a": 1, "b": 2}
+	var nilPair *receiverPair
+	pairPtr := &pair
+	for _, v := range []any{
+		struct{ F **receiverPair }{&pair},
+		&struct{ F **receiverPair }{&pair},
+		struct{ F **receiverPair }{&nilPair},
+		struct{ F **receiverPair }{},
+		struct{ F ***receiverPair }{&pairPtr},
+		struct {
+			F **receiverPair `json:",string"`
+		}{&pair},
+		struct{ F **receiverPairText }{&text},
+		struct{ F **receiverValueMap }{&m},
+		struct {
+			X int
+			F **receiverPair
+			G **receiverPairText
+		}{1, &pair, &text},
+	} {
+		want, err := stdjson.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := json.Marshal(v)
+		if err != nil {
+			t.Fatalf("%T: %v", v, err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("%T: got %s, want %s", v, got, want)
+		}
+		wantIndent, err := stdjson.MarshalIndent(v, "", " ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		gotIndent, err := json.MarshalIndent(v, "", " ")
+		if err != nil {
+			t.Fatalf("%T: %v", v, err)
+		}
+		if string(gotIndent) != string(wantIndent) {
+			t.Errorf("%T indent: got %s, want %s", v, gotIndent, wantIndent)
+		}
+	}
+}

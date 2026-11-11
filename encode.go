@@ -16,6 +16,7 @@ type Encoder struct {
 	enabledHTMLEscape bool
 	prefix            string
 	indentStr         string
+	err               error
 }
 
 // NewEncoder returns a new encoder that writes to w.
@@ -55,6 +56,9 @@ func (e *Encoder) EncodeContext(ctx context.Context, v any, optFuncs ...EncodeOp
 }
 
 func (e *Encoder) encodeWithOption(ctx *encoder.RuntimeContext, v any, optFuncs ...EncodeOptionFunc) error {
+	if e.err != nil {
+		return e.err
+	}
 	if e.enabledHTMLEscape {
 		ctx.Option.Flag |= encoder.HTMLEscapeOption
 	}
@@ -82,6 +86,7 @@ func (e *Encoder) encodeWithOption(ctx *encoder.RuntimeContext, v any, optFuncs 
 	}
 	buf = append(buf, '\n')
 	if _, err := e.w.Write(buf); err != nil {
+		e.err = err
 		return err
 	}
 	return nil

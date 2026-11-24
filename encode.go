@@ -183,3 +183,53 @@ func marshalIndent(v any, prefix, indent string, optFuncs ...EncodeOptionFunc) (
 	encoder.ReleaseRuntimeContext(ctx)
 	return copied, nil
 }
+
+// appendMarshal appends the JSON encoding of v to dst, by the options of the context.
+func appendMarshal(ctx *encoder.RuntimeContext, dst []byte, v any, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+	for _, optFunc := range optFuncs {
+		optFunc(ctx.Option)
+	}
+
+	buf, err := run.Encode(ctx, v)
+	if err != nil {
+		encoder.ReleaseRuntimeContext(ctx)
+		return dst, err
+	}
+	// the encoder appends a comma after the value, which is not a part of the JSON encoding.
+	dst = append(dst, buf[:len(buf)-1]...)
+
+	encoder.ReleaseRuntimeContext(ctx)
+	return dst, nil
+}
+
+// appendMarshalContext appends the JSON encoding of v to dst, by the options of the context.
+func appendMarshalContext(ctx context.Context, dst []byte, v any, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+	rctx := encoder.TakeRuntimeContext()
+	rctx.Option.Flag = 0
+	rctx.Option.Flag |= encoder.HTMLEscapeOption | encoder.NormalizeUTF8Option | encoder.ContextOption
+	rctx.Option.Context = ctx
+
+	return appendMarshal(rctx, dst, v, optFuncs...)
+}
+
+// appendMarshalIndent appends the indented JSON encoding of v to dst.
+func appendMarshalIndent(dst []byte, v any, prefix, indent string, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+	ctx := encoder.TakeRuntimeContext()
+
+	ctx.Option.Flag = 0
+	ctx.Option.Flag |= (encoder.HTMLEscapeOption | encoder.NormalizeUTF8Option | encoder.IndentOption)
+	for _, optFunc := range optFuncs {
+		optFunc(ctx.Option)
+	}
+
+	buf, err := run.EncodeIndent(ctx, v, prefix, indent)
+	if err != nil {
+		encoder.ReleaseRuntimeContext(ctx)
+		return dst, err
+	}
+	// the encoder appends a comma and a new line after the value, which are not a part of the JSON encoding.
+	dst = append(dst, buf[:len(buf)-2]...)
+
+	encoder.ReleaseRuntimeContext(ctx)
+	return dst, nil
+}

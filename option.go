@@ -106,3 +106,12 @@ func DecodeNoCopyString() DecodeOptionFunc {
 		opt.Flags |= decoder.NoCopyStringOption
 	}
 }
+
+// DecodeUseNumber makes the decoder unmarshal a number into an interface{} as a
+// json.Number instead of a float64, as encoding/json does with the UseNumber
+// method of its Decoder.
+func DecodeUseNumber() DecodeOptionFunc {
+	return func(opt *DecodeOption) {
+		opt.Flags |= decoder.UseNumberOption
+	}
+}

@@ -203,6 +203,45 @@ func MarshalIndentWithOption(v any, prefix, indent string, optFuncs ...EncodeOpt
 	return marshalIndent(v, prefix, indent, optFuncs...)
 }
 
+// AppendMarshal appends the JSON encoding of v to dst and returns the extended buffer.
+//
+// It is like Marshal, but it doesn't allocate a new buffer for the result: the encoding is
+// appended to dst, which may be a buffer which the caller reuses, so that the encodings of
+// several values are concatenated without a copy between them.
+//
+// See the documentation for Marshal for details about the conversion of Go values to JSON.
+func AppendMarshal(dst []byte, v any) ([]byte, error) {
+	return AppendMarshalWithOption(dst, v)
+}
+
+// AppendMarshalWithOption appends the JSON encoding of v to dst with EncodeOption and returns
+// the extended buffer.
+func AppendMarshalWithOption(dst []byte, v any, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+	ctx := encoder.TakeRuntimeContext()
+	ctx.Option.Flag = encoder.HTMLEscapeOption | encoder.NormalizeUTF8Option
+	return appendMarshal(ctx, dst, v, optFuncs...)
+}
+
+// AppendMarshalContext appends the JSON encoding of v with context.Context and EncodeOption to
+// dst and returns the extended buffer.
+func AppendMarshalContext(ctx context.Context, dst []byte, v any, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+	return appendMarshalContext(ctx, dst, v, optFuncs...)
+}
+
+// AppendMarshalIndent appends the indented JSON encoding of v to dst and returns the extended buffer.
+//
+// It is like MarshalIndent, but it doesn't allocate a new buffer for the result: the encoding is
+// appended to dst, which may be a buffer which the caller reuses.
+func AppendMarshalIndent(dst []byte, v any, prefix, indent string) ([]byte, error) {
+	return AppendMarshalIndentWithOption(dst, v, prefix, indent)
+}
+
+// AppendMarshalIndentWithOption appends the indented JSON encoding of v with EncodeOption to dst
+// and returns the extended buffer.
+func AppendMarshalIndentWithOption(dst []byte, v any, prefix, indent string, optFuncs ...EncodeOptionFunc) ([]byte, error) {
+	return appendMarshalIndent(dst, v, prefix, indent, optFuncs...)
+}
+
 // Unmarshal parses the JSON-encoded data and stores the result
 // in the value pointed to by v. If v is nil or not a pointer,
 // Unmarshal returns an InvalidUnmarshalError.
